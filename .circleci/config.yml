@@ -1,0 +1,72 @@
+version: 2.1
+
+orbs:
+  snyk: snyk/snyk@1.2.3
+  prodsec: snyk/prodsec-orb@1.0
+
+executors:
+  default:
+    docker:
+      - image: cimg/go:1.21.1
+
+# Define the jobs we want to run for this project
+jobs:
+  unit_test:
+    executor: default
+    steps:
+      - checkout
+      - run:
+          name: Run unit tests
+          command: make test
+  build:
+    executor: default
+    steps:
+      - checkout
+      - run:
+          name: Build
+          command: make build
+  snyk-oss:
+    executor: default
+    steps:
+      - checkout
+      - snyk/scan:
+          severity-threshold: high
+          monitor-on-build: true
+          project: ${CIRCLE_PROJECT_REPONAME}
+          organization: devex_ide
+
+  snyk-code:
+    executor: default
+    steps:
+      - checkout
+      - snyk/scan:
+          command: code test
+          severity-threshold: high
+          monitor-on-build: true
+          project: ${CIRCLE_PROJECT_REPONAME}
+          organization: devex_ide
+# Orchestrate our job run sequence
+workflows:
+  version: 2
+  test_and_release:
+    jobs:
+      - prodsec/secrets-scan:
+          name: Scan repository for secrets
+          context:
+            - snyk-bot-slack
+          channel: team-ide
+      - snyk-oss:
+          name: Snyk Open Source
+          context: code-client-go
+      - snyk-code:
+          name: Snyk Code
+          context: code-client-go
+      - unit_test:
+          name: Unit tests
+      - build:
+          name: Build
+          requires:
+            - Unit tests
+            - Snyk Open Source
+            - Snyk Code
+            - Scan repository for secrets
