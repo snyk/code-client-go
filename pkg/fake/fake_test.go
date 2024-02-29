@@ -7,8 +7,8 @@ import (
 	"testing"
 )
 
-func TestGetCodeScanResults(t *testing.T) {
-	actual, err := fake.GetCodeScanResults()
+func TestUploadAndAnalyze(t *testing.T) {
+	actual, err := fake.UploadAndAnalyze()
 	require.NoError(t, err)
 	assert.Equal(t, "COMPLETE", actual.Status)
 }

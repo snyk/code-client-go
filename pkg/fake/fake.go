@@ -46,8 +46,8 @@ var fakeResponse = `{
     "version": "2.1.0",
     "runs": [
       {
-        "tool": {
-          "driver": {
+        "Tool": {
+          "Driver": {
             "name": "SnykCode",
             "semanticVersion": "1.0.0",
             "version": "1.0.0",
@@ -55,13 +55,13 @@ var fakeResponse = `{
               {
                 "id": "java/DontUsePrintStackTrace",
                 "name": "DontUsePrintStackTrace",
-                "shortDescription": {
+                "ShortDescription": {
                   "text": "DontUsePrintStackTrace"
                 },
-                "defaultConfiguration": {
+                "DefaultConfiguration": {
                   "level": "note"
                 },
-                "help": {
+                "Help": {
                   "markdown": "",
                   "text": ""
                 },
@@ -216,13 +216,13 @@ var fakeResponse = `{
               {
                 "id": "java/catchingInterruptedExceptionWithoutInterrupt",
                 "name": "catchingInterruptedExceptionWithoutInterrupt",
-                "shortDescription": {
+                "ShortDescription": {
                   "text": "catchingInterruptedExceptionWithoutInterrupt"
                 },
-                "defaultConfiguration": {
+                "DefaultConfiguration": {
                   "level": "warning"
                 },
-                "help": {
+                "Help": {
                   "markdown": "",
                   "text": ""
                 },
@@ -397,8 +397,8 @@ var fakeResponse = `{
             },
             "locations": [
               {
-                "physicalLocation": {
-                  "artifactLocation": {
+                "PhysicalLocation": {
+                  "ArtifactLocation": {
                     "uri": "src/main.ts",
                     "uriBaseId": "dummy"
                   },
@@ -411,7 +411,7 @@ var fakeResponse = `{
                 }
               }
             ],
-            "fingerprints": {
+            "Fingerprints": {
               "0": "35bc91513238a0a06af1824552fb3f838201f6fbbf1d76632b2604242e838d20",
               "1": "c2e08f55.1333c445.d1699128.15932eef.606b2add.34c3b532.4a752797.e9000d02.c2e08f55.1333c445.cd271e66.e22980a8.d31a8364.2f2c7742.4a752797.54d46e25"
             },
@@ -421,10 +421,10 @@ var fakeResponse = `{
                   {
                     "locations": [
                       {
-                        "location": {
+                        "Location": {
                           "id": 0,
-                          "physicalLocation": {
-                            "artifactLocation": {
+                          "PhysicalLocation": {
+                            "ArtifactLocation": {
                               "uri": "src/main.ts",
                               "uriBaseId": "dummy"
                             },
@@ -438,10 +438,10 @@ var fakeResponse = `{
                         }
                       },
                       {
-                        "location": {
+                        "Location": {
                           "id": 1,
-                          "physicalLocation": {
-                            "artifactLocation": {
+                          "PhysicalLocation": {
+                            "ArtifactLocation": {
 							  "uri": "src/main.ts",
                               "uriBaseId": "dummy"
                             },
@@ -455,10 +455,10 @@ var fakeResponse = `{
                         }
                       },
 					  {
-						"location": {
+						"Location": {
                           "id": 2,
-                          "physicalLocation": {
-                            "artifactLocation": {
+                          "PhysicalLocation": {
+                            "ArtifactLocation": {
 							  "uri": "src/main.ts",
                               "uriBaseId": "dummy"
                             },
@@ -472,10 +472,10 @@ var fakeResponse = `{
                         }
 					  },
 					  {
-						"location": {
+						"Location": {
                           "id": 3,
-                          "physicalLocation": {
-                            "artifactLocation": {
+                          "PhysicalLocation": {
+                            "ArtifactLocation": {
 							  "uri": "src/main.ts",
                               "uriBaseId": "dummy"
                             },
@@ -524,8 +524,8 @@ var fakeResponse = `{
             },
             "locations": [
               {
-                "physicalLocation": {
-                  "artifactLocation": {
+                "PhysicalLocation": {
+                  "ArtifactLocation": {
                     "uri": "src/main.ts",
                     "uriBaseId": "dummy"
                   },
@@ -538,7 +538,7 @@ var fakeResponse = `{
                 }
               }
             ],
-            "fingerprints": {
+            "Fingerprints": {
               "0": "4ee04cfd17e0a8bee301d4741b26962f0a9630ac811ab48c06513857c3319f4c",
               "1": "c2e08f55.1333c445.cd271e66.e22980a8.d31a8364.2f2c7742.4a752797.54d46e25.c2e08f55.1333c445.cd271e66.e22980a8.d31a8364.2f2c7742.4a752797.54d46e25"
             },
@@ -548,10 +548,10 @@ var fakeResponse = `{
                   {
                     "locations": [
                       {
-                        "location": {
+                        "Location": {
                           "id": 0,
-                          "physicalLocation": {
-                            "artifactLocation": {
+                          "PhysicalLocation": {
+                            "ArtifactLocation": {
                               "uri": "src/main.ts",
                               "uriBaseId": "dummy"
                             },
@@ -603,7 +603,7 @@ var fakeResponse = `{
   }
 }`
 
-func GetCodeScanResults() (*SarifResponse, error) {
+func UploadAndAnalyze() (*SarifResponse, error) {
 	var response SarifResponse
 	err := json.Unmarshal([]byte(fakeResponse), &response)
 	if err != nil {

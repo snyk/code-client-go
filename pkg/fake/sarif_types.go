@@ -33,7 +33,7 @@ type SarifResponse struct {
 	Sarif struct {
 		Schema  string `json:"$schema"`
 		Version string `json:"version"`
-		Runs    []run  `json:"runs"`
+		Runs    []Run  `json:"runs"`
 	} `json:"sarif"`
 }
 
@@ -44,45 +44,45 @@ type region struct {
 	EndColumn   int `json:"endColumn"`
 }
 
-type artifactLocation struct {
+type ArtifactLocation struct {
 	URI       string `json:"uri"`
 	URIBaseID string `json:"uriBaseId"`
 }
 
-type physicalLocation struct {
-	ArtifactLocation artifactLocation `json:"artifactLocation"`
+type PhysicalLocation struct {
+	ArtifactLocation ArtifactLocation `json:"ArtifactLocation"`
 	Region           region           `json:"region"`
 }
 
-type location struct {
+type Location struct {
 	ID               int              `json:"id"`
-	PhysicalLocation physicalLocation `json:"physicalLocation"`
+	PhysicalLocation PhysicalLocation `json:"PhysicalLocation"`
 }
 
-type threadFlowLocation struct {
-	Location location `json:"location"`
+type ThreadFlowLocation struct {
+	Location Location `json:"Location"`
 }
 
-type threadFlow struct {
-	Locations []threadFlowLocation `json:"locations"`
+type ThreadFlow struct {
+	Locations []ThreadFlowLocation `json:"locations"`
 }
 
-type codeFlow struct {
-	ThreadFlows []threadFlow `json:"threadFlows"`
+type CodeFlow struct {
+	ThreadFlows []ThreadFlow `json:"threadFlows"`
 }
 
-type resultMessage struct {
+type ResultMessage struct {
 	Text      string   `json:"text"`
 	Markdown  string   `json:"markdown"`
 	Arguments []string `json:"arguments"`
 }
 
-type fingerprints struct {
+type Fingerprints struct {
 	Num0 string `json:"0"`
 	Num1 string `json:"1"`
 }
 
-type resultProperties struct {
+type ResultProperties struct {
 	PriorityScore        int `json:"priorityScore"`
 	PriorityScoreFactors []struct {
 		Label bool   `json:"label"`
@@ -91,18 +91,18 @@ type resultProperties struct {
 	IsAutofixable bool `json:"isAutofixable"`
 }
 
-type result struct {
+type Result struct {
 	RuleID       string           `json:"ruleId"`
 	RuleIndex    int              `json:"ruleIndex"`
 	Level        string           `json:"level"`
-	Message      resultMessage    `json:"message"`
-	Locations    []location       `json:"locations"`
-	Fingerprints fingerprints     `json:"fingerprints"`
-	CodeFlows    []codeFlow       `json:"codeFlows"`
-	Properties   resultProperties `json:"properties"`
+	Message      ResultMessage    `json:"message"`
+	Locations    []Location       `json:"locations"`
+	Fingerprints Fingerprints     `json:"Fingerprints"`
+	CodeFlows    []CodeFlow       `json:"codeFlows"`
+	Properties   ResultProperties `json:"properties"`
 }
 
-type exampleCommitFix struct {
+type ExampleCommitFix struct {
 	CommitURL string `json:"commitURL"`
 	Lines     []struct {
 		Line       string `json:"line"`
@@ -111,56 +111,56 @@ type exampleCommitFix struct {
 	} `json:"lines"`
 }
 
-type help struct {
+type Help struct {
 	Markdown string `json:"markdown"`
 	Text     string `json:"text"`
 }
 
-type ruleProperties struct {
+type RuleProperties struct {
 	Tags             []string `json:"tags"`
 	ShortDescription struct {
 		Text string `json:"text"`
-	} `json:"shortDescription"`
+	} `json:"ShortDescription"`
 
 	Help struct {
 		Markdown string `json:"markdown"`
 		Text     string `json:"text"`
-	} `json:"help"`
+	} `json:"Help"`
 
 	Categories                []string           `json:"categories"`
-	ExampleCommitFixes        []exampleCommitFix `json:"exampleCommitFixes"`
+	ExampleCommitFixes        []ExampleCommitFix `json:"exampleCommitFixes"`
 	ExampleCommitDescriptions []string           `json:"exampleCommitDescriptions"`
 	Precision                 string             `json:"precision"`
 	RepoDatasetSize           int                `json:"repoDatasetSize"`
 	Cwe                       []string           `json:"cwe"`
 }
 
-type defaultConfiguration struct {
+type DefaultConfiguration struct {
 	Level string `json:"level"`
 }
 
-type shortDescription struct {
+type ShortDescription struct {
 	Text string `json:"text"`
 }
 
-type rule struct {
+type Rule struct {
 	ID                   string               `json:"id"`
 	Name                 string               `json:"name"`
-	ShortDescription     shortDescription     `json:"shortDescription"`
-	DefaultConfiguration defaultConfiguration `json:"defaultConfiguration"`
-	Help                 help                 `json:"help"`
-	Properties           ruleProperties       `json:"properties"`
+	ShortDescription     ShortDescription     `json:"ShortDescription"`
+	DefaultConfiguration DefaultConfiguration `json:"DefaultConfiguration"`
+	Help                 Help                 `json:"Help"`
+	Properties           RuleProperties       `json:"properties"`
 }
 
-type driver struct {
+type Driver struct {
 	Name            string `json:"name"`
 	SemanticVersion string `json:"semanticVersion"`
 	Version         string `json:"version"`
-	Rules           []rule `json:"rules"`
+	Rules           []Rule `json:"rules"`
 }
 
-type tool struct {
-	Driver driver `json:"driver"`
+type Tool struct {
+	Driver Driver `json:"Driver"`
 }
 
 type runProperties struct {
@@ -171,8 +171,8 @@ type runProperties struct {
 	} `json:"coverage"`
 }
 
-type run struct {
-	Tool       tool          `json:"tool"`
-	Results    []result      `json:"results"`
-	Properties runProperties `json:"ruleProperties"`
+type Run struct {
+	Tool       Tool          `json:"Tool"`
+	Results    []Result      `json:"results"`
+	Properties runProperties `json:"RuleProperties"`
 }
