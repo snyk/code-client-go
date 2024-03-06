@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package fake
+package code_client_go
 
 type SarifResponse struct {
 	Type     string  `json:"type"`

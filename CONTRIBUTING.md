@@ -22,7 +22,7 @@ go version
 Clone this repository with git.
 
 ```sh
-git clone git@github.com/snyk/code-client-go.git
+git clone git@github.com:snyk/code-client-go.git
 cd code-client-go
 ```
 

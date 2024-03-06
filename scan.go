@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package fake
+package code_client_go
 
 import (
 	"encoding/json"
