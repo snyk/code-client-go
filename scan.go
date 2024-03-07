@@ -75,7 +75,7 @@ var fakeResponse = `{
                     "error"
                   ],
                   "categories": [
-                    "Defect"
+                    "security"
                   ],
                   "exampleCommitFixes": [
                     {
@@ -236,7 +236,7 @@ var fakeResponse = `{
                     "overwrite"
                   ],
                   "categories": [
-                    "Defect"
+                    "security"
                   ],
                   "exampleCommitFixes": [
                     {
