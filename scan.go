@@ -14,10 +14,12 @@
  * limitations under the License.
  */
 
-package code_client_go
+//nolint:lll // Some of the lines in this file are going to be long for now.
+package codeClient
 
 import (
 	"encoding/json"
+	"fmt"
 )
 
 var fakeResponse = `{
@@ -603,11 +605,12 @@ var fakeResponse = `{
   }
 }`
 
+// UploadAndAnalyze returns a fake SARIF response for testing. Use target-service to run analysis on.
 func UploadAndAnalyze() (*SarifResponse, error) {
 	var response SarifResponse
 	err := json.Unmarshal([]byte(fakeResponse), &response)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to create SARIF response: %w", err)
 	}
 	return &response, nil
 }

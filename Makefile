@@ -2,15 +2,29 @@ LOG_PREFIX = --
 GOOS = $(shell go env GOOS)
 GOARCH = $(shell go env GOARCH)
 
+TOOLS_BIN := $(shell pwd)/.bin
+
+OVERRIDE_GOCI_LINT_V := v1.55.2
+
+## tools: Install required tooling.
+.PHONY: tools
+tools: $(TOOLS_BIN)/golangci-lint
+
+$(TOOLS_BIN)/golangci-lint:
+	@curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/$(OVERRIDE_GOCI_LINT_V)/install.sh | sh -s -- -b $(TOOLS_BIN)/ $(OVERRIDE_GOCI_LINT_V)
+
 .PHONY: format
 format:
-	@echo "Formatting..."
 	@gofmt -w -l -e .
 
 .PHONY: lint
-lint:
-	@echo "Linting..."
-	@./scripts/lint.sh
+lint: $(TOOLS_BIN)/golangci-lint
+    ifdef CI
+		mkdir -p test/results
+		@$(TOOLS_BIN)/golangci-lint run --out-format junit-xml ./... > test/results/lint-tests.xml
+    else
+		@$(TOOLS_BIN)/golangci-lint run -v ./...
+    endif
 
 .PHONY: build
 build:

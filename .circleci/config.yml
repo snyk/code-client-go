@@ -11,6 +11,17 @@ executors:
 
 # Define the jobs we want to run for this project
 jobs:
+  lint-and-format:
+    executor: default
+    steps:
+      - checkout
+      - run: make format
+      - run:
+          name: "Ensure go.mod is tidy"
+          command: |
+            go mod tidy
+            git diff --exit-code go.mod go.sum
+      - run: make lint
   unit_test:
     executor: default
     steps:
@@ -61,8 +72,12 @@ workflows:
       - snyk-code:
           name: Snyk Code
           context: code-client-go
+      - lint-and-format:
+          name: Lint & Format
       - unit_test:
           name: Unit tests
+          requires:
+            - Lint & Format
       - build:
           name: Build
           requires:

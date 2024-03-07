@@ -14,7 +14,8 @@
  * limitations under the License.
  */
 
-package code_client_go
+//nolint:revive,tagliatelle // These are all SARIF documented types that need to match the exact JSON format.
+package codeClient
 
 type SarifResponse struct {
 	Type     string  `json:"type"`
