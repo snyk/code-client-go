@@ -122,3 +122,11 @@ git push
 ```
 
 Do not hold onto your changes for too long. Commit and push frequently and create a pull request as soon as possible for backup and visibility.
+
+## Opening PRs
+
+We use a [GitHub Action](https://github.com/marketplace/actions/changelog-from-conventional-commits) to automatically generate the `CHANGELOG.md` file based on commit messages, which is then used when releasing new versions of the library.
+
+## Merging PRs
+
+We use a [GitHub Action](https://github.com/anothrNick/github-tag-action) to automatically generate a new tag based on commit messages.
