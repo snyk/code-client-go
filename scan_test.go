@@ -1,4 +1,4 @@
-package codeClient_test
+package codeclient_test
 
 import (
 	"testing"
