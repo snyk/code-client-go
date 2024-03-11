@@ -1,0 +1,13 @@
+name: PR labels
+on:
+  pull_request:
+    types: [ opened, reopened, edited, labeled, unlabeled ]
+    branches:
+      - 'main'
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Create labels for CHANGELOG
+        uses: bcoe/conventional-release-labels@v1
