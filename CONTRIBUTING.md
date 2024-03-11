@@ -122,3 +122,12 @@ git push
 ```
 
 Do not hold onto your changes for too long. Commit and push frequently and create a pull request as soon as possible for backup and visibility.
+
+## Creating PRs
+
+We use a [GitHub Action](https://github.com/marketplace/actions/conventional-release-labels) to generate labels which are then used to generate the relase notes when merging the PR.
+
+## Merging PRs
+
+We use a [GitHub Action](https://github.com/PaulHatch/semantic-version) to compute the version based on conventional commit messages, push a tag with the computed version, then use
+the [GitHub Release CLI](https://cli.github.com/manual/gh_release_create) to generate release notes based on labels.

@@ -1,0 +1,30 @@
+name: Bump version
+on:
+  push:
+    branches:
+      - 'main'
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+        with:
+          ref: ${{ github.event.pull_request.merge_commit_sha }}
+          fetch-depth: '0'
+
+      - uses: paulhatch/semantic-version@v5.3.0
+        id: semantic_version
+        with:
+          tag_prefix: "v"
+
+      - name: Create tag
+        run: git tag ${{ steps.semantic_version.outputs.version }}
+
+      - name: Push tag
+        run: git push --tags
+
+      - name: Release
+        run: gh release create ${{ steps.semantic_version.outputs.version }} --notes-from-tag
+        env:
+          GH_TOKEN: ${{ github.token }}
