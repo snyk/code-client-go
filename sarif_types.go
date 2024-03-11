@@ -15,7 +15,7 @@
  */
 
 //nolint:revive,tagliatelle // These are all SARIF documented types that need to match the exact JSON format.
-package codeClient
+package codeclient
 
 type SarifResponse struct {
 	Type     string  `json:"type"`
