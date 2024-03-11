@@ -15,7 +15,7 @@
  */
 
 //nolint:lll // Some of the lines in this file are going to be long for now.
-package codeClient
+package codeclient
 
 import (
 	"encoding/json"

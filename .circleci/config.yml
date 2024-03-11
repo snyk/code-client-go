@@ -1,8 +1,7 @@
 version: 2.1
 
 orbs:
-  snyk: snyk/snyk@1.2.3
-  prodsec: snyk/prodsec-orb@1.0
+  prodsec: snyk/prodsec-orb@1
 
 executors:
   default:
@@ -36,26 +35,13 @@ jobs:
       - run:
           name: Build
           command: make build
-  snyk-oss:
+  security-scans:
     executor: default
     steps:
       - checkout
-      - snyk/scan:
-          severity-threshold: high
-          monitor-on-build: true
-          project: ${CIRCLE_PROJECT_REPONAME}
-          organization: devex_ide
-
-  snyk-code:
-    executor: default
-    steps:
-      - checkout
-      - snyk/scan:
-          command: code test
-          severity-threshold: high
-          monitor-on-build: true
-          project: ${CIRCLE_PROJECT_REPONAME}
-          organization: devex_ide
+      - prodsec/security_scans:
+          mode: auto
+          iac-scan: disabled
 # Orchestrate our job run sequence
 workflows:
   version: 2
@@ -66,11 +52,8 @@ workflows:
           context:
             - snyk-bot-slack
           channel: team-ide
-      - snyk-oss:
-          name: Snyk Open Source
-          context: code-client-go
-      - snyk-code:
-          name: Snyk Code
+      - security-scans:
+          name: Security Scans
           context: code-client-go
       - lint-and-format:
           name: Lint & Format
@@ -82,6 +65,5 @@ workflows:
           name: Build
           requires:
             - Unit tests
-            - Snyk Open Source
-            - Snyk Code
+            - Security Scans
             - Scan repository for secrets
