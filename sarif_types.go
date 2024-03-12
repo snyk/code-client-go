@@ -17,6 +17,9 @@
 //nolint:revive,tagliatelle // These are all SARIF documented types that need to match the exact JSON format.
 package codeclient
 
+import "time"
+
+// SarifResponse matches the spec in https://docs.oasis-open.org/sarif/sarif/v2.1.0/os/schemas/sarif-schema-2.1.0.json
 type SarifResponse struct {
 	Type     string  `json:"type"`
 	Progress float64 `json:"progress"`
@@ -101,6 +104,7 @@ type Result struct {
 	Fingerprints Fingerprints     `json:"Fingerprints"`
 	CodeFlows    []CodeFlow       `json:"codeFlows"`
 	Properties   ResultProperties `json:"properties"`
+	Suppressions []Suppression    `json:"suppressions"`
 }
 
 type ExampleCommitFix struct {
@@ -164,7 +168,7 @@ type Tool struct {
 	Driver Driver `json:"Driver"`
 }
 
-type runProperties struct {
+type RunProperties struct {
 	Coverage []struct {
 		Files       int    `json:"files"`
 		IsSupported bool   `json:"isSupported"`
@@ -175,5 +179,22 @@ type runProperties struct {
 type Run struct {
 	Tool       Tool          `json:"Tool"`
 	Results    []Result      `json:"results"`
-	Properties runProperties `json:"RuleProperties"`
+	Properties RunProperties `json:"RuleProperties"`
+}
+
+type Suppression struct {
+	Justification string                `json:"justification"`
+	Properties    SuppressionProperties `json:"properties"`
+}
+
+type SuppressionProperties struct {
+	Category   string    `json:"category"`
+	Expiration string    `json:"expiration"`
+	IgnoredOn  time.Time `json:"ignoredOn"` // https://docs.oasis-open.org/sarif/sarif/v2.1.0/errata01/os/sarif-v2.1.0-errata01-os-complete.html#_Toc141790703
+	IgnoredBy  IgnoredBy `json:"ignoredBy"`
+}
+
+type IgnoredBy struct {
+	Name  string  `json:"name"`
+	Email *string `json:"email"`
 }
