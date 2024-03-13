@@ -524,6 +524,20 @@ var fakeResponse = `{
                 "[java.lang.InterruptedException](0)"
               ]
             },
+			"suppressions": [
+			  {
+			    "justification": "False positive",
+			    "properties": {
+				  "category": "wont-fix",
+				  "expiration": "13 days",
+				  "ignoredOn": "2024-02-23T16:08:25Z",
+				  "ignoredBy": {
+				    "name": "Neil M",
+					"email": "test@test.io"
+				  }
+			    }
+			  }
+			],
             "locations": [
               {
                 "PhysicalLocation": {
