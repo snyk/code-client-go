@@ -17,8 +17,6 @@
 //nolint:revive,tagliatelle // These are all SARIF documented types that need to match the exact JSON format.
 package codeclient
 
-import "time"
-
 // SarifResponse matches the spec in https://docs.oasis-open.org/sarif/sarif/v2.1.0/os/schemas/sarif-schema-2.1.0.json
 type SarifResponse struct {
 	Type     string  `json:"type"`
@@ -188,11 +186,19 @@ type Suppression struct {
 }
 
 type SuppressionProperties struct {
-	Category   string    `json:"category"`
-	Expiration string    `json:"expiration"`
-	IgnoredOn  time.Time `json:"ignoredOn"` // https://docs.oasis-open.org/sarif/sarif/v2.1.0/errata01/os/sarif-v2.1.0-errata01-os-complete.html#_Toc141790703
+	Category   Category  `json:"category"`
+	Expiration *string   `json:"expiration"`
+	IgnoredOn  string    `json:"ignoredOn"` // https://docs.oasis-open.org/sarif/sarif/v2.1.0/errata01/os/sarif-v2.1.0-errata01-os-complete.html#_Toc141790703
 	IgnoredBy  IgnoredBy `json:"ignoredBy"`
 }
+
+type Category string
+
+const (
+	WontFix         Category = "wont-fix"
+	NotVulnerable   Category = "not-vulnerable"
+	TemporaryIgnore Category = "temporary-ignore"
+)
 
 type IgnoredBy struct {
 	Name  string  `json:"name"`

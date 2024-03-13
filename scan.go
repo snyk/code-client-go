@@ -528,11 +528,12 @@ var fakeResponse = `{
 			  {
 			    "justification": "False positive",
 			    "properties": {
-				  "category": "Won't fix",
+				  "category": "wont-fix",
 				  "expiration": "13 days",
 				  "ignoredOn": "2024-02-23T16:08:25Z",
 				  "ignoredBy": {
-				    "name": "Neil M"
+				    "name": "Neil M",
+					"email": "test@test.io"
 				  }
 			    }
 			  }
