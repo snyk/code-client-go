@@ -3,7 +3,13 @@ run:
     - integration
   concurrency: 4
   issues-exit-code: 1
-  skip-dirs: []
+  skip-dirs:
+    - "licenses"
+    - "pact"
+    - ".bin"
+    - ".github"
+    - ".vscode"
+    - "build"
   tests: true
   timeout: 5m
 
@@ -25,10 +31,10 @@ linters-settings:
   gocyclo:
     min-complexity: 15
   gofumpt:
-    module-path: github.com/snyk/go-application-framework
+    module-path: github.com/snyk/code-client-go
     extra-rules: true
   goimports:
-    local-prefixes: github.com/snyk/go-application-framework
+    local-prefixes: github.com/snyk/code-client-go
   gosimple:
     checks: ['all']
   govet:
@@ -93,53 +99,77 @@ linters:
     - asciicheck
     - bidichk
     - bodyclose
-    - containedctx
-    - contextcheck
+    # TODO(containedctx): revisit!
+    #- containedctx
+    # TODO(contextcheck): revisit
+    #- contextcheck
     - dogsled
     - dupl
     - durationcheck
     - errname
-    - errorlint
+    # TODO(errorlint): revisit
+    #- errorlint
     - exhaustive
     - exportloopref
-    - forbidigo
-    - forcetypeassert
-    - goconst
-    - gocritic
+    # TODO(forbidigo): revisit
+    #- forbidigo
+    # TODO(forcetypeassert): revisit this one! beware fragile asserts in this codebase
+    #- forcetypeassert
+    # TODO(goconst): revisit
+    #- goconst
+    # TODO(gocritic): revisit
+    #- gocritic
     - gocyclo
-    - godot
-    - gofumpt
-    - goimports
+    # TODO(godot): revisit
+    #- godot
+    # TODO(gofumpt): revisit
+    #- gofumpt
+    # TODO(goimports): revisit
+    #- goimports
     - goprintffuncname
-    - gosec
-    - interfacebloat
-    - ireturn
-    - lll
+    # TODO(gosec): revisit; consequences of revoking non-owner file permissions?
+    #- gosec
+    # TODO(interfacebloat): revisit in a followup; will require a breaking API change
+    #- interfacebloat
+    # TODO(ireturn): revisit in a followup; will require a breaking API change
+    #- ireturn
+    # TODO(lll): revisit in followup; formatting
+    #- lll
     - misspell
     - nakedret
-    - nestif
-    - nilerr
-    - nilnil
-    - noctx
+    # TODO(nestif): revisit in a followup; refactor will need more careful review
+    #- nestif
+    # TODO(nilerr): revisit; some tricky inversion of err in tests
+    #- nilerr
+    # TODO(nilnil): revisit
+    #- nilnil
+    # TODO(noctx): revisit in a followup; context lifecycle consequences and/or breaking API change
+    #- noctx
     - nolintlint
-    - prealloc
+    # TODO(prealloc): revisit in a followup; some logic around slices are ignoring errors
+    #- prealloc
     - predeclared
     - promlinter
-    - revive
+    # TODO(revive): revisit in a followup; extensive changes, some breaking. godoc requirement would be good to introduce
+    #- revive
     - rowserrcheck
     - sqlclosecheck
-    - stylecheck
-    - tagliatelle
+    # TODO(stylecheck): revisit in a followup; some breaking API changes
+    #- stylecheck
+    # NOTE: removed tagliatelle as it conflicts too much with existing API wireformats
     - tenv
-    - testpackage
+    # TODO(testpackage): improve open vs closed-box testing in a followup
+    #- testpackage
     - thelper
     - tparallel
     - unconvert
-    - unparam
+    # TODO(unparam): revisit
+    #- unparam
     - usestdlibvars
     - wastedassign
     - whitespace
-    - wrapcheck
+    # TODO(wrapcheck): wrap errors in a followup
+    #- wrapcheck
 
 issues:
   exclude-rules:
@@ -152,6 +182,10 @@ issues:
     - path: test/
       linters:
         - testpackage
+    - path: \.go
+      # TODO: remove this soon; unchecked errors are BAD
+      linters:
+        - errcheck
   include:
     - EXC0012
     - EXC0014

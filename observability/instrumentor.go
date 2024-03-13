@@ -5,6 +5,8 @@ import (
 )
 
 // Instrumentor exposes functions used for adding instrumentation context to functions.
+//
+//go:generate mockgen -destination=mocks/instrumentor.go -source=instrumentor.go -package mocks
 type Instrumentor interface {
 	StartSpan(ctx context.Context, operation string) Span
 	NewTransaction(
@@ -16,6 +18,8 @@ type Instrumentor interface {
 }
 
 // Span exposes functions that have context about functions.
+//
+//go:generate mockgen -destination=mocks/instrumentor.go -source=instrumentor.go -package mocks
 type Span interface {
 	SetTransactionName(name string)
 	StartSpan(ctx context.Context)

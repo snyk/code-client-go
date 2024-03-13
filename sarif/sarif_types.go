@@ -1,5 +1,5 @@
 /*
- * © 2022 Snyk Limited All rights reserved.
+ * © 2024 Snyk Limited All rights reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -15,7 +15,7 @@
  */
 
 //nolint:revive,tagliatelle // These are all SARIF documented types that need to match the exact JSON format.
-package codeclient
+package sarif
 
 // SarifResponse matches the spec in https://docs.oasis-open.org/sarif/sarif/v2.1.0/os/schemas/sarif-schema-2.1.0.json
 type SarifResponse struct {
