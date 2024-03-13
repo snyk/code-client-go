@@ -130,5 +130,5 @@ The title of the PR is what is used to generate the labels.
 
 ## Merging PRs
 
-We use a [GitHub Action](https://github.com/PaulHatch/semantic-version) to compute the version based on conventional commit messages, push a tag with the computed version, then use
+We use a [GitHub Action](https://github.com/marketplace/actions/semver-conventional-commits) to compute the version based on conventional commit messages, push a tag with the computed version, then use
 the [GitHub Release CLI](https://cli.github.com/manual/gh_release_create) to generate release notes based on labels.
