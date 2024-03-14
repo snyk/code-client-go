@@ -19,15 +19,15 @@ import (
 	"bytes"
 	"context"
 	"errors"
-	"github.com/rs/zerolog"
-	"github.com/snyk/go-application-framework/pkg/workflow"
 	"io"
 	"net/http"
 	"time"
 
+	"github.com/rs/zerolog"
 	"github.com/snyk/go-application-framework/pkg/configuration"
-	"github.com/snyk/snyk-ls/infrastructure/code/encoding" // TODO: remove this
+	"github.com/snyk/go-application-framework/pkg/workflow"
 
+	"github.com/snyk/code-client-go/internal/util/encoding"
 	"github.com/snyk/code-client-go/observability"
 )
 

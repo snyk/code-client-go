@@ -8,7 +8,6 @@ require (
 	github.com/pact-foundation/pact-go v1.7.0
 	github.com/rs/zerolog v1.32.0
 	github.com/snyk/go-application-framework v0.0.0-20240111143643-fa847b8a9a3b
-	github.com/snyk/snyk-ls v0.0.0-20240313154204-cd9e82b13dfb
 	github.com/stretchr/testify v1.8.4
 	golang.org/x/net v0.22.0
 )
