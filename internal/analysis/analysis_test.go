@@ -1,17 +1,17 @@
 package analysis_test
 
 import (
-	"github.com/snyk/code-client-go/sarif"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	codeClient "github.com/snyk/code-client-go"
+	"github.com/snyk/code-client-go/internal/analysis"
+	"github.com/snyk/code-client-go/sarif"
 )
 
 func TestAnalysis_RunAnalysis(t *testing.T) {
-	actual, err := codeClient.UploadAndAnalyze()
+	actual, err := analysis.RunAnalysis()
 	require.NoError(t, err)
 	assert.Equal(t, "COMPLETE", actual.Status)
 	assert.Contains(t, actual.Sarif.Runs[0].Results[0].Locations[0].PhysicalLocation.ArtifactLocation.URI, "src/main.ts")

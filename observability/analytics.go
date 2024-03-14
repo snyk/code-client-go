@@ -3,6 +3,8 @@ package observability
 import "time"
 
 // Analytics exposes different metric tracking functions.
+//
+//go:generate mockgen -destination=mocks/analytics.go -source=analytics.go -package mocks
 type Analytics interface {
 	TrackScan(bool, ScanMetrics)
 }
