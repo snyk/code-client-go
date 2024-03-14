@@ -13,16 +13,34 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
-//nolint:lll // Some of the lines in this file are going to be long for now.
-package codeclient
+package http
 
 import (
-	"github.com/snyk/code-client-go/internal/analysis"
-	"github.com/snyk/code-client-go/sarif"
+	"net/url"
+	"regexp"
+
+	"github.com/pkg/errors"
+	"github.com/snyk/snyk-ls/application/config"
 )
 
-// UploadAndAnalyze returns a fake SARIF response for testing. Use target-service to run analysis on.
-func UploadAndAnalyze() (*sarif.SarifResponse, error) {
-	return analysis.RunAnalysis()
+var codeApiRegex = regexp.MustCompile(`^(deeproxy\.)?`)
+
+func GetCodeApiURL(c *config.Config) (string, error) {
+	if !c.IsFedramp() {
+		return c.SnykCodeApi(), nil
+	}
+	u, err := url.Parse(c.SnykCodeApi())
+	if err != nil {
+		return "", err
+	}
+
+	u.Host = codeApiRegex.ReplaceAllString(u.Host, "api.")
+
+	if c.Organization() == "" {
+		return "", errors.New("Organization is required in a fedramp environment")
+	}
+
+	u.Path = "/hidden/orgs/" + c.Organization() + "/code"
+
+	return u.String(), nil
 }

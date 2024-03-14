@@ -35,6 +35,7 @@ output/
 *.log
 *.tmp
 *~
+logs/
 
 #################################
 # OS generated files            #
@@ -44,3 +45,4 @@ Thumbs.db
 .DS_Store
 ._*
 webidentity.json
+

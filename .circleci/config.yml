@@ -14,6 +14,9 @@ jobs:
     executor: default
     steps:
       - checkout
+      - run:
+          name: Install tools
+          command: make tools
       - run: make format
       - run:
           name: "Ensure go.mod is tidy"
@@ -25,6 +28,9 @@ jobs:
     executor: default
     steps:
       - checkout
+      - run:
+          name: Install tools
+          command: make tools
       - run:
           name: Run unit tests
           command: make test

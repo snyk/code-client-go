@@ -13,16 +13,24 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
-//nolint:lll // Some of the lines in this file are going to be long for now.
-package codeclient
+package deepcode
 
 import (
-	"github.com/snyk/code-client-go/internal/analysis"
-	"github.com/snyk/code-client-go/sarif"
+	"github.com/rs/zerolog/log"
+
+	"github.com/snyk/code-client-go/internal/util"
 )
 
-// UploadAndAnalyze returns a fake SARIF response for testing. Use target-service to run analysis on.
-func UploadAndAnalyze() (*sarif.SarifResponse, error) {
-	return analysis.RunAnalysis()
+type BundleFile struct {
+	Hash    string `json:"hash"`
+	Content string `json:"content"`
+}
+
+func BundleFileFrom(filePath string, content []byte) BundleFile {
+	file := BundleFile{
+		Hash:    util.Hash(content),
+		Content: string(content),
+	}
+	log.Trace().Str("method", "BundleFileFrom").Str("hash", file.Hash).Str("filePath", filePath).Msg("")
+	return file
 }

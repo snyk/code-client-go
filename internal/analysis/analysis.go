@@ -15,14 +15,24 @@
  */
 
 //nolint:lll // Some of the lines in this file are going to be long for now.
-package codeclient
+package analysis
 
 import (
-	"github.com/snyk/code-client-go/internal/analysis"
+	_ "embed"
+	"encoding/json"
+	"fmt"
 	"github.com/snyk/code-client-go/sarif"
 )
 
-// UploadAndAnalyze returns a fake SARIF response for testing. Use target-service to run analysis on.
-func UploadAndAnalyze() (*sarif.SarifResponse, error) {
-	return analysis.RunAnalysis()
+//go:embed fake.json
+var fakeResponse []byte
+
+func RunAnalysis() (*sarif.SarifResponse, error) {
+	var response sarif.SarifResponse
+
+	err := json.Unmarshal(fakeResponse, &response)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create SARIF response: %w", err)
+	}
+	return &response, nil
 }

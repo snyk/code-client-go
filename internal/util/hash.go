@@ -14,15 +14,25 @@
  * limitations under the License.
  */
 
-//nolint:lll // Some of the lines in this file are going to be long for now.
-package codeclient
+package util
 
 import (
-	"github.com/snyk/code-client-go/internal/analysis"
-	"github.com/snyk/code-client-go/sarif"
+	"bytes"
+	"crypto/sha256"
+	"encoding/hex"
+	"io"
+
+	"golang.org/x/net/html/charset"
 )
 
-// UploadAndAnalyze returns a fake SARIF response for testing. Use target-service to run analysis on.
-func UploadAndAnalyze() (*sarif.SarifResponse, error) {
-	return analysis.RunAnalysis()
+func Hash(content []byte) string {
+	byteReader := bytes.NewReader(content)
+	reader, _ := charset.NewReaderLabel("UTF-8", byteReader)
+	utf8content, err := io.ReadAll(reader)
+	if err != nil {
+		utf8content = content
+	}
+	b := sha256.Sum256(utf8content)
+	sum256 := hex.EncodeToString(b[:])
+	return sum256
 }
