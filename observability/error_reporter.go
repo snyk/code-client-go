@@ -6,5 +6,5 @@ type ErrorReporter interface {
 }
 
 type ErrorReporterOptions struct {
-	errorDiagnosticPath string
+	ErrorDiagnosticPath string
 }

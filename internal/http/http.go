@@ -24,15 +24,17 @@ import (
 	"time"
 
 	"github.com/rs/zerolog/log"
+	"github.com/snyk/go-application-framework/pkg/configuration"
+	"github.com/snyk/snyk-ls/infrastructure/code/encoding" // TODO: remove this
 
 	"github.com/snyk/code-client-go/observability"
-	"github.com/snyk/snyk-ls/application/config"
-	"github.com/snyk/snyk-ls/infrastructure/code/encoding"
 )
 
 //go:generate mockgen -destination=mocks/http.go -source=http.go -package mocks
 type HTTPClient interface {
 	DoCall(ctx context.Context,
+		config configuration.Configuration,
+		host string,
 		method string,
 		path string,
 		requestBody []byte,
@@ -62,7 +64,10 @@ var retryErrorCodes = map[int]bool{
 	http.StatusInternalServerError: true,
 }
 
+// TODO: mutex lock for configuration?
 func (s *httpClient) DoCall(ctx context.Context,
+	config configuration.Configuration,
+	host string,
 	method string,
 	path string,
 	requestBody []byte,
@@ -80,10 +85,8 @@ func (s *httpClient) DoCall(ctx context.Context,
 			return nil, err
 		}
 
-		c := config.CurrentConfig()
-
 		var req *http.Request
-		req, err = s.newRequest(c, method, path, bodyBuffer, requestId)
+		req, err = s.newRequest(config, host, method, path, bodyBuffer, requestId)
 		if err != nil {
 			return nil, err
 		}
@@ -122,28 +125,20 @@ func (s *httpClient) DoCall(ctx context.Context,
 	return responseBody, err
 }
 
-// TODO: what do we need from the snyk-ls config
-// TODO: move them to GAF
-// TODO: use GAF in code-client-go
-
 func (s *httpClient) newRequest(
-	c *config.Config,
+	config configuration.Configuration,
+	host string,
 	method string,
 	path string,
 	body *bytes.Buffer,
 	requestId string,
 ) (*http.Request, error) {
-	host, err := GetCodeApiURL(c)
-	if err != nil {
-		return nil, err
-	}
-
 	req, err := http.NewRequest(method, host+path, body)
 	if err != nil {
 		return nil, err
 	}
 
-	s.addOrganization(c, req)
+	s.addOrganization(config, req)
 	s.addDefaultHeaders(req, requestId, method)
 	return req, nil
 }
@@ -174,9 +169,9 @@ func (s *httpClient) httpCall(req *http.Request) (*http.Response, []byte, error)
 	return response, responseBody, nil
 }
 
-func (s *httpClient) addOrganization(c *config.Config, req *http.Request) {
+func (s *httpClient) addOrganization(config configuration.Configuration, req *http.Request) {
 	// Setting a chosen org name for the request
-	org := c.Organization()
+	org := config.GetString(configuration.ORGANIZATION)
 	if org != "" {
 		req.Header.Set("snyk-org-name", org)
 	}

@@ -21,12 +21,13 @@ import (
 	"testing"
 
 	"github.com/golang/mock/gomock"
-	"github.com/snyk/code-client-go/observability"
+	"github.com/snyk/go-application-framework/pkg/configuration"
 	"github.com/stretchr/testify/assert"
 
 	codeClientHTTP "github.com/snyk/code-client-go/internal/http"
+	"github.com/snyk/code-client-go/internal/util/testutil"
+	"github.com/snyk/code-client-go/observability"
 	"github.com/snyk/code-client-go/observability/mocks"
-	"github.com/snyk/snyk-ls/domain/observability/error_reporting"
 )
 
 // dummyTransport is a transport struct that always returns the response code specified in the constructor
@@ -59,8 +60,8 @@ func TestSnykCodeBackendService_DoCall_shouldRetry(t *testing.T) {
 	mockInstrumentor.EXPECT().StartSpan(gomock.Any(), gomock.Any()).Return(mockSpan).Times(1)
 	mockInstrumentor.EXPECT().Finish(gomock.Any()).Times(1)
 
-	s := codeClientHTTP.NewHTTPClient(dummyClientFunc, mockInstrumentor, error_reporting.NewTestErrorReporter(), observability.ErrorReporterOptions{})
-	_, err := s.DoCall(context.Background(), "GET", "https: //httpstat.us/500", nil)
+	s := codeClientHTTP.NewHTTPClient(dummyClientFunc, mockInstrumentor, testutil.NewTestErrorReporter(), observability.ErrorReporterOptions{})
+	_, err := s.DoCall(context.Background(), configuration.New(), "", "GET", "https: //httpstat.us/500", nil)
 	assert.Error(t, err)
 	assert.Equal(t, 3, d.calls)
 }
@@ -77,7 +78,7 @@ func TestSnykCodeBackendService_doCall_rejected(t *testing.T) {
 	mockInstrumentor.EXPECT().StartSpan(gomock.Any(), gomock.Any()).Return(mockSpan).Times(1)
 	mockInstrumentor.EXPECT().Finish(gomock.Any()).Times(1)
 
-	s := codeClientHTTP.NewHTTPClient(dummyClientFunc, mockInstrumentor, error_reporting.NewTestErrorReporter(), observability.ErrorReporterOptions{})
-	_, err := s.DoCall(context.Background(), "GET", "https://127.0.0.1", nil)
+	s := codeClientHTTP.NewHTTPClient(dummyClientFunc, mockInstrumentor, testutil.NewTestErrorReporter(), observability.ErrorReporterOptions{})
+	_, err := s.DoCall(context.Background(), configuration.New(), "", "GET", "https://127.0.0.1", nil)
 	assert.Error(t, err)
 }
