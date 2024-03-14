@@ -25,12 +25,13 @@ import (
 	"github.com/pact-foundation/pact-go/dsl"
 	"github.com/snyk/code-client-go/internal/deepcode"
 	"github.com/snyk/code-client-go/internal/util"
-	"github.com/snyk/code-client-go/internal/util/testutil"
 	"github.com/snyk/snyk-ls/application/config"
 	"github.com/snyk/snyk-ls/domain/observability/error_reporting"
 	"github.com/stretchr/testify/assert"
 
-	http2 "github.com/snyk/code-client-go/internal/http"
+	codeClientHTTP "github.com/snyk/code-client-go/internal/http"
+	"github.com/snyk/code-client-go/internal/util/testutil"
+	"github.com/snyk/code-client-go/observability"
 )
 
 const (
@@ -208,7 +209,7 @@ func setupPact(t *testing.T) {
 	t.Helper()
 
 	c := config.New()
-	// we don't want server logging in test runs
+	// we don't want server logging in test runs // TODO: we don't need to do this because we don't have an LSP logger
 	c.ConfigureLogging(nil)
 	c.SetToken("00000000-0000-0000-0000-000000000001")
 	config.SetCurrentConfig(c)
@@ -226,9 +227,9 @@ func setupPact(t *testing.T) {
 	config.CurrentConfig().SetOrganization(orgUUID)
 
 	instrumentor := testutil.NewTestInstrumentor()
-	httpClient := http2.NewHTTPClient(func() *http.Client {
+	httpClient := codeClientHTTP.NewHTTPClient(func() *http.Client {
 		return config.CurrentConfig().Engine().GetNetworkAccess().GetHttpClient()
-	}, instrumentor, error_reporting.NewTestErrorReporter())
+	}, instrumentor, error_reporting.NewTestErrorReporter(), observability.ErrorReporterOptions{})
 	client = deepcode.NewSnykCodeClient(httpClient, instrumentor)
 }
 

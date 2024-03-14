@@ -22,7 +22,7 @@ import (
 	"strconv"
 
 	"github.com/rs/zerolog/log"
-	http2 "github.com/snyk/code-client-go/internal/http"
+	codeClientHTTP "github.com/snyk/code-client-go/internal/http"
 	"github.com/snyk/code-client-go/observability"
 )
 
@@ -61,12 +61,12 @@ type BundleResponse struct {
 }
 
 type snykCodeClient struct {
-	httpClient   http2.HTTPClient
+	httpClient   codeClientHTTP.HTTPClient
 	instrumentor observability.Instrumentor
 }
 
 func NewSnykCodeClient(
-	httpClient http2.HTTPClient,
+	httpClient codeClientHTTP.HTTPClient,
 	instrumentor observability.Instrumentor,
 ) SnykCodeClient {
 	return &snykCodeClient{httpClient, instrumentor}

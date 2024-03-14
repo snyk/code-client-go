@@ -40,17 +40,19 @@ type HTTPClient interface {
 }
 
 type httpClient struct {
-	client        func() *http.Client
-	instrumentor  observability.Instrumentor
-	errorReporter observability.ErrorReporter
+	client               func() *http.Client
+	instrumentor         observability.Instrumentor
+	errorReporter        observability.ErrorReporter
+	errorReporterOptions observability.ErrorReporterOptions
 }
 
 func NewHTTPClient(
 	client func() *http.Client,
 	instrumentor observability.Instrumentor,
 	errorReporter observability.ErrorReporter,
+	errorReporterOptions observability.ErrorReporterOptions,
 ) HTTPClient {
-	return &httpClient{client, instrumentor, errorReporter}
+	return &httpClient{client, instrumentor, errorReporter, errorReporterOptions}
 }
 
 var retryErrorCodes = map[int]bool{
@@ -120,6 +122,10 @@ func (s *httpClient) DoCall(ctx context.Context,
 	return responseBody, err
 }
 
+// TODO: what do we need from the snyk-ls config
+// TODO: move them to GAF
+// TODO: use GAF in code-client-go
+
 func (s *httpClient) newRequest(
 	c *config.Config,
 	method string,
@@ -142,12 +148,13 @@ func (s *httpClient) newRequest(
 	return req, nil
 }
 
+// TODO: get logger from the config in GAF
 func (s *httpClient) httpCall(req *http.Request) (*http.Response, []byte, error) {
 	method := "code.httpCall"
 	response, err := s.client().Do(req)
 	if err != nil {
 		log.Error().Err(err).Str("method", method).Msg("got http error")
-		s.errorReporter.CaptureErrorAndReportAsIssue(req.RequestURI, err)
+		s.errorReporter.CaptureError(err, s.errorReporterOptions)
 		return nil, nil, err
 	}
 
@@ -161,7 +168,7 @@ func (s *httpClient) httpCall(req *http.Request) (*http.Response, []byte, error)
 
 	if err != nil {
 		log.Error().Err(err).Str("method", method).Msg("error reading response body")
-		s.errorReporter.CaptureErrorAndReportAsIssue(req.RequestURI, err)
+		s.errorReporter.CaptureError(err, s.errorReporterOptions)
 		return nil, nil, err
 	}
 	return response, responseBody, nil

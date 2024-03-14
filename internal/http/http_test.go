@@ -21,9 +21,10 @@ import (
 	"testing"
 
 	"github.com/golang/mock/gomock"
+	"github.com/snyk/code-client-go/observability"
 	"github.com/stretchr/testify/assert"
 
-	http2 "github.com/snyk/code-client-go/internal/http"
+	codeClientHTTP "github.com/snyk/code-client-go/internal/http"
 	"github.com/snyk/code-client-go/observability/mocks"
 	"github.com/snyk/snyk-ls/domain/observability/error_reporting"
 )
@@ -58,7 +59,7 @@ func TestSnykCodeBackendService_DoCall_shouldRetry(t *testing.T) {
 	mockInstrumentor.EXPECT().StartSpan(gomock.Any(), gomock.Any()).Return(mockSpan).Times(1)
 	mockInstrumentor.EXPECT().Finish(gomock.Any()).Times(1)
 
-	s := http2.NewHTTPClient(dummyClientFunc, mockInstrumentor, error_reporting.NewTestErrorReporter())
+	s := codeClientHTTP.NewHTTPClient(dummyClientFunc, mockInstrumentor, error_reporting.NewTestErrorReporter(), observability.ErrorReporterOptions{})
 	_, err := s.DoCall(context.Background(), "GET", "https: //httpstat.us/500", nil)
 	assert.Error(t, err)
 	assert.Equal(t, 3, d.calls)
@@ -76,7 +77,7 @@ func TestSnykCodeBackendService_doCall_rejected(t *testing.T) {
 	mockInstrumentor.EXPECT().StartSpan(gomock.Any(), gomock.Any()).Return(mockSpan).Times(1)
 	mockInstrumentor.EXPECT().Finish(gomock.Any()).Times(1)
 
-	s := http2.NewHTTPClient(dummyClientFunc, mockInstrumentor, error_reporting.NewTestErrorReporter())
+	s := codeClientHTTP.NewHTTPClient(dummyClientFunc, mockInstrumentor, error_reporting.NewTestErrorReporter(), observability.ErrorReporterOptions{})
 	_, err := s.DoCall(context.Background(), "GET", "https://127.0.0.1", nil)
 	assert.Error(t, err)
 }
