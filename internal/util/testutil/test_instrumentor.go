@@ -4,7 +4,7 @@ import (
 	"context"
 
 	"github.com/google/uuid"
-	
+
 	"github.com/snyk/code-client-go/observability"
 )
 

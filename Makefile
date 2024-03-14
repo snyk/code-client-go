@@ -25,6 +25,7 @@ $(TOOLS_BIN)/pact/bin/pact:
 .PHONY: format
 format:
 	@gofmt -w -l -e .
+	@$(TOOLS_BIN)/golangci-lint run --fix -v ./...
 
 .PHONY: lint
 lint: $(TOOLS_BIN)/golangci-lint
