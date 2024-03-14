@@ -19,11 +19,12 @@ import (
 	"bytes"
 	"context"
 	"errors"
+	"github.com/rs/zerolog"
+	"github.com/snyk/go-application-framework/pkg/workflow"
 	"io"
 	"net/http"
 	"time"
 
-	"github.com/rs/zerolog/log"
 	"github.com/snyk/go-application-framework/pkg/configuration"
 	"github.com/snyk/snyk-ls/infrastructure/code/encoding" // TODO: remove this
 
@@ -42,19 +43,23 @@ type HTTPClient interface {
 }
 
 type httpClient struct {
-	client               func() *http.Client
+	clientFactory        func() *http.Client
 	instrumentor         observability.Instrumentor
 	errorReporter        observability.ErrorReporter
 	errorReporterOptions observability.ErrorReporterOptions
+	engine               workflow.Engine
+	logger               *zerolog.Logger
 }
 
 func NewHTTPClient(
-	client func() *http.Client,
+	engine workflow.Engine,
+	clientFactory func() *http.Client,
 	instrumentor observability.Instrumentor,
 	errorReporter observability.ErrorReporter,
 	errorReporterOptions observability.ErrorReporterOptions,
 ) HTTPClient {
-	return &httpClient{client, instrumentor, errorReporter, errorReporterOptions}
+	logger := engine.GetLogger()
+	return &httpClient{clientFactory, instrumentor, errorReporter, errorReporterOptions, engine, logger}
 }
 
 var retryErrorCodes = map[int]bool{
@@ -72,7 +77,7 @@ func (s *httpClient) DoCall(ctx context.Context,
 	path string,
 	requestBody []byte,
 ) (responseBody []byte, err error) {
-	span := s.instrumentor.StartSpan(ctx, "code.DoCall")
+	span := s.instrumentor.StartSpan(ctx, "http.DoCall")
 	defer s.instrumentor.Finish(span)
 
 	const retryCount = 3
@@ -91,15 +96,15 @@ func (s *httpClient) DoCall(ctx context.Context,
 			return nil, err
 		}
 
-		log.Trace().Str("requestBody", string(requestBody)).Str("snyk-request-id", requestId).Msg("SEND TO REMOTE")
+		s.logger.Trace().Str("requestBody", string(requestBody)).Str("snyk-request-id", requestId).Msg("SEND TO REMOTE")
 
 		var response *http.Response
 		response, responseBody, err = s.httpCall(req) //nolint:bodyclose // Already closed before in httpCall
 
 		if response != nil && responseBody != nil {
-			log.Trace().Str("response.Status", response.Status).Str("responseBody", string(responseBody)).Str("snyk-request-id", requestId).Msg("RECEIVED FROM REMOTE")
+			s.logger.Trace().Str("response.Status", response.Status).Str("responseBody", string(responseBody)).Str("snyk-request-id", requestId).Msg("RECEIVED FROM REMOTE")
 		} else {
-			log.Trace().Str("snyk-request-id", requestId).Msg("RECEIVED FROM REMOTE")
+			s.logger.Trace().Str("snyk-request-id", requestId).Msg("RECEIVED FROM REMOTE")
 		}
 
 		if err != nil {
@@ -109,7 +114,7 @@ func (s *httpClient) DoCall(ctx context.Context,
 		err = s.checkResponseCode(response)
 		if err != nil {
 			if retryErrorCodes[response.StatusCode] {
-				log.Debug().Err(err).Str("method", method).Int("attempts done", i+1).Msg("retrying")
+				s.logger.Debug().Err(err).Str("method", method).Int("attempts done", i+1).Msg("retrying")
 				if i < retryCount-1 {
 					time.Sleep(5 * time.Second)
 					continue
@@ -143,12 +148,11 @@ func (s *httpClient) newRequest(
 	return req, nil
 }
 
-// TODO: get logger from the config in GAF
 func (s *httpClient) httpCall(req *http.Request) (*http.Response, []byte, error) {
-	method := "code.httpCall"
-	response, err := s.client().Do(req)
+	log := s.logger.With().Str("method", "code.httpCall").Logger()
+	response, err := s.clientFactory().Do(req)
 	if err != nil {
-		log.Error().Err(err).Str("method", method).Msg("got http error")
+		log.Error().Err(err).Msg("got http error")
 		s.errorReporter.CaptureError(err, s.errorReporterOptions)
 		return nil, nil, err
 	}
@@ -162,7 +166,7 @@ func (s *httpClient) httpCall(req *http.Request) (*http.Response, []byte, error)
 	responseBody, err := io.ReadAll(response.Body)
 
 	if err != nil {
-		log.Error().Err(err).Str("method", method).Msg("error reading response body")
+		log.Error().Err(err).Msg("error reading response body")
 		s.errorReporter.CaptureError(err, s.errorReporterOptions)
 		return nil, nil, err
 	}

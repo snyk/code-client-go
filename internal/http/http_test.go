@@ -17,6 +17,7 @@ package http_test
 
 import (
 	"context"
+	"github.com/snyk/go-application-framework/pkg/workflow"
 	"net/http"
 	"testing"
 
@@ -47,7 +48,7 @@ func (d *dummyTransport) RoundTrip(_ *http.Request) (*http.Response, error) {
 
 func TestSnykCodeBackendService_DoCall_shouldRetry(t *testing.T) {
 	d := &dummyTransport{responseCode: 502, status: "502 Bad Gateway"}
-	dummyClientFunc := func() *http.Client {
+	dummyClientFactory := func() *http.Client {
 		return &http.Client{
 			Transport: d,
 		}
@@ -60,14 +61,14 @@ func TestSnykCodeBackendService_DoCall_shouldRetry(t *testing.T) {
 	mockInstrumentor.EXPECT().StartSpan(gomock.Any(), gomock.Any()).Return(mockSpan).Times(1)
 	mockInstrumentor.EXPECT().Finish(gomock.Any()).Times(1)
 
-	s := codeClientHTTP.NewHTTPClient(dummyClientFunc, mockInstrumentor, testutil.NewTestErrorReporter(), observability.ErrorReporterOptions{})
+	s := codeClientHTTP.NewHTTPClient(workflow.NewDefaultWorkFlowEngine(), dummyClientFactory, mockInstrumentor, testutil.NewTestErrorReporter(), observability.ErrorReporterOptions{})
 	_, err := s.DoCall(context.Background(), configuration.New(), "", "GET", "https: //httpstat.us/500", nil)
 	assert.Error(t, err)
 	assert.Equal(t, 3, d.calls)
 }
 
 func TestSnykCodeBackendService_doCall_rejected(t *testing.T) {
-	dummyClientFunc := func() *http.Client {
+	dummyClientFactory := func() *http.Client {
 		return &http.Client{}
 	}
 
@@ -78,7 +79,7 @@ func TestSnykCodeBackendService_doCall_rejected(t *testing.T) {
 	mockInstrumentor.EXPECT().StartSpan(gomock.Any(), gomock.Any()).Return(mockSpan).Times(1)
 	mockInstrumentor.EXPECT().Finish(gomock.Any()).Times(1)
 
-	s := codeClientHTTP.NewHTTPClient(dummyClientFunc, mockInstrumentor, testutil.NewTestErrorReporter(), observability.ErrorReporterOptions{})
+	s := codeClientHTTP.NewHTTPClient(workflow.NewDefaultWorkFlowEngine(), dummyClientFactory, mockInstrumentor, testutil.NewTestErrorReporter(), observability.ErrorReporterOptions{})
 	_, err := s.DoCall(context.Background(), configuration.New(), "", "GET", "https://127.0.0.1", nil)
 	assert.Error(t, err)
 }

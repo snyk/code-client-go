@@ -67,7 +67,7 @@ func TestSnykCodeBackendService_GetFilters(t *testing.T) {
 	mockInstrumentor.EXPECT().StartSpan(gomock.Any(), gomock.Any()).Return(mockSpan).Times(1)
 	mockInstrumentor.EXPECT().Finish(gomock.Any()).Times(1)
 
-	s := deepcode.NewSnykCodeClient(mockHTTPClient, mockInstrumentor, workflow.NewDefaultWorkFlowEngine())
+	s := deepcode.NewSnykCodeClient(workflow.NewDefaultWorkFlowEngine(), mockHTTPClient, mockInstrumentor)
 	filters, err := s.GetFilters(context.Background(), "http://fake-host")
 	assert.Nil(t, err)
 	assert.Equal(t, 1, len(filters.ConfigFiles))
@@ -85,7 +85,7 @@ func TestSnykCodeBackendService_CreateBundle(t *testing.T) {
 	mockInstrumentor.EXPECT().StartSpan(gomock.Any(), gomock.Any()).Return(mockSpan).Times(1)
 	mockInstrumentor.EXPECT().Finish(gomock.Any()).Times(1)
 
-	s := deepcode.NewSnykCodeClient(mockHTTPClient, mockInstrumentor, workflow.NewDefaultWorkFlowEngine())
+	s := deepcode.NewSnykCodeClient(workflow.NewDefaultWorkFlowEngine(), mockHTTPClient, mockInstrumentor)
 	files := map[string]string{}
 	randomAddition := fmt.Sprintf("\n public void random() { System.out.println(\"%d\") }", time.Now().UnixMicro())
 	files[path1] = util.Hash([]byte(content + randomAddition))
@@ -108,7 +108,7 @@ func TestSnykCodeBackendService_ExtendBundle(t *testing.T) {
 	mockInstrumentor.EXPECT().StartSpan(gomock.Any(), gomock.Any()).Return(mockSpan).Times(2)
 	mockInstrumentor.EXPECT().Finish(gomock.Any()).Times(2)
 
-	s := deepcode.NewSnykCodeClient(mockHTTPClient, mockInstrumentor, workflow.NewDefaultWorkFlowEngine())
+	s := deepcode.NewSnykCodeClient(workflow.NewDefaultWorkFlowEngine(), mockHTTPClient, mockInstrumentor)
 	var removedFiles []string
 	files := map[string]string{}
 	files[path1] = util.Hash([]byte(content))
@@ -148,7 +148,7 @@ func Test_getCodeApiUrl(t *testing.T) {
 		orgUUID := random.String()
 		config.Set(configuration.ORGANIZATION, orgUUID)
 		engine.SetConfiguration(config)
-		s := deepcode.NewSnykCodeClient(mockHTTPClient, mockInstrumentor, engine)
+		s := deepcode.NewSnykCodeClient(engine, mockHTTPClient, mockInstrumentor)
 
 		input := "https://snyk.io/api/v1"
 		expected := "https://api.snyk.io/hidden/orgs/" + orgUUID + "/code"
@@ -163,7 +163,7 @@ func Test_getCodeApiUrl(t *testing.T) {
 		config := engine.GetConfiguration()
 		config.Set(configuration.IS_FEDRAMP, false)
 		engine.SetConfiguration(config)
-		s := deepcode.NewSnykCodeClient(mockHTTPClient, mockInstrumentor, engine)
+		s := deepcode.NewSnykCodeClient(engine, mockHTTPClient, mockInstrumentor)
 
 		input := "https://snyk.io/api/v1"
 		expected := "https://snyk.io/api/v1"

@@ -24,7 +24,7 @@ import (
 	"regexp"
 	"strconv"
 
-	"github.com/rs/zerolog/log"
+	"github.com/rs/zerolog"
 	"github.com/snyk/go-application-framework/pkg/configuration"
 	"github.com/snyk/go-application-framework/pkg/workflow"
 
@@ -72,14 +72,16 @@ type snykCodeClient struct {
 	httpClient   codeClientHTTP.HTTPClient
 	instrumentor observability.Instrumentor
 	engine       workflow.Engine
+	logger       *zerolog.Logger
 }
 
 func NewSnykCodeClient(
+	engine workflow.Engine,
 	httpClient codeClientHTTP.HTTPClient,
 	instrumentor observability.Instrumentor,
-	engine workflow.Engine,
 ) *snykCodeClient {
-	return &snykCodeClient{httpClient, instrumentor, engine}
+	logger := engine.GetLogger()
+	return &snykCodeClient{httpClient, instrumentor, engine, logger}
 }
 
 func (s *snykCodeClient) GetFilters(ctx context.Context, snykCodeApiUrl string) (
@@ -87,7 +89,8 @@ func (s *snykCodeClient) GetFilters(ctx context.Context, snykCodeApiUrl string) 
 	err error,
 ) {
 	method := "code.GetFilters"
-	log.Debug().Str("method", method).Msg("API: Getting file extension filters")
+	log := s.logger.With().Str("method", method).Logger()
+	log.Debug().Msg("API: Getting file extension filters")
 
 	span := s.instrumentor.StartSpan(ctx, method)
 	defer s.instrumentor.Finish(span)
@@ -108,7 +111,7 @@ func (s *snykCodeClient) GetFilters(ctx context.Context, snykCodeApiUrl string) 
 	if err != nil {
 		return FiltersResponse{ConfigFiles: nil, Extensions: nil}, err
 	}
-	log.Debug().Str("method", method).Msg("API: Finished getting filters")
+	log.Debug().Msg("API: Finished getting filters")
 	return filters, nil
 }
 
@@ -118,7 +121,8 @@ func (s *snykCodeClient) CreateBundle(
 	filesToFilehashes map[string]string,
 ) (string, []string, error) {
 	method := "code.CreateBundle"
-	log.Debug().Str("method", method).Msg("API: Creating bundle for " + strconv.Itoa(len(filesToFilehashes)) + " files")
+	log := s.logger.With().Str("method", method).Logger()
+	log.Debug().Msg("API: Creating bundle for " + strconv.Itoa(len(filesToFilehashes)) + " files")
 
 	span := s.instrumentor.StartSpan(ctx, method)
 	defer s.instrumentor.Finish(span)
@@ -145,7 +149,7 @@ func (s *snykCodeClient) CreateBundle(
 	if err != nil {
 		return "", nil, err
 	}
-	log.Debug().Str("method", method).Msg("API: Create done")
+	log.Debug().Msg("API: Create done")
 	return bundle.BundleHash, bundle.MissingFiles, nil
 }
 
@@ -157,7 +161,8 @@ func (s *snykCodeClient) ExtendBundle(
 	removedFiles []string,
 ) (string, []string, error) {
 	method := "code.ExtendBundle"
-	log.Debug().Str("method", method).Msg("API: Extending bundle for " + strconv.Itoa(len(files)) + " files")
+	log := s.logger.With().Str("method", method).Logger()
+	log.Debug().Msg("API: Extending bundle for " + strconv.Itoa(len(files)) + " files")
 	defer log.Debug().Str("method", method).Msg("API: Extend done")
 
 	span := s.instrumentor.StartSpan(ctx, method)
