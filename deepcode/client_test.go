@@ -23,14 +23,14 @@ import (
 
 	"github.com/golang/mock/gomock"
 	"github.com/google/uuid"
-	"github.com/snyk/code-client-go/internal/deepcode"
-	mocks2 "github.com/snyk/code-client-go/internal/http/mocks"
-	"github.com/snyk/code-client-go/observability/mocks"
 	"github.com/snyk/go-application-framework/pkg/configuration"
 	"github.com/snyk/go-application-framework/pkg/workflow"
 	"github.com/stretchr/testify/assert"
 
+	"github.com/snyk/code-client-go/deepcode"
+	mocks2 "github.com/snyk/code-client-go/http/mocks"
 	"github.com/snyk/code-client-go/internal/util"
+	"github.com/snyk/code-client-go/observability/mocks"
 )
 
 const (

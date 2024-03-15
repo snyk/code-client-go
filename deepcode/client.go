@@ -28,7 +28,7 @@ import (
 	"github.com/snyk/go-application-framework/pkg/configuration"
 	"github.com/snyk/go-application-framework/pkg/workflow"
 
-	codeClientHTTP "github.com/snyk/code-client-go/internal/http"
+	codeClientHTTP "github.com/snyk/code-client-go/http"
 	"github.com/snyk/code-client-go/observability"
 )
 

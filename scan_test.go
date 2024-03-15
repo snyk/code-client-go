@@ -33,8 +33,8 @@ import (
 	codeclient "github.com/snyk/code-client-go"
 	"github.com/snyk/code-client-go/bundle"
 	mocks2 "github.com/snyk/code-client-go/bundle/mocks"
-	"github.com/snyk/code-client-go/internal/deepcode"
-	mocks3 "github.com/snyk/code-client-go/internal/deepcode/mocks"
+	"github.com/snyk/code-client-go/deepcode"
+	mocks3 "github.com/snyk/code-client-go/deepcode/mocks"
 	"github.com/snyk/code-client-go/observability"
 	"github.com/snyk/code-client-go/observability/mocks"
 )
@@ -61,26 +61,15 @@ func Test_UploadAndAnalyze(t *testing.T) {
 			mockInstrumentor.EXPECT().StartSpan(gomock.Any(), gomock.Any()).Return(mockSpan).AnyTimes()
 			mockInstrumentor.EXPECT().Finish(gomock.Any()).AnyTimes()
 			mockErrorReporter := mocks.NewMockErrorReporter(ctrl)
-			mockBundle := bundle.NewBundle(
-				"testHost",
-				mocks3.NewMockSnykCodeClient(ctrl),
-				"",
-				"testRequestId",
-				baseDir,
-				files,
-				mockInstrumentor,
-				mockErrorReporter,
-				[]string{},
-				[]string{},
-			)
+			mockBundle := bundle.NewBundle(mocks3.NewMockSnykCodeClient(ctrl), mockInstrumentor, mockErrorReporter, "", "testRequestId", baseDir, files, []string{}, []string{})
 			mockBundleManager := mocks2.NewMockBundleManager(ctrl)
-			mockBundleManager.EXPECT().Create(gomock.Any(), "testRequestId", baseDir, gomock.Any(), map[string]bool{}).Return(mockBundle, nil)
-			mockBundleManager.EXPECT().Upload(gomock.Any(), mockBundle, files).Return(mockBundle, nil)
+			mockBundleManager.EXPECT().Create(gomock.Any(), "testHost", "testRequestId", baseDir, gomock.Any(), map[string]bool{}).Return(mockBundle, nil)
+			mockBundleManager.EXPECT().Upload(gomock.Any(), "testHost", mockBundle, files).Return(mockBundle, nil)
 			mockAnalytics := mocks.NewMockAnalytics(ctrl)
 
 			codeScanner := codeclient.NewCodeScanner(mockBundleManager, mockInstrumentor, mockErrorReporter, mockAnalytics)
 
-			response, bundle, err := codeScanner.UploadAndAnalyze(context.Background(), docs, baseDir, map[string]bool{}, scanMetrics)
+			response, bundle, err := codeScanner.UploadAndAnalyze(context.Background(), "testHost", baseDir, docs, map[string]bool{}, scanMetrics)
 			require.NoError(t, err)
 			assert.Equal(t, "", bundle.GetBundleHash())
 			assert.Equal(t, files, bundle.GetFiles())
@@ -98,27 +87,16 @@ func Test_UploadAndAnalyze(t *testing.T) {
 			mockInstrumentor.EXPECT().StartSpan(gomock.Any(), gomock.Any()).Return(mockSpan).AnyTimes()
 			mockInstrumentor.EXPECT().Finish(gomock.Any()).AnyTimes()
 			mockErrorReporter := mocks.NewMockErrorReporter(ctrl)
-			mockBundle := bundle.NewBundle(
-				"testHost",
-				mocks3.NewMockSnykCodeClient(ctrl),
-				"testBundleHash",
-				"testRequestId",
-				baseDir,
-				files,
-				mockInstrumentor,
-				mockErrorReporter,
-				[]string{},
-				[]string{},
-			)
+			mockBundle := bundle.NewBundle(mocks3.NewMockSnykCodeClient(ctrl), mockInstrumentor, mockErrorReporter, "testBundleHash", "testRequestId", baseDir, files, []string{}, []string{})
 			mockBundleManager := mocks2.NewMockBundleManager(ctrl)
-			mockBundleManager.EXPECT().Create(gomock.Any(), "testRequestId", baseDir, gomock.Any(), map[string]bool{}).Return(mockBundle, nil)
-			mockBundleManager.EXPECT().Upload(gomock.Any(), mockBundle, files).Return(mockBundle, nil)
+			mockBundleManager.EXPECT().Create(gomock.Any(), "testHost", "testRequestId", baseDir, gomock.Any(), map[string]bool{}).Return(mockBundle, nil)
+			mockBundleManager.EXPECT().Upload(gomock.Any(), "testHost", mockBundle, files).Return(mockBundle, nil)
 			mockAnalytics := mocks.NewMockAnalytics(ctrl)
 			mockAnalytics.EXPECT().TrackScan(true, gomock.AssignableToTypeOf(observability.ScanMetrics{}))
 
 			codeScanner := codeclient.NewCodeScanner(mockBundleManager, mockInstrumentor, mockErrorReporter, mockAnalytics)
 
-			response, bundle, err := codeScanner.UploadAndAnalyze(context.Background(), docs, baseDir, map[string]bool{}, scanMetrics)
+			response, bundle, err := codeScanner.UploadAndAnalyze(context.Background(), "testHost", baseDir, docs, map[string]bool{}, scanMetrics)
 			require.NoError(t, err)
 			assert.Equal(t, "COMPLETE", response.Status)
 			assert.Equal(t, "testBundleHash", bundle.GetBundleHash())

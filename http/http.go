@@ -43,12 +43,11 @@ type HTTPClient interface {
 }
 
 type httpClient struct {
-	clientFactory        func() *http.Client
-	instrumentor         observability.Instrumentor
-	errorReporter        observability.ErrorReporter
-	errorReporterOptions observability.ErrorReporterOptions
-	engine               workflow.Engine
-	logger               *zerolog.Logger
+	clientFactory func() *http.Client
+	instrumentor  observability.Instrumentor
+	errorReporter observability.ErrorReporter
+	engine        workflow.Engine
+	logger        *zerolog.Logger
 }
 
 func NewHTTPClient(
@@ -56,10 +55,9 @@ func NewHTTPClient(
 	clientFactory func() *http.Client,
 	instrumentor observability.Instrumentor,
 	errorReporter observability.ErrorReporter,
-	errorReporterOptions observability.ErrorReporterOptions,
 ) HTTPClient {
 	logger := engine.GetLogger()
-	return &httpClient{clientFactory, instrumentor, errorReporter, errorReporterOptions, engine, logger}
+	return &httpClient{clientFactory, instrumentor, errorReporter, engine, logger}
 }
 
 var retryErrorCodes = map[int]bool{
@@ -152,7 +150,7 @@ func (s *httpClient) httpCall(req *http.Request) (*http.Response, []byte, error)
 	response, err := s.clientFactory().Do(req)
 	if err != nil {
 		log.Error().Err(err).Msg("got http error")
-		s.errorReporter.CaptureError(err, s.errorReporterOptions)
+		s.errorReporter.CaptureError(err, observability.ErrorReporterOptions{ErrorDiagnosticPath: req.RequestURI})
 		return nil, nil, err
 	}
 
@@ -166,7 +164,7 @@ func (s *httpClient) httpCall(req *http.Request) (*http.Response, []byte, error)
 
 	if err != nil {
 		log.Error().Err(err).Msg("error reading response body")
-		s.errorReporter.CaptureError(err, s.errorReporterOptions)
+		s.errorReporter.CaptureError(err, observability.ErrorReporterOptions{ErrorDiagnosticPath: req.RequestURI})
 		return nil, nil, err
 	}
 	return response, responseBody, nil

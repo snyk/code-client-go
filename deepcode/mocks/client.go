@@ -9,7 +9,7 @@ import (
 	reflect "reflect"
 
 	gomock "github.com/golang/mock/gomock"
-	deepcode "github.com/snyk/code-client-go/internal/deepcode"
+	deepcode "github.com/snyk/code-client-go/deepcode"
 )
 
 // MockSnykCodeClient is a mock of SnykCodeClient interface.

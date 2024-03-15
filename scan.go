@@ -19,9 +19,10 @@ package codeclient
 
 import (
 	"context"
+
 	"github.com/pkg/errors"
 	"github.com/rs/zerolog/log"
-
+	
 	"github.com/snyk/code-client-go/bundle"
 	"github.com/snyk/code-client-go/internal/analysis"
 	"github.com/snyk/code-client-go/observability"
@@ -38,11 +39,12 @@ type codeScanner struct {
 type CodeScanner interface {
 	UploadAndAnalyze(
 		ctx context.Context,
-		files <-chan string,
+		host string,
 		path string,
+		files <-chan string,
 		changedFiles map[string]bool,
 		scanMetrics observability.ScanMetrics,
-	) (*sarif.SarifResponse, *bundle.Bundle, error)
+	) (*sarif.SarifResponse, bundle.Bundle, error)
 }
 
 // NewCodeScanner creates a Code Scanner which can be used to trigger Snyk Code on a folder.
@@ -60,12 +62,12 @@ func NewCodeScanner(
 	}
 }
 
-// TODO: try out in snyk-ls
 // UploadAndAnalyze returns a fake SARIF response for testing. Use target-service to run analysis on.
 func (c *codeScanner) UploadAndAnalyze(
 	ctx context.Context,
-	files <-chan string,
+	host string,
 	path string,
+	files <-chan string,
 	changedFiles map[string]bool,
 	scanMetrics observability.ScanMetrics,
 ) (*sarif.SarifResponse, bundle.Bundle, error) {
@@ -78,9 +80,9 @@ func (c *codeScanner) UploadAndAnalyze(
 	defer c.instrumentor.Finish(span)
 
 	requestId := span.GetTraceId() // use span trace id as code-request-id
-	log.Info().Str("RequestId", requestId).Msg("Starting Code analysis.")
+	log.Info().Str("requestId", requestId).Msg("Starting Code analysis.")
 
-	b, err := c.bundleManager.Create(span.Context(), requestId, path, files, changedFiles)
+	b, err := c.bundleManager.Create(span.Context(), host, requestId, path, files, changedFiles)
 	if err != nil {
 		if bundle.IsNoFilesError(err) {
 			return nil, nil, nil
@@ -99,7 +101,7 @@ func (c *codeScanner) UploadAndAnalyze(
 	uploadedFiles := b.GetFiles()
 	scanMetrics.SetLastScanFileCount(len(uploadedFiles))
 
-	b, err = c.bundleManager.Upload(span.Context(), b, uploadedFiles)
+	b, err = c.bundleManager.Upload(span.Context(), host, b, uploadedFiles)
 	// TODO LSP error handling should be pushed UP to the LSP layer
 	if err != nil {
 		if ctx.Err() != nil { // Only handle errors that are not intentional cancellations

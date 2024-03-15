@@ -17,16 +17,15 @@ package http_test
 
 import (
 	"context"
-	"github.com/snyk/go-application-framework/pkg/workflow"
 	"net/http"
 	"testing"
 
 	"github.com/golang/mock/gomock"
 	"github.com/snyk/go-application-framework/pkg/configuration"
+	"github.com/snyk/go-application-framework/pkg/workflow"
 	"github.com/stretchr/testify/assert"
 
-	codeClientHTTP "github.com/snyk/code-client-go/internal/http"
-	"github.com/snyk/code-client-go/internal/util/testutil"
+	codeClientHTTP "github.com/snyk/code-client-go/http"
 	"github.com/snyk/code-client-go/observability"
 	"github.com/snyk/code-client-go/observability/mocks"
 )
@@ -60,8 +59,9 @@ func TestSnykCodeBackendService_DoCall_shouldRetry(t *testing.T) {
 	mockInstrumentor := mocks.NewMockInstrumentor(ctrl)
 	mockInstrumentor.EXPECT().StartSpan(gomock.Any(), gomock.Any()).Return(mockSpan).Times(1)
 	mockInstrumentor.EXPECT().Finish(gomock.Any()).Times(1)
+	mockErrorReporter := mocks.NewMockErrorReporter(ctrl)
 
-	s := codeClientHTTP.NewHTTPClient(workflow.NewDefaultWorkFlowEngine(), dummyClientFactory, mockInstrumentor, testutil.NewTestErrorReporter(), observability.ErrorReporterOptions{})
+	s := codeClientHTTP.NewHTTPClient(workflow.NewDefaultWorkFlowEngine(), dummyClientFactory, mockInstrumentor, mockErrorReporter)
 	_, err := s.DoCall(context.Background(), configuration.New(), "", "GET", "https: //httpstat.us/500", nil)
 	assert.Error(t, err)
 	assert.Equal(t, 3, d.calls)
@@ -78,8 +78,10 @@ func TestSnykCodeBackendService_doCall_rejected(t *testing.T) {
 	mockInstrumentor := mocks.NewMockInstrumentor(ctrl)
 	mockInstrumentor.EXPECT().StartSpan(gomock.Any(), gomock.Any()).Return(mockSpan).Times(1)
 	mockInstrumentor.EXPECT().Finish(gomock.Any()).Times(1)
+	mockErrorReporter := mocks.NewMockErrorReporter(ctrl)
+	mockErrorReporter.EXPECT().CaptureError(gomock.Any(), observability.ErrorReporterOptions{ErrorDiagnosticPath: ""})
 
-	s := codeClientHTTP.NewHTTPClient(workflow.NewDefaultWorkFlowEngine(), dummyClientFactory, mockInstrumentor, testutil.NewTestErrorReporter(), observability.ErrorReporterOptions{})
+	s := codeClientHTTP.NewHTTPClient(workflow.NewDefaultWorkFlowEngine(), dummyClientFactory, mockInstrumentor, mockErrorReporter)
 	_, err := s.DoCall(context.Background(), configuration.New(), "", "GET", "https://127.0.0.1", nil)
 	assert.Error(t, err)
 }

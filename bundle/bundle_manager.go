@@ -21,17 +21,16 @@ import (
 	"os"
 	"path/filepath"
 
+	"github.com/puzpuzpuz/xsync"
 	"github.com/rs/zerolog/log"
 
-	"github.com/puzpuzpuz/xsync"
-	"github.com/snyk/code-client-go/internal/deepcode"
+	"github.com/snyk/code-client-go/deepcode"
 	"github.com/snyk/code-client-go/internal/util"
 	"github.com/snyk/code-client-go/observability"
 )
 
-// TODO: no percentage trackng for now
+// TODO: add progress tracker for percentage progress
 type bundleManager struct {
-	host                 string
 	SnykCode             deepcode.SnykCodeClient
 	instrumentor         observability.Instrumentor
 	errorReporter        observability.ErrorReporter
@@ -42,6 +41,7 @@ type bundleManager struct {
 //go:generate mockgen -destination=mocks/bundle_manager.go -source=bundle_manager.go -package mocks
 type BundleManager interface {
 	Create(ctx context.Context,
+		host string,
 		requestId string,
 		rootPath string,
 		filePaths <-chan string,
@@ -50,15 +50,14 @@ type BundleManager interface {
 
 	Upload(
 		ctx context.Context,
+		host string,
 		originalBundle Bundle,
 		files map[string]deepcode.BundleFile,
 	) (Bundle, error)
 }
 
-// TODO: tracker
-func NewBundleManager(host string, SnykCode deepcode.SnykCodeClient, instrumentor observability.Instrumentor, errorReporter observability.ErrorReporter) *bundleManager {
+func NewBundleManager(SnykCode deepcode.SnykCodeClient, instrumentor observability.Instrumentor, errorReporter observability.ErrorReporter) *bundleManager {
 	return &bundleManager{
-		host:                 host,
 		SnykCode:             SnykCode,
 		instrumentor:         instrumentor,
 		errorReporter:        errorReporter,
@@ -68,11 +67,12 @@ func NewBundleManager(host string, SnykCode deepcode.SnykCodeClient, instrumento
 }
 
 func (b *bundleManager) Create(ctx context.Context,
+	host string,
 	requestId string,
 	rootPath string,
 	filePaths <-chan string,
 	changedFiles map[string]bool,
-) (bundle *bundle, err error) {
+) (bundle Bundle, err error) {
 	span := b.instrumentor.StartSpan(ctx, "code.createBundle")
 	defer b.instrumentor.Finish(span)
 
@@ -86,7 +86,7 @@ func (b *bundleManager) Create(ctx context.Context,
 			return bundle, err // The cancellation error should be handled by the calling function
 		}
 		var supported bool
-		supported, err = b.IsSupported(span.Context(), absoluteFilePath)
+		supported, err = b.IsSupported(span.Context(), host, absoluteFilePath)
 		if err != nil {
 			return bundle, err
 		}
@@ -127,17 +127,16 @@ func (b *bundleManager) Create(ctx context.Context,
 	var bundleHash string
 	var missingFiles []string
 	if len(fileHashes) > 0 {
-		bundleHash, missingFiles, err = b.SnykCode.CreateBundle(span.Context(), b.host, fileHashes)
+		bundleHash, missingFiles, err = b.SnykCode.CreateBundle(span.Context(), host, fileHashes)
 	}
 	bundle = NewBundle(
-		b.host,
 		b.SnykCode,
+		b.instrumentor,
+		b.errorReporter,
 		bundleHash,
 		requestId,
 		rootPath,
 		bundleFiles,
-		b.instrumentor,
-		b.errorReporter,
 		limitToFiles,
 		missingFiles,
 	)
@@ -146,6 +145,7 @@ func (b *bundleManager) Create(ctx context.Context,
 
 func (b *bundleManager) Upload(
 	ctx context.Context,
+	host string,
 	bundle Bundle,
 	files map[string]deepcode.BundleFile,
 ) (Bundle, error) {
@@ -154,8 +154,6 @@ func (b *bundleManager) Upload(
 	defer b.instrumentor.Finish(s)
 
 	// make uploads in batches until no missing files reported anymore
-
-	// TODO: IDE does the extending in batches but the CLI doesn't
 	for len(bundle.GetMissingFiles()) > 0 {
 		batches := b.groupInBatches(s.Context(), bundle, files)
 		if len(batches) == 0 {
@@ -166,7 +164,7 @@ func (b *bundleManager) Upload(
 			if err := ctx.Err(); err != nil {
 				return bundle, err
 			}
-			err := bundle.UploadBatch(s.Context(), batch)
+			err := bundle.UploadBatch(s.Context(), host, batch)
 			if err != nil {
 				return bundle, err
 			}
@@ -208,9 +206,9 @@ func (b *bundleManager) groupInBatches(
 	return batches
 }
 
-func (b *bundleManager) IsSupported(ctx context.Context, file string) (bool, error) {
+func (b *bundleManager) IsSupported(ctx context.Context, host string, file string) (bool, error) {
 	if b.supportedExtensions.Size() == 0 && b.supportedConfigFiles.Size() == 0 {
-		filters, err := b.SnykCode.GetFilters(ctx, b.host)
+		filters, err := b.SnykCode.GetFilters(ctx, host)
 		if err != nil {
 			log.Error().Err(err).Msg("could not get filters")
 			return false, err
