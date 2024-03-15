@@ -69,7 +69,6 @@ var retryErrorCodes = map[int]bool{
 	http.StatusInternalServerError: true,
 }
 
-// TODO: mutex lock for configuration?
 func (s *httpClient) DoCall(ctx context.Context,
 	config configuration.Configuration,
 	host string,

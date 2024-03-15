@@ -1,6 +1,6 @@
 module github.com/snyk/code-client-go
 
-go 1.21.7
+go 1.21
 
 require (
 	github.com/golang/mock v1.6.0
