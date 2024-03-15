@@ -19,26 +19,34 @@ package deepcode
 import (
 	"context"
 	"encoding/json"
+	"errors"
+	"net/url"
+	"regexp"
 	"strconv"
 
-	"github.com/rs/zerolog/log"
-	http2 "github.com/snyk/code-client-go/internal/http"
+	"github.com/rs/zerolog"
+	"github.com/snyk/go-application-framework/pkg/configuration"
+	"github.com/snyk/go-application-framework/pkg/workflow"
+
+	codeClientHTTP "github.com/snyk/code-client-go/internal/http"
 	"github.com/snyk/code-client-go/observability"
 )
 
 //go:generate mockgen -destination=mocks/client.go -source=client.go -package mocks
 type SnykCodeClient interface {
-	GetFilters(ctx context.Context) (
+	GetFilters(ctx context.Context, host string) (
 		filters FiltersResponse,
 		err error)
 
 	CreateBundle(
 		ctx context.Context,
+		host string,
 		files map[string]string,
 	) (newBundleHash string, missingFiles []string, err error)
 
 	ExtendBundle(
 		ctx context.Context,
+		host string,
 		bundleHash string,
 		files map[string]BundleFile,
 		removedFiles []string,
@@ -61,28 +69,40 @@ type BundleResponse struct {
 }
 
 type snykCodeClient struct {
-	httpClient   http2.HTTPClient
+	httpClient   codeClientHTTP.HTTPClient
 	instrumentor observability.Instrumentor
+	engine       workflow.Engine
+	logger       *zerolog.Logger
 }
 
 func NewSnykCodeClient(
-	httpClient http2.HTTPClient,
+	engine workflow.Engine,
+	httpClient codeClientHTTP.HTTPClient,
 	instrumentor observability.Instrumentor,
-) SnykCodeClient {
-	return &snykCodeClient{httpClient, instrumentor}
+) *snykCodeClient {
+	logger := engine.GetLogger()
+	return &snykCodeClient{httpClient, instrumentor, engine, logger}
 }
 
-func (s *snykCodeClient) GetFilters(ctx context.Context) (
+func (s *snykCodeClient) GetFilters(ctx context.Context, snykCodeApiUrl string) (
 	filters FiltersResponse,
 	err error,
 ) {
 	method := "code.GetFilters"
-	log.Debug().Str("method", method).Msg("API: Getting file extension filters")
+	log := s.logger.With().Str("method", method).Logger()
+	log.Debug().Msg("API: Getting file extension filters")
 
 	span := s.instrumentor.StartSpan(ctx, method)
 	defer s.instrumentor.Finish(span)
 
-	responseBody, err := s.httpClient.DoCall(span.Context(), "GET", "/filters", nil)
+	c := s.engine.GetConfiguration()
+
+	host, err := s.FormatCodeApiURL(snykCodeApiUrl)
+	if err != nil {
+		return FiltersResponse{ConfigFiles: nil, Extensions: nil}, err
+	}
+
+	responseBody, err := s.httpClient.DoCall(span.Context(), c, host, "GET", "/filters", nil)
 	if err != nil {
 		return FiltersResponse{ConfigFiles: nil, Extensions: nil}, err
 	}
@@ -91,16 +111,18 @@ func (s *snykCodeClient) GetFilters(ctx context.Context) (
 	if err != nil {
 		return FiltersResponse{ConfigFiles: nil, Extensions: nil}, err
 	}
-	log.Debug().Str("method", method).Msg("API: Finished getting filters")
+	log.Debug().Msg("API: Finished getting filters")
 	return filters, nil
 }
 
 func (s *snykCodeClient) CreateBundle(
 	ctx context.Context,
+	snykCodeApiUrl string,
 	filesToFilehashes map[string]string,
 ) (string, []string, error) {
 	method := "code.CreateBundle"
-	log.Debug().Str("method", method).Msg("API: Creating bundle for " + strconv.Itoa(len(filesToFilehashes)) + " files")
+	log := s.logger.With().Str("method", method).Logger()
+	log.Debug().Msg("API: Creating bundle for " + strconv.Itoa(len(filesToFilehashes)) + " files")
 
 	span := s.instrumentor.StartSpan(ctx, method)
 	defer s.instrumentor.Finish(span)
@@ -110,7 +132,14 @@ func (s *snykCodeClient) CreateBundle(
 		return "", nil, err
 	}
 
-	responseBody, err := s.httpClient.DoCall(span.Context(), "POST", "/bundle", requestBody)
+	c := s.engine.GetConfiguration()
+
+	host, err := s.FormatCodeApiURL(snykCodeApiUrl)
+	if err != nil {
+		return "", nil, err
+	}
+
+	responseBody, err := s.httpClient.DoCall(span.Context(), c, host, "POST", "/bundle", requestBody)
 	if err != nil {
 		return "", nil, err
 	}
@@ -120,18 +149,20 @@ func (s *snykCodeClient) CreateBundle(
 	if err != nil {
 		return "", nil, err
 	}
-	log.Debug().Str("method", method).Msg("API: Create done")
+	log.Debug().Msg("API: Create done")
 	return bundle.BundleHash, bundle.MissingFiles, nil
 }
 
 func (s *snykCodeClient) ExtendBundle(
 	ctx context.Context,
+	snykCodeApiUrl string,
 	bundleHash string,
 	files map[string]BundleFile,
 	removedFiles []string,
 ) (string, []string, error) {
 	method := "code.ExtendBundle"
-	log.Debug().Str("method", method).Msg("API: Extending bundle for " + strconv.Itoa(len(files)) + " files")
+	log := s.logger.With().Str("method", method).Logger()
+	log.Debug().Msg("API: Extending bundle for " + strconv.Itoa(len(files)) + " files")
 	defer log.Debug().Str("method", method).Msg("API: Extend done")
 
 	span := s.instrumentor.StartSpan(ctx, method)
@@ -145,11 +176,44 @@ func (s *snykCodeClient) ExtendBundle(
 		return "", nil, err
 	}
 
-	responseBody, err := s.httpClient.DoCall(span.Context(), "PUT", "/bundle/"+bundleHash, requestBody)
+	c := s.engine.GetConfiguration()
+
+	host, err := s.FormatCodeApiURL(snykCodeApiUrl)
+	if err != nil {
+		return "", nil, err
+	}
+
+	responseBody, err := s.httpClient.DoCall(span.Context(), c, host, "PUT", "/bundle/"+bundleHash, requestBody)
 	if err != nil {
 		return "", nil, err
 	}
 	var bundleResponse BundleResponse
 	err = json.Unmarshal(responseBody, &bundleResponse)
 	return bundleResponse.BundleHash, bundleResponse.MissingFiles, err
+}
+
+var codeApiRegex = regexp.MustCompile(`^(deeproxy\.)?`)
+
+// This is only exported for tests.
+func (s *snykCodeClient) FormatCodeApiURL(snykCodeApiUrl string) (string, error) {
+	config := s.engine.GetConfiguration()
+
+	if !config.GetBool(configuration.IS_FEDRAMP) {
+		return snykCodeApiUrl, nil
+	}
+	u, err := url.Parse(snykCodeApiUrl)
+	if err != nil {
+		return "", err
+	}
+
+	u.Host = codeApiRegex.ReplaceAllString(u.Host, "api.")
+
+	organization := config.GetString(configuration.ORGANIZATION)
+	if organization == "" {
+		return "", errors.New("Organization is required in a fedramp environment")
+	}
+
+	u.Path = "/hidden/orgs/" + organization + "/code"
+
+	return u.String(), nil
 }

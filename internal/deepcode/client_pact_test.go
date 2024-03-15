@@ -19,18 +19,19 @@ package deepcode_test
 import (
 	"context"
 	"fmt"
+	"github.com/snyk/go-application-framework/pkg/workflow"
 	"net/http"
 	"testing"
 
 	"github.com/pact-foundation/pact-go/dsl"
 	"github.com/snyk/code-client-go/internal/deepcode"
 	"github.com/snyk/code-client-go/internal/util"
-	"github.com/snyk/code-client-go/internal/util/testutil"
-	"github.com/snyk/snyk-ls/application/config"
-	"github.com/snyk/snyk-ls/domain/observability/error_reporting"
+	"github.com/snyk/go-application-framework/pkg/configuration"
 	"github.com/stretchr/testify/assert"
 
-	http2 "github.com/snyk/code-client-go/internal/http"
+	codeClientHTTP "github.com/snyk/code-client-go/internal/http"
+	"github.com/snyk/code-client-go/internal/util/testutil"
+	"github.com/snyk/code-client-go/observability"
 )
 
 const (
@@ -48,8 +49,7 @@ var pact dsl.Pact
 var client deepcode.SnykCodeClient
 
 func TestSnykCodeBackendServicePact(t *testing.T) {
-	setupPact(t)
-	config.CurrentConfig().UpdateApiEndpoints("http://localhost")
+	snykCodeApiUrl := setupPact(t)
 	defer pact.Teardown()
 
 	defer func() {
@@ -75,7 +75,7 @@ func TestSnykCodeBackendServicePact(t *testing.T) {
 		test := func() error {
 			files := make(map[string]string)
 			files[path1] = util.Hash([]byte(content))
-			bundleHash, missingFiles, err := client.CreateBundle(context.Background(), files)
+			bundleHash, missingFiles, err := client.CreateBundle(context.Background(), snykCodeApiUrl, files)
 
 			if err != nil {
 				return err
@@ -116,7 +116,7 @@ func TestSnykCodeBackendServicePact(t *testing.T) {
 		test := func() error {
 			files := make(map[string]string)
 			files[path1] = util.Hash([]byte(content))
-			_, _, err := client.CreateBundle(context.Background(), files)
+			_, _, err := client.CreateBundle(context.Background(), snykCodeApiUrl, files)
 
 			if err != nil {
 				return nil
@@ -152,7 +152,7 @@ func TestSnykCodeBackendServicePact(t *testing.T) {
 			filesExtend := createTestExtendMap()
 			var removedFiles []string
 
-			extendedBundleHash, missingFiles, err := client.ExtendBundle(context.Background(), bundleHash, filesExtend, removedFiles)
+			extendedBundleHash, missingFiles, err := client.ExtendBundle(context.Background(), snykCodeApiUrl, bundleHash, filesExtend, removedFiles)
 
 			if err != nil {
 				return err
@@ -191,7 +191,7 @@ func TestSnykCodeBackendServicePact(t *testing.T) {
 		})
 
 		test := func() error {
-			if _, err := client.GetFilters(context.Background()); err != nil {
+			if _, err := client.GetFilters(context.Background(), snykCodeApiUrl); err != nil {
 				return err
 			}
 
@@ -204,14 +204,14 @@ func TestSnykCodeBackendServicePact(t *testing.T) {
 	})
 }
 
-func setupPact(t *testing.T) {
+func setupPact(t *testing.T) string {
 	t.Helper()
 
-	c := config.New()
-	// we don't want server logging in test runs
-	c.ConfigureLogging(nil)
-	c.SetToken("00000000-0000-0000-0000-000000000001")
-	config.SetCurrentConfig(c)
+	config := configuration.NewInMemory()
+	config.Set(configuration.ORGANIZATION, orgUUID)
+	config.Set(configuration.AUTHENTICATION_TOKEN, "00000000-0000-0000-0000-000000000001")
+
+	engine := workflow.NewWorkFlowEngine(config)
 
 	pact = dsl.Pact{
 		Consumer: consumer,
@@ -221,15 +221,19 @@ func setupPact(t *testing.T) {
 
 	// Proactively start service to get access to the port
 	pact.Setup(true)
-
-	t.Setenv("DEEPROXY_API_URL", fmt.Sprintf("http://localhost:%d", pact.Server.Port))
-	config.CurrentConfig().SetOrganization(orgUUID)
+	snykCodeApiUrl := fmt.Sprintf("http://localhost:%d", pact.Server.Port)
+	additionalURLs := config.GetStringSlice(configuration.AUTHENTICATION_ADDITIONAL_URLS)
+	additionalURLs = append(additionalURLs, snykCodeApiUrl)
+	config.Set(configuration.AUTHENTICATION_ADDITIONAL_URLS, additionalURLs)
 
 	instrumentor := testutil.NewTestInstrumentor()
-	httpClient := http2.NewHTTPClient(func() *http.Client {
-		return config.CurrentConfig().Engine().GetNetworkAccess().GetHttpClient()
-	}, instrumentor, error_reporting.NewTestErrorReporter())
-	client = deepcode.NewSnykCodeClient(httpClient, instrumentor)
+	errorReporter := testutil.NewTestErrorReporter()
+	httpClient := codeClientHTTP.NewHTTPClient(engine, func() *http.Client {
+		return engine.GetNetworkAccess().GetHttpClient()
+	}, instrumentor, errorReporter, observability.ErrorReporterOptions{})
+	client = deepcode.NewSnykCodeClient(engine, httpClient, instrumentor)
+
+	return snykCodeApiUrl
 }
 
 func getPutPostHeaderMatcher() dsl.MapMatcher {
@@ -251,9 +255,8 @@ func getSnykRequestIdMatcher() dsl.Matcher {
 }
 
 func TestSnykCodeBackendServicePact_LocalCodeEngine(t *testing.T) {
-	setupPact(t)
-	config.CurrentConfig().SetSnykCodeApi(fmt.Sprintf("http://localhost:%d", pact.Server.Port))
-	config.CurrentConfig().SetOrganization(orgUUID)
+	snykCodeApiUrl := setupPact(t)
+
 	defer pact.Teardown()
 
 	pact.AddInteraction().UponReceiving("Get filters").WithRequest(dsl.Request{
@@ -274,7 +277,7 @@ func TestSnykCodeBackendServicePact_LocalCodeEngine(t *testing.T) {
 	})
 
 	test := func() error {
-		if _, err := client.GetFilters(context.Background()); err != nil {
+		if _, err := client.GetFilters(context.Background(), snykCodeApiUrl); err != nil {
 			return err
 		}
 		return nil

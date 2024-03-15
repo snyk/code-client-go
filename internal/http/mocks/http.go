@@ -9,6 +9,7 @@ import (
 	reflect "reflect"
 
 	gomock "github.com/golang/mock/gomock"
+	configuration "github.com/snyk/go-application-framework/pkg/configuration"
 )
 
 // MockHTTPClient is a mock of HTTPClient interface.
@@ -35,16 +36,16 @@ func (m *MockHTTPClient) EXPECT() *MockHTTPClientMockRecorder {
 }
 
 // DoCall mocks base method.
-func (m *MockHTTPClient) DoCall(ctx context.Context, method, path string, requestBody []byte) ([]byte, error) {
+func (m *MockHTTPClient) DoCall(ctx context.Context, config configuration.Configuration, host, method, path string, requestBody []byte) ([]byte, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "DoCall", ctx, method, path, requestBody)
+	ret := m.ctrl.Call(m, "DoCall", ctx, config, host, method, path, requestBody)
 	ret0, _ := ret[0].([]byte)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // DoCall indicates an expected call of DoCall.
-func (mr *MockHTTPClientMockRecorder) DoCall(ctx, method, path, requestBody interface{}) *gomock.Call {
+func (mr *MockHTTPClientMockRecorder) DoCall(ctx, config, host, method, path, requestBody interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DoCall", reflect.TypeOf((*MockHTTPClient)(nil).DoCall), ctx, method, path, requestBody)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DoCall", reflect.TypeOf((*MockHTTPClient)(nil).DoCall), ctx, config, host, method, path, requestBody)
 }
