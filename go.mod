@@ -6,6 +6,8 @@ require (
 	github.com/golang/mock v1.6.0
 	github.com/google/uuid v1.6.0
 	github.com/pact-foundation/pact-go v1.7.0
+	github.com/pkg/errors v0.9.1
+	github.com/puzpuzpuz/xsync v1.5.2
 	github.com/rs/zerolog v1.32.0
 	github.com/snyk/go-application-framework v0.0.0-20240111143643-fa847b8a9a3b
 	github.com/stretchr/testify v1.8.4

@@ -19,19 +19,18 @@ package deepcode_test
 import (
 	"context"
 	"fmt"
-	"github.com/snyk/go-application-framework/pkg/workflow"
 	"net/http"
 	"testing"
 
 	"github.com/pact-foundation/pact-go/dsl"
-	"github.com/snyk/code-client-go/internal/deepcode"
-	"github.com/snyk/code-client-go/internal/util"
 	"github.com/snyk/go-application-framework/pkg/configuration"
+	"github.com/snyk/go-application-framework/pkg/workflow"
 	"github.com/stretchr/testify/assert"
 
-	codeClientHTTP "github.com/snyk/code-client-go/internal/http"
+	"github.com/snyk/code-client-go/deepcode"
+	codeClientHTTP "github.com/snyk/code-client-go/http"
+	"github.com/snyk/code-client-go/internal/util"
 	"github.com/snyk/code-client-go/internal/util/testutil"
-	"github.com/snyk/code-client-go/observability"
 )
 
 const (
@@ -230,7 +229,7 @@ func setupPact(t *testing.T) string {
 	errorReporter := testutil.NewTestErrorReporter()
 	httpClient := codeClientHTTP.NewHTTPClient(engine, func() *http.Client {
 		return engine.GetNetworkAccess().GetHttpClient()
-	}, instrumentor, errorReporter, observability.ErrorReporterOptions{})
+	}, instrumentor, errorReporter)
 	client = deepcode.NewSnykCodeClient(engine, httpClient, instrumentor)
 
 	return snykCodeApiUrl

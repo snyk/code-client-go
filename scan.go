@@ -18,11 +18,113 @@
 package codeclient
 
 import (
+	"context"
+
+	"github.com/pkg/errors"
+	"github.com/rs/zerolog/log"
+
+	"github.com/snyk/code-client-go/bundle"
 	"github.com/snyk/code-client-go/internal/analysis"
+	"github.com/snyk/code-client-go/observability"
 	"github.com/snyk/code-client-go/sarif"
 )
 
+type codeScanner struct {
+	bundleManager bundle.BundleManager
+	instrumentor  observability.Instrumentor
+	errorReporter observability.ErrorReporter
+	analytics     observability.Analytics
+}
+
+type CodeScanner interface {
+	UploadAndAnalyze(
+		ctx context.Context,
+		host string,
+		path string,
+		files <-chan string,
+		changedFiles map[string]bool,
+		scanMetrics observability.ScanMetrics,
+	) (*sarif.SarifResponse, bundle.Bundle, error)
+}
+
+// NewCodeScanner creates a Code Scanner which can be used to trigger Snyk Code on a folder.
+func NewCodeScanner(
+	bundleManager bundle.BundleManager,
+	instrumentor observability.Instrumentor,
+	errorReporter observability.ErrorReporter,
+	analytics observability.Analytics,
+) *codeScanner {
+	return &codeScanner{
+		bundleManager: bundleManager,
+		instrumentor:  instrumentor,
+		errorReporter: errorReporter,
+		analytics:     analytics,
+	}
+}
+
 // UploadAndAnalyze returns a fake SARIF response for testing. Use target-service to run analysis on.
-func UploadAndAnalyze() (*sarif.SarifResponse, error) {
-	return analysis.RunAnalysis()
+func (c *codeScanner) UploadAndAnalyze(
+	ctx context.Context,
+	host string,
+	path string,
+	files <-chan string,
+	changedFiles map[string]bool,
+	scanMetrics observability.ScanMetrics,
+) (*sarif.SarifResponse, bundle.Bundle, error) {
+	if ctx.Err() != nil {
+		log.Info().Msg("Canceling Code scan - Code scanner received cancellation signal")
+		return nil, nil, nil
+	}
+
+	span := c.instrumentor.StartSpan(ctx, "code.uploadAndAnalyze")
+	defer c.instrumentor.Finish(span)
+
+	requestId := span.GetTraceId() // use span trace id as code-request-id
+	log.Info().Str("requestId", requestId).Msg("Starting Code analysis.")
+
+	b, err := c.bundleManager.Create(span.Context(), host, requestId, path, files, changedFiles)
+	if err != nil {
+		if bundle.IsNoFilesError(err) {
+			return nil, nil, nil
+		}
+		if ctx.Err() == nil { // Only report errors that are not intentional cancellations
+			msg := "error creating bundle..."
+			c.errorReporter.CaptureError(errors.Wrap(err, msg), observability.ErrorReporterOptions{ErrorDiagnosticPath: path})
+			c.analytics.TrackScan(err == nil, scanMetrics)
+			return nil, nil, err
+		} else {
+			log.Info().Msg("Canceling Code scan - Code scanner received cancellation signal")
+			return nil, nil, nil
+		}
+	}
+
+	uploadedFiles := b.GetFiles()
+	scanMetrics.SetLastScanFileCount(len(uploadedFiles))
+
+	b, err = c.bundleManager.Upload(span.Context(), host, b, uploadedFiles)
+	if err != nil {
+		if ctx.Err() != nil { // Only handle errors that are not intentional cancellations
+			msg := "error uploading files..."
+			c.errorReporter.CaptureError(errors.Wrap(err, msg), observability.ErrorReporterOptions{ErrorDiagnosticPath: path})
+			c.analytics.TrackScan(err == nil, scanMetrics)
+			return nil, b, err
+		} else {
+			log.Info().Msg("Canceling Code scan - Code scanner received cancellation signal")
+			return nil, b, nil
+		}
+	}
+
+	if b.GetBundleHash() == "" {
+		log.Info().Msg("empty bundle, no Snyk Code analysis")
+		return nil, b, nil
+	}
+
+	response, err := analysis.RunAnalysis()
+	if ctx.Err() != nil {
+		log.Info().Msg("Canceling Code scan - Code scanner received cancellation signal")
+		return nil, nil, nil
+	}
+
+	c.analytics.TrackScan(err == nil, scanMetrics)
+	return response, b, nil
 }
