@@ -46,7 +46,6 @@ type httpClient struct {
 	clientFactory func() *http.Client
 	instrumentor  observability.Instrumentor
 	errorReporter observability.ErrorReporter
-	engine        workflow.Engine
 	logger        *zerolog.Logger
 }
 
@@ -57,7 +56,7 @@ func NewHTTPClient(
 	errorReporter observability.ErrorReporter,
 ) HTTPClient {
 	logger := engine.GetLogger()
-	return &httpClient{clientFactory, instrumentor, errorReporter, engine, logger}
+	return &httpClient{clientFactory, instrumentor, errorReporter, logger}
 }
 
 var retryErrorCodes = map[int]bool{
