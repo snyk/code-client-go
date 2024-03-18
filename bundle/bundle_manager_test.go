@@ -37,7 +37,7 @@ import (
 
 func Test_Create(t *testing.T) {
 	t.Run(
-		"when < maxFileSize creates bundle", func(t *testing.T) {
+		"when < maxFileSize creates deepCodeBundle", func(t *testing.T) {
 			ctrl := gomock.NewController(t)
 			mockSpan := mocks.NewMockSpan(ctrl)
 			mockSpan.EXPECT().Context().AnyTimes()
@@ -68,7 +68,7 @@ func Test_Create(t *testing.T) {
 				sliceToChannel([]string{file}),
 				map[string]bool{})
 			require.NoError(t, err)
-			assert.Len(t, bundle.GetFiles(), 1, "bundle should have 1 bundle files")
+			assert.Len(t, bundle.GetFiles(), 1, "deepCodeBundle should have 1 deepCodeBundle files")
 		},
 	)
 
@@ -101,7 +101,7 @@ func Test_Create(t *testing.T) {
 				sliceToChannel([]string{file}),
 				map[string]bool{})
 			require.NoError(t, err)
-			assert.Len(t, bundle.GetFiles(), 0, "bundle should not have bundle files")
+			assert.Len(t, bundle.GetFiles(), 0, "deepCodeBundle should not have deepCodeBundle files")
 		},
 	)
 
@@ -139,7 +139,7 @@ func Test_Create(t *testing.T) {
 				sliceToChannel([]string{file}),
 				map[string]bool{})
 			require.NoError(t, err)
-			assert.Len(t, bundle.GetFiles(), 0, "bundle should not have bundle files")
+			assert.Len(t, bundle.GetFiles(), 0, "deepCodeBundle should not have deepCodeBundle files")
 		},
 	)
 
@@ -176,7 +176,7 @@ func Test_Create(t *testing.T) {
 				sliceToChannel([]string{file}),
 				map[string]bool{})
 			require.NoError(t, err)
-			assert.Len(t, bundle.GetFiles(), 0, "bundle should not have bundle files")
+			assert.Len(t, bundle.GetFiles(), 0, "deepCodeBundle should not have deepCodeBundle files")
 		},
 	)
 
@@ -271,7 +271,7 @@ func Test_Upload(t *testing.T) {
 		_ = os.RemoveAll(temporaryDir)
 	})
 
-	t.Run("adds files to bundle", func(t *testing.T) {
+	t.Run("adds files to deepCodeBundle", func(t *testing.T) {
 		ctrl := gomock.NewController(t)
 		mockSpan := mocks.NewMockSpan(ctrl)
 		mockSpan.EXPECT().Context().AnyTimes()

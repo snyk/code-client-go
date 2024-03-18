@@ -22,7 +22,7 @@ import (
 
 	"github.com/pkg/errors"
 	"github.com/rs/zerolog/log"
-	
+
 	"github.com/snyk/code-client-go/bundle"
 	"github.com/snyk/code-client-go/internal/analysis"
 	"github.com/snyk/code-client-go/observability"
@@ -102,7 +102,6 @@ func (c *codeScanner) UploadAndAnalyze(
 	scanMetrics.SetLastScanFileCount(len(uploadedFiles))
 
 	b, err = c.bundleManager.Upload(span.Context(), host, b, uploadedFiles)
-	// TODO LSP error handling should be pushed UP to the LSP layer
 	if err != nil {
 		if ctx.Err() != nil { // Only handle errors that are not intentional cancellations
 			msg := "error uploading files..."

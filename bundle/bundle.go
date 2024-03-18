@@ -25,7 +25,7 @@ import (
 	"github.com/snyk/code-client-go/observability"
 )
 
-//go:generate mockgen -destination=mocks/bundle.go -source=bundle.go -package mocks
+//go:generate mockgen -destination=mocks/deepCodeBundle.go -source=deepCodeBundle.go -package mocks
 type Bundle interface {
 	UploadBatch(ctx context.Context, host string, batch *Batch) error
 	GetBundleHash() string
@@ -35,7 +35,7 @@ type Bundle interface {
 	GetMissingFiles() []string
 }
 
-type bundle struct {
+type deepCodeBundle struct {
 	SnykCode      deepcode.SnykCodeClient
 	instrumentor  observability.Instrumentor
 	errorReporter observability.ErrorReporter
@@ -48,8 +48,8 @@ type bundle struct {
 	limitToFiles  []string
 }
 
-func NewBundle(snykCode deepcode.SnykCodeClient, instrumentor observability.Instrumentor, errorReporter observability.ErrorReporter, bundleHash string, requestId string, rootPath string, files map[string]deepcode.BundleFile, limitToFiles []string, missingFiles []string) *bundle {
-	return &bundle{
+func NewBundle(snykCode deepcode.SnykCodeClient, instrumentor observability.Instrumentor, errorReporter observability.ErrorReporter, bundleHash string, requestId string, rootPath string, files map[string]deepcode.BundleFile, limitToFiles []string, missingFiles []string) *deepCodeBundle {
+	return &deepCodeBundle{
 		SnykCode:      snykCode,
 		instrumentor:  instrumentor,
 		errorReporter: errorReporter,
@@ -63,27 +63,27 @@ func NewBundle(snykCode deepcode.SnykCodeClient, instrumentor observability.Inst
 	}
 }
 
-func (b *bundle) GetBundleHash() string {
+func (b *deepCodeBundle) GetBundleHash() string {
 	return b.bundleHash
 }
 
-func (b *bundle) GetRootPath() string {
+func (b *deepCodeBundle) GetRootPath() string {
 	return b.rootPath
 }
 
-func (b *bundle) GetRequestId() string {
+func (b *deepCodeBundle) GetRequestId() string {
 	return b.requestId
 }
 
-func (b *bundle) GetFiles() map[string]deepcode.BundleFile {
+func (b *deepCodeBundle) GetFiles() map[string]deepcode.BundleFile {
 	return b.files
 }
 
-func (b *bundle) GetMissingFiles() []string {
+func (b *deepCodeBundle) GetMissingFiles() []string {
 	return b.missingFiles
 }
 
-func (b *bundle) UploadBatch(ctx context.Context, host string, batch *Batch) error {
+func (b *deepCodeBundle) UploadBatch(ctx context.Context, host string, batch *Batch) error {
 	err := b.extendBundle(ctx, host, batch)
 	if err != nil {
 		return err
@@ -92,11 +92,11 @@ func (b *bundle) UploadBatch(ctx context.Context, host string, batch *Batch) err
 	return nil
 }
 
-func (b *bundle) extendBundle(ctx context.Context, host string, uploadBatch *Batch) error {
+func (b *deepCodeBundle) extendBundle(ctx context.Context, host string, uploadBatch *Batch) error {
 	var err error
 	if uploadBatch.hasContent() {
 		b.bundleHash, b.missingFiles, err = b.SnykCode.ExtendBundle(ctx, host, b.bundleHash, uploadBatch.documents, []string{})
-		log.Debug().Str("requestId", b.requestId).Interface("MissingFiles", b.missingFiles).Msg("extended bundle on backend")
+		log.Debug().Str("requestId", b.requestId).Interface("MissingFiles", b.missingFiles).Msg("extended deepCodeBundle on backend")
 	}
 
 	return err

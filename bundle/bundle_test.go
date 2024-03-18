@@ -54,7 +54,7 @@ func Test_UploadBatch(t *testing.T) {
 		assert.NoError(t, err)
 	})
 
-	t.Run("when no bundles - creates new bundle and sets hash", func(t *testing.T) {
+	t.Run("when no bundles - creates new deepCodeBundle and sets hash", func(t *testing.T) {
 		ctrl := gomock.NewController(t)
 		mockSnykCodeClient := mocks2.NewMockSnykCodeClient(ctrl)
 		mockSnykCodeClient.EXPECT().ExtendBundle(gomock.Any(), "testHost", "testBundleHash", map[string]deepcode.BundleFile{
@@ -73,7 +73,7 @@ func Test_UploadBatch(t *testing.T) {
 		assert.NoError(t, err)
 	})
 
-	t.Run("when existing bundles - extends bundle and updates hash", func(t *testing.T) {
+	t.Run("when existing bundles - extends deepCodeBundle and updates hash", func(t *testing.T) {
 		ctrl := gomock.NewController(t)
 		mockSnykCodeClient := mocks2.NewMockSnykCodeClient(ctrl)
 		mockSnykCodeClient.EXPECT().ExtendBundle(gomock.Any(), "testHost", "testBundleHash", map[string]deepcode.BundleFile{

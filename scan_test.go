@@ -19,16 +19,12 @@ import (
 	"context"
 	"os"
 	"path/filepath"
-	"strings"
 	"testing"
 	"time"
 
 	"github.com/golang/mock/gomock"
-	"github.com/sourcegraph/go-lsp"
-	sglsp "github.com/sourcegraph/go-lsp"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"go.lsp.dev/uri"
 
 	codeclient "github.com/snyk/code-client-go"
 	"github.com/snyk/code-client-go/bundle"
@@ -40,9 +36,7 @@ import (
 )
 
 func Test_UploadAndAnalyze(t *testing.T) {
-	baseDir, firstDoc, secondDoc, firstDocContent, secondDocContent := setupDocs(t)
-	firstDocPath := pathFromUri(firstDoc.URI)
-	secondDocPath := pathFromUri(secondDoc.URI)
+	baseDir, firstDocPath, secondDocPath, firstDocContent, secondDocContent := setupDocs(t)
 	docs := sliceToChannel([]string{firstDocPath, secondDocPath})
 	files := map[string]deepcode.BundleFile{
 		firstDocPath: deepcode.BundleFileFrom(firstDocPath, firstDocContent),
@@ -104,7 +98,7 @@ func Test_UploadAndAnalyze(t *testing.T) {
 	)
 }
 
-func setupDocs(t *testing.T) (string, lsp.TextDocumentItem, lsp.TextDocumentItem, []byte, []byte) {
+func setupDocs(t *testing.T) (string, string, string, []byte, []byte) {
 	t.Helper()
 	path := t.TempDir()
 
@@ -114,14 +108,9 @@ func setupDocs(t *testing.T) (string, lsp.TextDocumentItem, lsp.TextDocumentItem
 	content2 := []byte("test2")
 	_ = os.WriteFile(path+string(os.PathSeparator)+"test2.java", content2, 0660)
 
-	firstDoc := lsp.TextDocumentItem{
-		URI: pathToUri(filepath.Join(path, "test1.java")),
-	}
-
-	secondDoc := lsp.TextDocumentItem{
-		URI: pathToUri(filepath.Join(path, "test2.java")),
-	}
-	return path, firstDoc, secondDoc, content1, content2
+	firstDocPath := filepath.Join(path, "test1.java")
+	secondDocPath := filepath.Join(path, "test2.java")
+	return path, firstDocPath, secondDocPath, content1, content2
 }
 
 func sliceToChannel(slice []string) <-chan string {
@@ -134,19 +123,4 @@ func sliceToChannel(slice []string) <-chan string {
 	}()
 
 	return ch
-}
-
-const fileScheme = "file://"
-const eclipseWorkspaceFolderScheme = "file:"
-
-func pathFromUri(documentURI sglsp.DocumentURI) string {
-	u := string(documentURI)
-	if !strings.HasPrefix(u, fileScheme) && strings.HasPrefix(u, eclipseWorkspaceFolderScheme) {
-		u = strings.Replace(u, eclipseWorkspaceFolderScheme, fileScheme, 1)
-	}
-	return uri.New(u).Filename()
-}
-
-func pathToUri(path string) sglsp.DocumentURI {
-	return sglsp.DocumentURI(uri.File(path))
 }

@@ -10,9 +10,7 @@ require (
 	github.com/puzpuzpuz/xsync v1.5.2
 	github.com/rs/zerolog v1.32.0
 	github.com/snyk/go-application-framework v0.0.0-20240111143643-fa847b8a9a3b
-	github.com/sourcegraph/go-lsp v0.0.0-20240223163137-f80c5dd31dfd
 	github.com/stretchr/testify v1.8.4
-	go.lsp.dev/uri v0.3.0
 	golang.org/x/net v0.22.0
 )
 
