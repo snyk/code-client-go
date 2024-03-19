@@ -19,20 +19,22 @@ package bundle_test
 import (
 	"bytes"
 	"context"
-	deepcode2 "github.com/snyk/code-client-go/deepcode"
-	mocks2 "github.com/snyk/code-client-go/deepcode/mocks"
+	"github.com/rs/zerolog"
 	"os"
 	"path/filepath"
 	"strings"
 	"testing"
 
 	"github.com/golang/mock/gomock"
-	"github.com/snyk/code-client-go/observability/mocks"
+	"github.com/snyk/go-application-framework/pkg/workflow"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
 	"github.com/snyk/code-client-go/bundle"
+	deepcode2 "github.com/snyk/code-client-go/deepcode"
+	mocks2 "github.com/snyk/code-client-go/deepcode/mocks"
 	"github.com/snyk/code-client-go/internal/util"
+	"github.com/snyk/code-client-go/observability/mocks"
 )
 
 func Test_Create(t *testing.T) {
@@ -60,7 +62,7 @@ func Test_Create(t *testing.T) {
 			err := os.WriteFile(file, []byte(data), 0600)
 			require.NoError(t, err)
 
-			var bundleManager = bundle.NewBundleManager(mockSnykCodeClient, mockInstrumentor, mockErrorReporter)
+			var bundleManager = bundle.NewBundleManager(workflow.NewDefaultWorkFlowEngine(), mockSnykCodeClient, mockInstrumentor, mockErrorReporter)
 			bundle, err := bundleManager.Create(context.Background(),
 				"testHost",
 				"testRequestId",
@@ -93,7 +95,7 @@ func Test_Create(t *testing.T) {
 			err := os.WriteFile(file, []byte(data), 0600)
 			require.NoError(t, err)
 
-			var bundleManager = bundle.NewBundleManager(mockSnykCodeClient, mockInstrumentor, mockErrorReporter)
+			var bundleManager = bundle.NewBundleManager(workflow.NewDefaultWorkFlowEngine(), mockSnykCodeClient, mockInstrumentor, mockErrorReporter)
 			bundle, err := bundleManager.Create(context.Background(),
 				"testHost",
 				"testRequestId",
@@ -131,7 +133,7 @@ func Test_Create(t *testing.T) {
 			)
 			require.NoError(t, err)
 
-			var bundleManager = bundle.NewBundleManager(mockSnykCodeClient, mockInstrumentor, mockErrorReporter)
+			var bundleManager = bundle.NewBundleManager(workflow.NewDefaultWorkFlowEngine(), mockSnykCodeClient, mockInstrumentor, mockErrorReporter)
 			bundle, err := bundleManager.Create(context.Background(),
 				"testHost",
 				"testRequestId",
@@ -168,7 +170,7 @@ func Test_Create(t *testing.T) {
 				},
 			)
 			require.NoError(t, err)
-			var bundleManager = bundle.NewBundleManager(mockSnykCodeClient, mockInstrumentor, mockErrorReporter)
+			var bundleManager = bundle.NewBundleManager(workflow.NewDefaultWorkFlowEngine(), mockSnykCodeClient, mockInstrumentor, mockErrorReporter)
 			bundle, err := bundleManager.Create(context.Background(),
 				"testHost",
 				"testRequestId",
@@ -202,7 +204,7 @@ func Test_Create(t *testing.T) {
 		err := os.WriteFile(file, []byte("some content so the file won't be skipped"), 0600)
 		assert.Nil(t, err)
 
-		var bundleManager = bundle.NewBundleManager(mockSnykCodeClient, mockInstrumentor, mockErrorReporter)
+		var bundleManager = bundle.NewBundleManager(workflow.NewDefaultWorkFlowEngine(), mockSnykCodeClient, mockInstrumentor, mockErrorReporter)
 		bundle, err := bundleManager.Create(context.Background(),
 			"testHost",
 			"testRequestId",
@@ -251,7 +253,7 @@ func Test_Create(t *testing.T) {
 			require.NoError(t, err)
 		}
 
-		var bundleManager = bundle.NewBundleManager(mockSnykCodeClient, mockInstrumentor, mockErrorReporter)
+		var bundleManager = bundle.NewBundleManager(workflow.NewDefaultWorkFlowEngine(), mockSnykCodeClient, mockInstrumentor, mockErrorReporter)
 		bundle, err := bundleManager.Create(context.Background(),
 			"testHost",
 			"testRequestId",
@@ -271,6 +273,8 @@ func Test_Upload(t *testing.T) {
 		_ = os.RemoveAll(temporaryDir)
 	})
 
+	logger := zerolog.Nop()
+
 	t.Run("adds files to deepCodeBundle", func(t *testing.T) {
 		ctrl := gomock.NewController(t)
 		mockSpan := mocks.NewMockSpan(ctrl)
@@ -282,14 +286,14 @@ func Test_Upload(t *testing.T) {
 		mockInstrumentor.EXPECT().Finish(gomock.Any()).Times(2)
 		mockErrorReporter := mocks.NewMockErrorReporter(ctrl)
 
-		var bundleManager = bundle.NewBundleManager(mockSnykCodeClient, mockInstrumentor, mockErrorReporter)
+		var bundleManager = bundle.NewBundleManager(workflow.NewDefaultWorkFlowEngine(), mockSnykCodeClient, mockInstrumentor, mockErrorReporter)
 		documentURI, bundleFile := createTempFileInDir(t, "bundleDoc.java", 10, temporaryDir)
 		bundleFileMap := map[string]deepcode2.BundleFile{}
 		bundleFileMap[documentURI] = bundleFile
 
 		_, err := bundleManager.Upload(context.Background(),
 			"testHost",
-			bundle.NewBundle(mockSnykCodeClient, mockInstrumentor, mockErrorReporter, "bundleHash", "testRequestId", "", bundleFileMap, []string{}, []string{documentURI}),
+			bundle.NewBundle(mockSnykCodeClient, mockInstrumentor, mockErrorReporter, &logger, "bundleHash", "testRequestId", "", bundleFileMap, []string{}, []string{documentURI}),
 			bundleFileMap)
 		assert.NoError(t, err)
 	})
@@ -305,7 +309,7 @@ func Test_Upload(t *testing.T) {
 		mockInstrumentor.EXPECT().StartSpan(gomock.Any(), gomock.Any()).Return(mockSpan).Times(2)
 		mockInstrumentor.EXPECT().Finish(gomock.Any()).Times(2)
 		mockErrorReporter := mocks.NewMockErrorReporter(ctrl)
-		var bundleManager = bundle.NewBundleManager(mockSnykCodeClient, mockInstrumentor, mockErrorReporter)
+		var bundleManager = bundle.NewBundleManager(workflow.NewDefaultWorkFlowEngine(), mockSnykCodeClient, mockInstrumentor, mockErrorReporter)
 
 		bundleFileMap := map[string]deepcode2.BundleFile{}
 		var missingFiles []string
@@ -327,7 +331,7 @@ func Test_Upload(t *testing.T) {
 
 		_, err := bundleManager.Upload(context.Background(),
 			"testHost",
-			bundle.NewBundle(mockSnykCodeClient, mockInstrumentor, mockErrorReporter, "bundleHash", "testRequestId", "", bundleFileMap, []string{}, missingFiles),
+			bundle.NewBundle(mockSnykCodeClient, mockInstrumentor, mockErrorReporter, &logger, "bundleHash", "testRequestId", "", bundleFileMap, []string{}, missingFiles),
 			bundleFileMap)
 		assert.Nil(t, err)
 	})
@@ -349,7 +353,7 @@ func Test_IsSupported_Extensions(t *testing.T) {
 	}, nil)
 	mockInstrumentor := mocks.NewMockInstrumentor(ctrl)
 	mockErrorReporter := mocks.NewMockErrorReporter(ctrl)
-	bundler := bundle.NewBundleManager(mockSnykCodeClient, mockInstrumentor, mockErrorReporter)
+	bundler := bundle.NewBundleManager(workflow.NewDefaultWorkFlowEngine(), mockSnykCodeClient, mockInstrumentor, mockErrorReporter)
 
 	t.Run("should return true for supported languages", func(t *testing.T) {
 		supported, _ := bundler.IsSupported(context.Background(), "testHost", "C:\\some\\path\\Test.java")
@@ -388,7 +392,7 @@ func Test_IsSupported_ConfigFiles(t *testing.T) {
 	}, nil)
 	mockInstrumentor := mocks.NewMockInstrumentor(ctrl)
 	mockErrorReporter := mocks.NewMockErrorReporter(ctrl)
-	bundler := bundle.NewBundleManager(mockSnykCodeClient, mockInstrumentor, mockErrorReporter)
+	bundler := bundle.NewBundleManager(workflow.NewDefaultWorkFlowEngine(), mockSnykCodeClient, mockInstrumentor, mockErrorReporter)
 	dir, _ := os.Getwd()
 
 	t.Run("should return true for supported config files", func(t *testing.T) {

@@ -18,12 +18,12 @@ package bundle
 
 import (
 	"context"
+	"github.com/rs/zerolog"
+	"github.com/snyk/go-application-framework/pkg/workflow"
 	"os"
 	"path/filepath"
 
 	"github.com/puzpuzpuz/xsync"
-	"github.com/rs/zerolog/log"
-
 	"github.com/snyk/code-client-go/deepcode"
 	"github.com/snyk/code-client-go/internal/util"
 	"github.com/snyk/code-client-go/observability"
@@ -34,6 +34,7 @@ type bundleManager struct {
 	SnykCode             deepcode.SnykCodeClient
 	instrumentor         observability.Instrumentor
 	errorReporter        observability.ErrorReporter
+	logger               *zerolog.Logger
 	supportedExtensions  *xsync.MapOf[string, bool]
 	supportedConfigFiles *xsync.MapOf[string, bool]
 }
@@ -56,11 +57,17 @@ type BundleManager interface {
 	) (Bundle, error)
 }
 
-func NewBundleManager(SnykCode deepcode.SnykCodeClient, instrumentor observability.Instrumentor, errorReporter observability.ErrorReporter) *bundleManager {
+func NewBundleManager(
+	engine workflow.Engine,
+	SnykCode deepcode.SnykCodeClient,
+	instrumentor observability.Instrumentor,
+	errorReporter observability.ErrorReporter,
+) *bundleManager {
 	return &bundleManager{
 		SnykCode:             SnykCode,
 		instrumentor:         instrumentor,
 		errorReporter:        errorReporter,
+		logger:               engine.GetLogger(),
 		supportedExtensions:  xsync.NewMapOf[bool](),
 		supportedConfigFiles: xsync.NewMapOf[bool](),
 	}
@@ -96,7 +103,7 @@ func (b *bundleManager) Create(ctx context.Context,
 		var fileContent []byte
 		fileContent, err = os.ReadFile(absoluteFilePath)
 		if err != nil {
-			log.Error().Err(err).Str("filePath", absoluteFilePath).Msg("could not load content of file")
+			b.logger.Error().Err(err).Str("filePath", absoluteFilePath).Msg("could not load content of file")
 			continue
 		}
 
@@ -133,6 +140,7 @@ func (b *bundleManager) Create(ctx context.Context,
 		b.SnykCode,
 		b.instrumentor,
 		b.errorReporter,
+		b.logger,
 		bundleHash,
 		requestId,
 		rootPath,
@@ -193,10 +201,10 @@ func (b *bundleManager) groupInBatches(
 		file := files[filePath]
 		var fileContent = []byte(file.Content)
 		if batch.canFitFile(filePath, fileContent) {
-			log.Trace().Str("path", filePath).Int("size", len(fileContent)).Msgf("added to deepCodeBundle #%v", len(batches))
+			b.logger.Trace().Str("path", filePath).Int("size", len(fileContent)).Msgf("added to deepCodeBundle #%v", len(batches))
 			batch.documents[filePath] = file
 		} else {
-			log.Trace().Str("path", filePath).Int("size", len(fileContent)).Msgf("created new deepCodeBundle - %v bundles in this upload so far", len(batches))
+			b.logger.Trace().Str("path", filePath).Int("size", len(fileContent)).Msgf("created new deepCodeBundle - %v bundles in this upload so far", len(batches))
 			newUploadBatch := NewBatch(map[string]deepcode.BundleFile{})
 			newUploadBatch.documents[filePath] = file
 			batches = append(batches, newUploadBatch)
@@ -210,7 +218,7 @@ func (b *bundleManager) IsSupported(ctx context.Context, host string, file strin
 	if b.supportedExtensions.Size() == 0 && b.supportedConfigFiles.Size() == 0 {
 		filters, err := b.SnykCode.GetFilters(ctx, host)
 		if err != nil {
-			log.Error().Err(err).Msg("could not get filters")
+			b.logger.Error().Err(err).Msg("could not get filters")
 			return false, err
 		}
 

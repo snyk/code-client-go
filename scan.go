@@ -19,6 +19,7 @@ package codeclient
 
 import (
 	"context"
+	"github.com/rs/zerolog"
 
 	"github.com/pkg/errors"
 	"github.com/rs/zerolog/log"
@@ -34,6 +35,7 @@ type codeScanner struct {
 	instrumentor  observability.Instrumentor
 	errorReporter observability.ErrorReporter
 	analytics     observability.Analytics
+	logger        *zerolog.Logger
 }
 
 type CodeScanner interface {
@@ -53,12 +55,14 @@ func NewCodeScanner(
 	instrumentor observability.Instrumentor,
 	errorReporter observability.ErrorReporter,
 	analytics observability.Analytics,
+	logger *zerolog.Logger,
 ) *codeScanner {
 	return &codeScanner{
 		bundleManager: bundleManager,
 		instrumentor:  instrumentor,
 		errorReporter: errorReporter,
 		analytics:     analytics,
+		logger:        logger,
 	}
 }
 
@@ -72,7 +76,7 @@ func (c *codeScanner) UploadAndAnalyze(
 	scanMetrics observability.ScanMetrics,
 ) (*sarif.SarifResponse, bundle.Bundle, error) {
 	if ctx.Err() != nil {
-		log.Info().Msg("Canceling Code scan - Code scanner received cancellation signal")
+		c.logger.Info().Msg("Canceling Code scan - Code scanner received cancellation signal")
 		return nil, nil, nil
 	}
 
@@ -80,7 +84,7 @@ func (c *codeScanner) UploadAndAnalyze(
 	defer c.instrumentor.Finish(span)
 
 	requestId := span.GetTraceId() // use span trace id as code-request-id
-	log.Info().Str("requestId", requestId).Msg("Starting Code analysis.")
+	c.logger.Info().Str("requestId", requestId).Msg("Starting Code analysis.")
 
 	b, err := c.bundleManager.Create(span.Context(), host, requestId, path, files, changedFiles)
 	if err != nil {
@@ -93,7 +97,7 @@ func (c *codeScanner) UploadAndAnalyze(
 			c.analytics.TrackScan(err == nil, scanMetrics)
 			return nil, nil, err
 		} else {
-			log.Info().Msg("Canceling Code scan - Code scanner received cancellation signal")
+			c.logger.Info().Msg("Canceling Code scan - Code scanner received cancellation signal")
 			return nil, nil, nil
 		}
 	}
@@ -115,13 +119,13 @@ func (c *codeScanner) UploadAndAnalyze(
 	}
 
 	if b.GetBundleHash() == "" {
-		log.Info().Msg("empty bundle, no Snyk Code analysis")
+		c.logger.Info().Msg("empty bundle, no Snyk Code analysis")
 		return nil, b, nil
 	}
 
 	response, err := analysis.RunAnalysis()
 	if ctx.Err() != nil {
-		log.Info().Msg("Canceling Code scan - Code scanner received cancellation signal")
+		c.logger.Info().Msg("Canceling Code scan - Code scanner received cancellation signal")
 		return nil, nil, nil
 	}
 

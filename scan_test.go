@@ -17,6 +17,7 @@ package codeclient_test
 
 import (
 	"context"
+	"github.com/rs/zerolog"
 	"os"
 	"path/filepath"
 	"testing"
@@ -45,6 +46,8 @@ func Test_UploadAndAnalyze(t *testing.T) {
 
 	scanMetrics := observability.NewScanMetrics(time.Now(), 0)
 
+	logger := zerolog.Nop()
+
 	t.Run(
 		"should create bundle when hash empty", func(t *testing.T) {
 			ctrl := gomock.NewController(t)
@@ -55,13 +58,13 @@ func Test_UploadAndAnalyze(t *testing.T) {
 			mockInstrumentor.EXPECT().StartSpan(gomock.Any(), gomock.Any()).Return(mockSpan).AnyTimes()
 			mockInstrumentor.EXPECT().Finish(gomock.Any()).AnyTimes()
 			mockErrorReporter := mocks.NewMockErrorReporter(ctrl)
-			mockBundle := bundle.NewBundle(mocks3.NewMockSnykCodeClient(ctrl), mockInstrumentor, mockErrorReporter, "", "testRequestId", baseDir, files, []string{}, []string{})
+			mockBundle := bundle.NewBundle(mocks3.NewMockSnykCodeClient(ctrl), mockInstrumentor, mockErrorReporter, &logger, "", "testRequestId", baseDir, files, []string{}, []string{})
 			mockBundleManager := mocks2.NewMockBundleManager(ctrl)
 			mockBundleManager.EXPECT().Create(gomock.Any(), "testHost", "testRequestId", baseDir, gomock.Any(), map[string]bool{}).Return(mockBundle, nil)
 			mockBundleManager.EXPECT().Upload(gomock.Any(), "testHost", mockBundle, files).Return(mockBundle, nil)
 			mockAnalytics := mocks.NewMockAnalytics(ctrl)
 
-			codeScanner := codeclient.NewCodeScanner(mockBundleManager, mockInstrumentor, mockErrorReporter, mockAnalytics)
+			codeScanner := codeclient.NewCodeScanner(mockBundleManager, mockInstrumentor, mockErrorReporter, mockAnalytics, &logger)
 
 			response, bundle, err := codeScanner.UploadAndAnalyze(context.Background(), "testHost", baseDir, docs, map[string]bool{}, scanMetrics)
 			require.NoError(t, err)
@@ -81,14 +84,14 @@ func Test_UploadAndAnalyze(t *testing.T) {
 			mockInstrumentor.EXPECT().StartSpan(gomock.Any(), gomock.Any()).Return(mockSpan).AnyTimes()
 			mockInstrumentor.EXPECT().Finish(gomock.Any()).AnyTimes()
 			mockErrorReporter := mocks.NewMockErrorReporter(ctrl)
-			mockBundle := bundle.NewBundle(mocks3.NewMockSnykCodeClient(ctrl), mockInstrumentor, mockErrorReporter, "testBundleHash", "testRequestId", baseDir, files, []string{}, []string{})
+			mockBundle := bundle.NewBundle(mocks3.NewMockSnykCodeClient(ctrl), mockInstrumentor, mockErrorReporter, &logger, "testBundleHash", "testRequestId", baseDir, files, []string{}, []string{})
 			mockBundleManager := mocks2.NewMockBundleManager(ctrl)
 			mockBundleManager.EXPECT().Create(gomock.Any(), "testHost", "testRequestId", baseDir, gomock.Any(), map[string]bool{}).Return(mockBundle, nil)
 			mockBundleManager.EXPECT().Upload(gomock.Any(), "testHost", mockBundle, files).Return(mockBundle, nil)
 			mockAnalytics := mocks.NewMockAnalytics(ctrl)
 			mockAnalytics.EXPECT().TrackScan(true, gomock.AssignableToTypeOf(observability.ScanMetrics{}))
 
-			codeScanner := codeclient.NewCodeScanner(mockBundleManager, mockInstrumentor, mockErrorReporter, mockAnalytics)
+			codeScanner := codeclient.NewCodeScanner(mockBundleManager, mockInstrumentor, mockErrorReporter, mockAnalytics, &logger)
 
 			response, bundle, err := codeScanner.UploadAndAnalyze(context.Background(), "testHost", baseDir, docs, map[string]bool{}, scanMetrics)
 			require.NoError(t, err)

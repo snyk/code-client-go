@@ -18,14 +18,13 @@ package bundle
 
 import (
 	"context"
-
-	"github.com/rs/zerolog/log"
+	"github.com/rs/zerolog"
 
 	"github.com/snyk/code-client-go/deepcode"
 	"github.com/snyk/code-client-go/observability"
 )
 
-//go:generate mockgen -destination=mocks/deepCodeBundle.go -source=deepCodeBundle.go -package mocks
+//go:generate mockgen -destination=mocks/bundle.go -source=bundle.go -package mocks
 type Bundle interface {
 	UploadBatch(ctx context.Context, host string, batch *Batch) error
 	GetBundleHash() string
@@ -39,6 +38,7 @@ type deepCodeBundle struct {
 	SnykCode      deepcode.SnykCodeClient
 	instrumentor  observability.Instrumentor
 	errorReporter observability.ErrorReporter
+	logger        *zerolog.Logger
 	requestId     string
 	rootPath      string
 	files         map[string]deepcode.BundleFile
@@ -48,11 +48,23 @@ type deepCodeBundle struct {
 	limitToFiles  []string
 }
 
-func NewBundle(snykCode deepcode.SnykCodeClient, instrumentor observability.Instrumentor, errorReporter observability.ErrorReporter, bundleHash string, requestId string, rootPath string, files map[string]deepcode.BundleFile, limitToFiles []string, missingFiles []string) *deepCodeBundle {
+func NewBundle(
+	snykCode deepcode.SnykCodeClient,
+	instrumentor observability.Instrumentor,
+	errorReporter observability.ErrorReporter,
+	logger *zerolog.Logger,
+	bundleHash string,
+	requestId string,
+	rootPath string,
+	files map[string]deepcode.BundleFile,
+	limitToFiles []string,
+	missingFiles []string,
+) *deepCodeBundle {
 	return &deepCodeBundle{
 		SnykCode:      snykCode,
 		instrumentor:  instrumentor,
 		errorReporter: errorReporter,
+		logger:        logger,
 		bundleHash:    bundleHash,
 		requestId:     requestId,
 		rootPath:      rootPath,
@@ -96,7 +108,7 @@ func (b *deepCodeBundle) extendBundle(ctx context.Context, host string, uploadBa
 	var err error
 	if uploadBatch.hasContent() {
 		b.bundleHash, b.missingFiles, err = b.SnykCode.ExtendBundle(ctx, host, b.bundleHash, uploadBatch.documents, []string{})
-		log.Debug().Str("requestId", b.requestId).Interface("MissingFiles", b.missingFiles).Msg("extended deepCodeBundle on backend")
+		b.logger.Debug().Str("requestId", b.requestId).Interface("MissingFiles", b.missingFiles).Msg("extended deepCodeBundle on backend")
 	}
 
 	return err
