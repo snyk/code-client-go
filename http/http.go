@@ -24,8 +24,6 @@ import (
 	"time"
 
 	"github.com/rs/zerolog"
-	"github.com/snyk/go-application-framework/pkg/configuration"
-	"github.com/snyk/go-application-framework/pkg/workflow"
 
 	"github.com/snyk/code-client-go/internal/util/encoding"
 	"github.com/snyk/code-client-go/observability"
@@ -33,8 +31,8 @@ import (
 
 //go:generate mockgen -destination=mocks/http.go -source=http.go -package mocks
 type HTTPClient interface {
+	Config() Config
 	DoCall(ctx context.Context,
-		config configuration.Configuration,
 		host string,
 		method string,
 		path string,
@@ -47,16 +45,22 @@ type httpClient struct {
 	instrumentor  observability.Instrumentor
 	errorReporter observability.ErrorReporter
 	logger        *zerolog.Logger
+	config        Config
+}
+
+type Config interface {
+	Organization() string
+	IsFedramp() bool
 }
 
 func NewHTTPClient(
-	engine workflow.Engine,
+	logger *zerolog.Logger,
+	config Config,
 	clientFactory func() *http.Client,
 	instrumentor observability.Instrumentor,
 	errorReporter observability.ErrorReporter,
 ) HTTPClient {
-	logger := engine.GetLogger()
-	return &httpClient{clientFactory, instrumentor, errorReporter, logger}
+	return &httpClient{clientFactory, instrumentor, errorReporter, logger, config}
 }
 
 var retryErrorCodes = map[int]bool{
@@ -66,8 +70,11 @@ var retryErrorCodes = map[int]bool{
 	http.StatusInternalServerError: true,
 }
 
+func (s *httpClient) Config() Config {
+	return s.config
+}
+
 func (s *httpClient) DoCall(ctx context.Context,
-	config configuration.Configuration,
 	host string,
 	method string,
 	path string,
@@ -87,7 +94,7 @@ func (s *httpClient) DoCall(ctx context.Context,
 		}
 
 		var req *http.Request
-		req, err = s.newRequest(config, host, method, path, bodyBuffer, requestId)
+		req, err = s.newRequest(host, method, path, bodyBuffer, requestId)
 		if err != nil {
 			return nil, err
 		}
@@ -127,7 +134,6 @@ func (s *httpClient) DoCall(ctx context.Context,
 }
 
 func (s *httpClient) newRequest(
-	config configuration.Configuration,
 	host string,
 	method string,
 	path string,
@@ -139,7 +145,7 @@ func (s *httpClient) newRequest(
 		return nil, err
 	}
 
-	s.addOrganization(config, req)
+	s.addOrganization(req)
 	s.addDefaultHeaders(req, requestId, method)
 	return req, nil
 }
@@ -169,9 +175,9 @@ func (s *httpClient) httpCall(req *http.Request) (*http.Response, []byte, error)
 	return response, responseBody, nil
 }
 
-func (s *httpClient) addOrganization(config configuration.Configuration, req *http.Request) {
+func (s *httpClient) addOrganization(req *http.Request) {
 	// Setting a chosen org name for the request
-	org := config.GetString(configuration.ORGANIZATION)
+	org := s.config.Organization()
 	if org != "" {
 		req.Header.Set("snyk-org-name", org)
 	}

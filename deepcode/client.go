@@ -25,8 +25,6 @@ import (
 	"strconv"
 
 	"github.com/rs/zerolog"
-	"github.com/snyk/go-application-framework/pkg/configuration"
-	"github.com/snyk/go-application-framework/pkg/workflow"
 
 	codeClientHTTP "github.com/snyk/code-client-go/http"
 	"github.com/snyk/code-client-go/observability"
@@ -71,17 +69,15 @@ type BundleResponse struct {
 type snykCodeClient struct {
 	httpClient   codeClientHTTP.HTTPClient
 	instrumentor observability.Instrumentor
-	engine       workflow.Engine
 	logger       *zerolog.Logger
 }
 
 func NewSnykCodeClient(
-	engine workflow.Engine,
+	logger *zerolog.Logger,
 	httpClient codeClientHTTP.HTTPClient,
 	instrumentor observability.Instrumentor,
 ) *snykCodeClient {
-	logger := engine.GetLogger()
-	return &snykCodeClient{httpClient, instrumentor, engine, logger}
+	return &snykCodeClient{httpClient, instrumentor, logger}
 }
 
 func (s *snykCodeClient) GetFilters(ctx context.Context, snykCodeApiUrl string) (
@@ -95,14 +91,12 @@ func (s *snykCodeClient) GetFilters(ctx context.Context, snykCodeApiUrl string) 
 	span := s.instrumentor.StartSpan(ctx, method)
 	defer s.instrumentor.Finish(span)
 
-	c := s.engine.GetConfiguration()
-
 	host, err := s.FormatCodeApiURL(snykCodeApiUrl)
 	if err != nil {
 		return FiltersResponse{ConfigFiles: nil, Extensions: nil}, err
 	}
 
-	responseBody, err := s.httpClient.DoCall(span.Context(), c, host, "GET", "/filters", nil)
+	responseBody, err := s.httpClient.DoCall(span.Context(), host, "GET", "/filters", nil)
 	if err != nil {
 		return FiltersResponse{ConfigFiles: nil, Extensions: nil}, err
 	}
@@ -132,14 +126,12 @@ func (s *snykCodeClient) CreateBundle(
 		return "", nil, err
 	}
 
-	c := s.engine.GetConfiguration()
-
 	host, err := s.FormatCodeApiURL(snykCodeApiUrl)
 	if err != nil {
 		return "", nil, err
 	}
 
-	responseBody, err := s.httpClient.DoCall(span.Context(), c, host, "POST", "/bundle", requestBody)
+	responseBody, err := s.httpClient.DoCall(span.Context(), host, "POST", "/bundle", requestBody)
 	if err != nil {
 		return "", nil, err
 	}
@@ -176,14 +168,12 @@ func (s *snykCodeClient) ExtendBundle(
 		return "", nil, err
 	}
 
-	c := s.engine.GetConfiguration()
-
 	host, err := s.FormatCodeApiURL(snykCodeApiUrl)
 	if err != nil {
 		return "", nil, err
 	}
 
-	responseBody, err := s.httpClient.DoCall(span.Context(), c, host, "PUT", "/bundle/"+bundleHash, requestBody)
+	responseBody, err := s.httpClient.DoCall(span.Context(), host, "PUT", "/bundle/"+bundleHash, requestBody)
 	if err != nil {
 		return "", nil, err
 	}
@@ -196,9 +186,7 @@ var codeApiRegex = regexp.MustCompile(`^(deeproxy\.)?`)
 
 // This is only exported for tests.
 func (s *snykCodeClient) FormatCodeApiURL(snykCodeApiUrl string) (string, error) {
-	config := s.engine.GetConfiguration()
-
-	if !config.GetBool(configuration.IS_FEDRAMP) {
+	if !s.httpClient.Config().IsFedramp() {
 		return snykCodeApiUrl, nil
 	}
 	u, err := url.Parse(snykCodeApiUrl)
@@ -208,7 +196,7 @@ func (s *snykCodeClient) FormatCodeApiURL(snykCodeApiUrl string) (string, error)
 
 	u.Host = codeApiRegex.ReplaceAllString(u.Host, "api.")
 
-	organization := config.GetString(configuration.ORGANIZATION)
+	organization := s.httpClient.Config().Organization()
 	if organization == "" {
 		return "", errors.New("Organization is required in a fedramp environment")
 	}

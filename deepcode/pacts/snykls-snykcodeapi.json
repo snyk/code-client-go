@@ -12,20 +12,10 @@
         "method": "GET",
         "path": "/filters",
         "headers": {
-          "Authorization": "token fc763eba-0905-41c5-a27f-3934ab26786c",
           "Content-Type": "application/json",
-          "Session-Token": "token fc763eba-0905-41c5-a27f-3934ab26786c",
           "snyk-request-id": "fc763eba-0905-41c5-a27f-3934ab26786c"
         },
         "matchingRules": {
-          "$.headers.Authorization": {
-            "match": "regex",
-            "regex": "^token [0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}"
-          },
-          "$.headers.Session-Token": {
-            "match": "regex",
-            "regex": "^token [0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}"
-          },
           "$.headers.snyk-request-id": {
             "match": "regex",
             "regex": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}"

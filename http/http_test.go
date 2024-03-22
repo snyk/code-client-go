@@ -21,11 +21,11 @@ import (
 	"testing"
 
 	"github.com/golang/mock/gomock"
-	"github.com/snyk/go-application-framework/pkg/configuration"
-	"github.com/snyk/go-application-framework/pkg/workflow"
+	"github.com/rs/zerolog"
 	"github.com/stretchr/testify/assert"
 
 	codeClientHTTP "github.com/snyk/code-client-go/http"
+	httpmocks "github.com/snyk/code-client-go/http/mocks"
 	"github.com/snyk/code-client-go/observability"
 	"github.com/snyk/code-client-go/observability/mocks"
 )
@@ -60,9 +60,12 @@ func TestSnykCodeBackendService_DoCall_shouldRetry(t *testing.T) {
 	mockInstrumentor.EXPECT().StartSpan(gomock.Any(), gomock.Any()).Return(mockSpan).Times(1)
 	mockInstrumentor.EXPECT().Finish(gomock.Any()).Times(1)
 	mockErrorReporter := mocks.NewMockErrorReporter(ctrl)
+	config := httpmocks.NewMockConfig(ctrl)
+	config.EXPECT().IsFedramp().AnyTimes().Return(false)
+	config.EXPECT().Organization().AnyTimes().Return("")
 
-	s := codeClientHTTP.NewHTTPClient(workflow.NewDefaultWorkFlowEngine(), dummyClientFactory, mockInstrumentor, mockErrorReporter)
-	_, err := s.DoCall(context.Background(), configuration.New(), "", "GET", "https: //httpstat.us/500", nil)
+	s := codeClientHTTP.NewHTTPClient(newLogger(t), config, dummyClientFactory, mockInstrumentor, mockErrorReporter)
+	_, err := s.DoCall(context.Background(), "", "GET", "https: //httpstat.us/500", nil)
 	assert.Error(t, err)
 	assert.Equal(t, 3, d.calls)
 }
@@ -80,8 +83,17 @@ func TestSnykCodeBackendService_doCall_rejected(t *testing.T) {
 	mockInstrumentor.EXPECT().Finish(gomock.Any()).Times(1)
 	mockErrorReporter := mocks.NewMockErrorReporter(ctrl)
 	mockErrorReporter.EXPECT().CaptureError(gomock.Any(), observability.ErrorReporterOptions{ErrorDiagnosticPath: ""})
+	config := httpmocks.NewMockConfig(ctrl)
+	config.EXPECT().IsFedramp().AnyTimes().Return(false)
+	config.EXPECT().Organization().AnyTimes().Return("")
 
-	s := codeClientHTTP.NewHTTPClient(workflow.NewDefaultWorkFlowEngine(), dummyClientFactory, mockInstrumentor, mockErrorReporter)
-	_, err := s.DoCall(context.Background(), configuration.New(), "", "GET", "https://127.0.0.1", nil)
+	s := codeClientHTTP.NewHTTPClient(newLogger(t), config, dummyClientFactory, mockInstrumentor, mockErrorReporter)
+	_, err := s.DoCall(context.Background(), "", "GET", "https://127.0.0.1", nil)
 	assert.Error(t, err)
+}
+
+func newLogger(t *testing.T) *zerolog.Logger {
+	t.Helper()
+	logger := zerolog.New(zerolog.NewTestWriter(t))
+	return &logger
 }

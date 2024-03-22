@@ -9,7 +9,7 @@ import (
 	reflect "reflect"
 
 	gomock "github.com/golang/mock/gomock"
-	configuration "github.com/snyk/go-application-framework/pkg/configuration"
+	http "github.com/snyk/code-client-go/http"
 )
 
 // MockHTTPClient is a mock of HTTPClient interface.
@@ -35,17 +35,82 @@ func (m *MockHTTPClient) EXPECT() *MockHTTPClientMockRecorder {
 	return m.recorder
 }
 
-// DoCall mocks base method.
-func (m *MockHTTPClient) DoCall(ctx context.Context, config configuration.Configuration, host, method, path string, requestBody []byte) ([]byte, error) {
+// Config mocks base method.
+func (m *MockHTTPClient) Config() http.Config {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "DoCall", ctx, config, host, method, path, requestBody)
+	ret := m.ctrl.Call(m, "Config")
+	ret0, _ := ret[0].(http.Config)
+	return ret0
+}
+
+// Config indicates an expected call of Config.
+func (mr *MockHTTPClientMockRecorder) Config() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Config", reflect.TypeOf((*MockHTTPClient)(nil).Config))
+}
+
+// DoCall mocks base method.
+func (m *MockHTTPClient) DoCall(ctx context.Context, host, method, path string, requestBody []byte) ([]byte, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "DoCall", ctx, host, method, path, requestBody)
 	ret0, _ := ret[0].([]byte)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // DoCall indicates an expected call of DoCall.
-func (mr *MockHTTPClientMockRecorder) DoCall(ctx, config, host, method, path, requestBody interface{}) *gomock.Call {
+func (mr *MockHTTPClientMockRecorder) DoCall(ctx, host, method, path, requestBody interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DoCall", reflect.TypeOf((*MockHTTPClient)(nil).DoCall), ctx, config, host, method, path, requestBody)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DoCall", reflect.TypeOf((*MockHTTPClient)(nil).DoCall), ctx, host, method, path, requestBody)
+}
+
+// MockConfig is a mock of Config interface.
+type MockConfig struct {
+	ctrl     *gomock.Controller
+	recorder *MockConfigMockRecorder
+}
+
+// MockConfigMockRecorder is the mock recorder for MockConfig.
+type MockConfigMockRecorder struct {
+	mock *MockConfig
+}
+
+// NewMockConfig creates a new mock instance.
+func NewMockConfig(ctrl *gomock.Controller) *MockConfig {
+	mock := &MockConfig{ctrl: ctrl}
+	mock.recorder = &MockConfigMockRecorder{mock}
+	return mock
+}
+
+// EXPECT returns an object that allows the caller to indicate expected use.
+func (m *MockConfig) EXPECT() *MockConfigMockRecorder {
+	return m.recorder
+}
+
+// IsFedramp mocks base method.
+func (m *MockConfig) IsFedramp() bool {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "IsFedramp")
+	ret0, _ := ret[0].(bool)
+	return ret0
+}
+
+// IsFedramp indicates an expected call of IsFedramp.
+func (mr *MockConfigMockRecorder) IsFedramp() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "IsFedramp", reflect.TypeOf((*MockConfig)(nil).IsFedramp))
+}
+
+// Organization mocks base method.
+func (m *MockConfig) Organization() string {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Organization")
+	ret0, _ := ret[0].(string)
+	return ret0
+}
+
+// Organization indicates an expected call of Organization.
+func (mr *MockConfigMockRecorder) Organization() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Organization", reflect.TypeOf((*MockConfig)(nil).Organization))
 }

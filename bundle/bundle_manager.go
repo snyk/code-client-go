@@ -18,12 +18,12 @@ package bundle
 
 import (
 	"context"
-	"github.com/rs/zerolog"
-	"github.com/snyk/go-application-framework/pkg/workflow"
 	"os"
 	"path/filepath"
 
 	"github.com/puzpuzpuz/xsync"
+	"github.com/rs/zerolog"
+
 	"github.com/snyk/code-client-go/deepcode"
 	"github.com/snyk/code-client-go/internal/util"
 	"github.com/snyk/code-client-go/observability"
@@ -58,7 +58,7 @@ type BundleManager interface {
 }
 
 func NewBundleManager(
-	engine workflow.Engine,
+	logger *zerolog.Logger,
 	SnykCode deepcode.SnykCodeClient,
 	instrumentor observability.Instrumentor,
 	errorReporter observability.ErrorReporter,
@@ -67,7 +67,7 @@ func NewBundleManager(
 		SnykCode:             SnykCode,
 		instrumentor:         instrumentor,
 		errorReporter:        errorReporter,
-		logger:               engine.GetLogger(),
+		logger:               logger,
 		supportedExtensions:  xsync.NewMapOf[bool](),
 		supportedConfigFiles: xsync.NewMapOf[bool](),
 	}
