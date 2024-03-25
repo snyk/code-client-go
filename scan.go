@@ -34,7 +34,6 @@ type codeScanner struct {
 	bundleManager bundle.BundleManager
 	instrumentor  observability.Instrumentor
 	errorReporter observability.ErrorReporter
-	analytics     observability.Analytics
 	logger        *zerolog.Logger
 }
 
@@ -45,7 +44,6 @@ type CodeScanner interface {
 		path string,
 		files <-chan string,
 		changedFiles map[string]bool,
-		scanMetrics observability.ScanMetrics,
 	) (*sarif.SarifResponse, bundle.Bundle, error)
 }
 
@@ -54,14 +52,12 @@ func NewCodeScanner(
 	bundleManager bundle.BundleManager,
 	instrumentor observability.Instrumentor,
 	errorReporter observability.ErrorReporter,
-	analytics observability.Analytics,
 	logger *zerolog.Logger,
 ) *codeScanner {
 	return &codeScanner{
 		bundleManager: bundleManager,
 		instrumentor:  instrumentor,
 		errorReporter: errorReporter,
-		analytics:     analytics,
 		logger:        logger,
 	}
 }
@@ -73,7 +69,6 @@ func (c *codeScanner) UploadAndAnalyze(
 	path string,
 	files <-chan string,
 	changedFiles map[string]bool,
-	scanMetrics observability.ScanMetrics,
 ) (*sarif.SarifResponse, bundle.Bundle, error) {
 	if ctx.Err() != nil {
 		c.logger.Info().Msg("Canceling Code scan - Code scanner received cancellation signal")
@@ -94,7 +89,6 @@ func (c *codeScanner) UploadAndAnalyze(
 		if ctx.Err() == nil { // Only report errors that are not intentional cancellations
 			msg := "error creating bundle..."
 			c.errorReporter.CaptureError(errors.Wrap(err, msg), observability.ErrorReporterOptions{ErrorDiagnosticPath: path})
-			c.analytics.TrackScan(err == nil, scanMetrics)
 			return nil, nil, err
 		} else {
 			c.logger.Info().Msg("Canceling Code scan - Code scanner received cancellation signal")
@@ -103,14 +97,12 @@ func (c *codeScanner) UploadAndAnalyze(
 	}
 
 	uploadedFiles := b.GetFiles()
-	scanMetrics.SetLastScanFileCount(len(uploadedFiles))
 
 	b, err = c.bundleManager.Upload(span.Context(), host, b, uploadedFiles)
 	if err != nil {
 		if ctx.Err() != nil { // Only handle errors that are not intentional cancellations
 			msg := "error uploading files..."
 			c.errorReporter.CaptureError(errors.Wrap(err, msg), observability.ErrorReporterOptions{ErrorDiagnosticPath: path})
-			c.analytics.TrackScan(err == nil, scanMetrics)
 			return nil, b, err
 		} else {
 			log.Info().Msg("Canceling Code scan - Code scanner received cancellation signal")
@@ -129,6 +121,5 @@ func (c *codeScanner) UploadAndAnalyze(
 		return nil, nil, nil
 	}
 
-	c.analytics.TrackScan(err == nil, scanMetrics)
-	return response, b, nil
+	return response, b, err
 }

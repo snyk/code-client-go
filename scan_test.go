@@ -17,13 +17,12 @@ package codeclient_test
 
 import (
 	"context"
-	"github.com/rs/zerolog"
 	"os"
 	"path/filepath"
 	"testing"
-	"time"
 
 	"github.com/golang/mock/gomock"
+	"github.com/rs/zerolog"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
@@ -32,7 +31,6 @@ import (
 	mocks2 "github.com/snyk/code-client-go/bundle/mocks"
 	"github.com/snyk/code-client-go/deepcode"
 	mocks3 "github.com/snyk/code-client-go/deepcode/mocks"
-	"github.com/snyk/code-client-go/observability"
 	"github.com/snyk/code-client-go/observability/mocks"
 )
 
@@ -43,8 +41,6 @@ func Test_UploadAndAnalyze(t *testing.T) {
 		firstDocPath: deepcode.BundleFileFrom(firstDocPath, firstDocContent),
 		firstDocPath: deepcode.BundleFileFrom(secondDocPath, secondDocContent),
 	}
-
-	scanMetrics := observability.NewScanMetrics(time.Now(), 0)
 
 	logger := zerolog.Nop()
 
@@ -62,11 +58,10 @@ func Test_UploadAndAnalyze(t *testing.T) {
 			mockBundleManager := mocks2.NewMockBundleManager(ctrl)
 			mockBundleManager.EXPECT().Create(gomock.Any(), "testHost", "testRequestId", baseDir, gomock.Any(), map[string]bool{}).Return(mockBundle, nil)
 			mockBundleManager.EXPECT().Upload(gomock.Any(), "testHost", mockBundle, files).Return(mockBundle, nil)
-			mockAnalytics := mocks.NewMockAnalytics(ctrl)
 
-			codeScanner := codeclient.NewCodeScanner(mockBundleManager, mockInstrumentor, mockErrorReporter, mockAnalytics, &logger)
+			codeScanner := codeclient.NewCodeScanner(mockBundleManager, mockInstrumentor, mockErrorReporter, &logger)
 
-			response, bundle, err := codeScanner.UploadAndAnalyze(context.Background(), "testHost", baseDir, docs, map[string]bool{}, scanMetrics)
+			response, bundle, err := codeScanner.UploadAndAnalyze(context.Background(), "testHost", baseDir, docs, map[string]bool{})
 			require.NoError(t, err)
 			assert.Equal(t, "", bundle.GetBundleHash())
 			assert.Equal(t, files, bundle.GetFiles())
@@ -88,12 +83,10 @@ func Test_UploadAndAnalyze(t *testing.T) {
 			mockBundleManager := mocks2.NewMockBundleManager(ctrl)
 			mockBundleManager.EXPECT().Create(gomock.Any(), "testHost", "testRequestId", baseDir, gomock.Any(), map[string]bool{}).Return(mockBundle, nil)
 			mockBundleManager.EXPECT().Upload(gomock.Any(), "testHost", mockBundle, files).Return(mockBundle, nil)
-			mockAnalytics := mocks.NewMockAnalytics(ctrl)
-			mockAnalytics.EXPECT().TrackScan(true, gomock.AssignableToTypeOf(observability.ScanMetrics{}))
 
-			codeScanner := codeclient.NewCodeScanner(mockBundleManager, mockInstrumentor, mockErrorReporter, mockAnalytics, &logger)
+			codeScanner := codeclient.NewCodeScanner(mockBundleManager, mockInstrumentor, mockErrorReporter, &logger)
 
-			response, bundle, err := codeScanner.UploadAndAnalyze(context.Background(), "testHost", baseDir, docs, map[string]bool{}, scanMetrics)
+			response, bundle, err := codeScanner.UploadAndAnalyze(context.Background(), "testHost", baseDir, docs, map[string]bool{})
 			require.NoError(t, err)
 			assert.Equal(t, "COMPLETE", response.Status)
 			assert.Equal(t, "testBundleHash", bundle.GetBundleHash())
