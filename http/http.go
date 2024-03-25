@@ -13,6 +13,8 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
+// Package http defines the HTTP client used to interact with the Snyk Code API.
 package http
 
 import (
@@ -46,11 +48,6 @@ type httpClient struct {
 	errorReporter observability.ErrorReporter
 	logger        *zerolog.Logger
 	config        Config
-}
-
-type Config interface {
-	Organization() string
-	IsFedramp() bool
 }
 
 func NewHTTPClient(

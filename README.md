@@ -14,13 +14,28 @@ $ go get github.com/snyk/code-client-go
 
 Use the HTTP client to make HTTP requests with configured retriable codes and authorisation headers for Snyk Rest APIs.
 
+Implement the `github.com/snyk/code-client-go/http.Config` interface to configure the Snyk Code API client from applications.
+
+Provide a net/http.Client factory to customize the underlying HTTP protocol behavior (timeouts, etc).
+
 ```go
-engine := workflow.NewDefaultWorkFlowEngine()
-httpClient := http.NewHTTPClient(engine, engine.GetNetworkAccess().GetHttpClient, codeInstrumentor, codeErrorReporter)
+import (
+    "net/http"
+
+    "github.com/rs/zerolog"
+    codehttp "github.com/snyk/code-client-go/http"
+)
+
+logger := zerlog.NewLogger(...)
+config := newConfigForMyApp()
+httpClient := codehttp.NewHTTPClient(logger, config, func() *http.Client { return http.DefaultClient }, codeInstrumentor, codeErrorReporter)
 ```
 
 The HTTP client exposes a `DoCall` function.
 
+### Configuration
+
+Implement the http.Config interface and  to configure the Snyk Code API client from applications.
 
 ### Snyk Code Client
 
@@ -28,8 +43,7 @@ Use the Snyk Code Client to make calls to the DeepCode API using the `httpClient
 
 
 ```go
-engine := workflow.NewDefaultWorkFlowEngine()
-snykCode := deepcode.NewSnykCodeClient(engine, httpClient, testutil.NewTestInstrumentor())
+snykCode := deepcode.NewSnykCodeClient(logger, httpClient, testutil.NewTestInstrumentor())
 ```
 
 The Snyk Code Client exposes the following functions:
