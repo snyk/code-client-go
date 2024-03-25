@@ -22,13 +22,11 @@ import (
 	"time"
 
 	"github.com/golang/mock/gomock"
-	"github.com/google/uuid"
-	"github.com/snyk/go-application-framework/pkg/configuration"
-	"github.com/snyk/go-application-framework/pkg/workflow"
+	"github.com/rs/zerolog"
 	"github.com/stretchr/testify/assert"
 
 	"github.com/snyk/code-client-go/deepcode"
-	mocks2 "github.com/snyk/code-client-go/http/mocks"
+	httpmocks "github.com/snyk/code-client-go/http/mocks"
 	"github.com/snyk/code-client-go/internal/util"
 	"github.com/snyk/code-client-go/observability/mocks"
 )
@@ -61,13 +59,18 @@ func TestSnykCodeBackendService_GetFilters(t *testing.T) {
 	mockSpan := mocks.NewMockSpan(ctrl)
 	mockSpan.EXPECT().GetTraceId().AnyTimes()
 	mockSpan.EXPECT().Context().AnyTimes()
-	mockHTTPClient := mocks2.NewMockHTTPClient(ctrl)
-	mockHTTPClient.EXPECT().DoCall(gomock.Any(), gomock.Any(), "http://fake-host", "GET", "/filters", gomock.Any()).Return([]byte(`{"configFiles": ["test"], "extensions": ["test"]}`), nil).Times(1)
+	mockConfig := httpmocks.NewMockConfig(ctrl)
+	mockConfig.EXPECT().Organization().AnyTimes().Return("")
+	mockConfig.EXPECT().IsFedramp().AnyTimes().Return(false)
+	mockHTTPClient := httpmocks.NewMockHTTPClient(ctrl)
+	mockHTTPClient.EXPECT().Config().AnyTimes().Return(mockConfig)
+	mockHTTPClient.EXPECT().DoCall(gomock.Any(), "http://fake-host", "GET", "/filters", gomock.Any()).Return([]byte(`{"configFiles": ["test"], "extensions": ["test"]}`), nil).Times(1)
+
 	mockInstrumentor := mocks.NewMockInstrumentor(ctrl)
 	mockInstrumentor.EXPECT().StartSpan(gomock.Any(), gomock.Any()).Return(mockSpan).Times(1)
 	mockInstrumentor.EXPECT().Finish(gomock.Any()).Times(1)
 
-	s := deepcode.NewSnykCodeClient(workflow.NewDefaultWorkFlowEngine(), mockHTTPClient, mockInstrumentor)
+	s := deepcode.NewSnykCodeClient(newLogger(t), mockHTTPClient, mockInstrumentor)
 	filters, err := s.GetFilters(context.Background(), "http://fake-host")
 	assert.Nil(t, err)
 	assert.Equal(t, 1, len(filters.ConfigFiles))
@@ -79,13 +82,17 @@ func TestSnykCodeBackendService_CreateBundle(t *testing.T) {
 	mockSpan := mocks.NewMockSpan(ctrl)
 	mockSpan.EXPECT().GetTraceId().AnyTimes()
 	mockSpan.EXPECT().Context().AnyTimes()
-	mockHTTPClient := mocks2.NewMockHTTPClient(ctrl)
-	mockHTTPClient.EXPECT().DoCall(gomock.Any(), gomock.Any(), "http://fake-host", "POST", "/bundle", gomock.Any()).Return([]byte(`{"bundleHash":   "bundleHash", "missingFiles": ["test"]}`), nil).Times(1)
+	mockConfig := httpmocks.NewMockConfig(ctrl)
+	mockConfig.EXPECT().Organization().AnyTimes().Return("")
+	mockConfig.EXPECT().IsFedramp().AnyTimes().Return(false)
+	mockHTTPClient := httpmocks.NewMockHTTPClient(ctrl)
+	mockHTTPClient.EXPECT().Config().AnyTimes().Return(mockConfig)
+	mockHTTPClient.EXPECT().DoCall(gomock.Any(), "http://fake-host", "POST", "/bundle", gomock.Any()).Return([]byte(`{"bundleHash":   "bundleHash", "missingFiles": ["test"]}`), nil).Times(1)
 	mockInstrumentor := mocks.NewMockInstrumentor(ctrl)
 	mockInstrumentor.EXPECT().StartSpan(gomock.Any(), gomock.Any()).Return(mockSpan).Times(1)
 	mockInstrumentor.EXPECT().Finish(gomock.Any()).Times(1)
 
-	s := deepcode.NewSnykCodeClient(workflow.NewDefaultWorkFlowEngine(), mockHTTPClient, mockInstrumentor)
+	s := deepcode.NewSnykCodeClient(newLogger(t), mockHTTPClient, mockInstrumentor)
 	files := map[string]string{}
 	randomAddition := fmt.Sprintf("\n public void random() { System.out.println(\"%d\") }", time.Now().UnixMicro())
 	files[path1] = util.Hash([]byte(content + randomAddition))
@@ -101,14 +108,18 @@ func TestSnykCodeBackendService_ExtendBundle(t *testing.T) {
 	mockSpan := mocks.NewMockSpan(ctrl)
 	mockSpan.EXPECT().GetTraceId().AnyTimes()
 	mockSpan.EXPECT().Context().AnyTimes()
-	mockHTTPClient := mocks2.NewMockHTTPClient(ctrl)
-	mockHTTPClient.EXPECT().DoCall(gomock.Any(), gomock.Any(), "http://fake-host", "POST", "/bundle", gomock.Any()).Return([]byte(`{"bundleHash":   "bundleHash", "missingFiles": []}`), nil).Times(1)
-	mockHTTPClient.EXPECT().DoCall(gomock.Any(), gomock.Any(), "http://fake-host", "PUT", "/bundle/bundleHash", gomock.Any()).Return([]byte(`{"bundleHash":   "bundleHash", "missingFiles": []}`), nil).Times(1)
+	mockConfig := httpmocks.NewMockConfig(ctrl)
+	mockConfig.EXPECT().Organization().AnyTimes().Return("")
+	mockConfig.EXPECT().IsFedramp().AnyTimes().Return(false)
+	mockHTTPClient := httpmocks.NewMockHTTPClient(ctrl)
+	mockHTTPClient.EXPECT().Config().AnyTimes().Return(mockConfig)
+	mockHTTPClient.EXPECT().DoCall(gomock.Any(), "http://fake-host", "POST", "/bundle", gomock.Any()).Return([]byte(`{"bundleHash":   "bundleHash", "missingFiles": []}`), nil).Times(1)
+	mockHTTPClient.EXPECT().DoCall(gomock.Any(), "http://fake-host", "PUT", "/bundle/bundleHash", gomock.Any()).Return([]byte(`{"bundleHash":   "bundleHash", "missingFiles": []}`), nil).Times(1)
 	mockInstrumentor := mocks.NewMockInstrumentor(ctrl)
 	mockInstrumentor.EXPECT().StartSpan(gomock.Any(), gomock.Any()).Return(mockSpan).Times(2)
 	mockInstrumentor.EXPECT().Finish(gomock.Any()).Times(2)
 
-	s := deepcode.NewSnykCodeClient(workflow.NewDefaultWorkFlowEngine(), mockHTTPClient, mockInstrumentor)
+	s := deepcode.NewSnykCodeClient(newLogger(t), mockHTTPClient, mockInstrumentor)
 	var removedFiles []string
 	files := map[string]string{}
 	files[path1] = util.Hash([]byte(content))
@@ -137,18 +148,17 @@ func createTestExtendMap() map[string]deepcode.BundleFile {
 
 func Test_getCodeApiUrl(t *testing.T) {
 	ctrl := gomock.NewController(t)
-	mockHTTPClient := mocks2.NewMockHTTPClient(ctrl)
 	mockInstrumentor := mocks.NewMockInstrumentor(ctrl)
+	logger := newLogger(t)
 
 	t.Run("Changes the URL if FedRAMP", func(t *testing.T) {
-		engine := workflow.NewDefaultWorkFlowEngine()
-		config := engine.GetConfiguration()
-		config.Set(configuration.IS_FEDRAMP, true)
-		random, _ := uuid.NewRandom()
-		orgUUID := random.String()
-		config.Set(configuration.ORGANIZATION, orgUUID)
-		engine.SetConfiguration(config)
-		s := deepcode.NewSnykCodeClient(engine, mockHTTPClient, mockInstrumentor)
+		mockHTTPClient := httpmocks.NewMockHTTPClient(ctrl)
+		config := httpmocks.NewMockConfig(ctrl)
+		config.EXPECT().IsFedramp().AnyTimes().Return(true)
+		config.EXPECT().Organization().AnyTimes().Return(orgUUID)
+		mockHTTPClient.EXPECT().Config().AnyTimes().Return(config)
+
+		s := deepcode.NewSnykCodeClient(logger, mockHTTPClient, mockInstrumentor)
 
 		input := "https://snyk.io/api/v1"
 		expected := "https://api.snyk.io/hidden/orgs/" + orgUUID + "/code"
@@ -159,11 +169,13 @@ func Test_getCodeApiUrl(t *testing.T) {
 	})
 
 	t.Run("Does not change the URL if it's not FedRAMP", func(t *testing.T) {
-		engine := workflow.NewDefaultWorkFlowEngine()
-		config := engine.GetConfiguration()
-		config.Set(configuration.IS_FEDRAMP, false)
-		engine.SetConfiguration(config)
-		s := deepcode.NewSnykCodeClient(engine, mockHTTPClient, mockInstrumentor)
+		mockHTTPClient := httpmocks.NewMockHTTPClient(ctrl)
+		config := httpmocks.NewMockConfig(ctrl)
+		config.EXPECT().IsFedramp().AnyTimes().Return(false)
+		config.EXPECT().Organization().AnyTimes().Return("")
+		mockHTTPClient.EXPECT().Config().AnyTimes().Return(config)
+
+		s := deepcode.NewSnykCodeClient(logger, mockHTTPClient, mockInstrumentor)
 
 		input := "https://snyk.io/api/v1"
 		expected := "https://snyk.io/api/v1"
@@ -173,4 +185,10 @@ func Test_getCodeApiUrl(t *testing.T) {
 		assert.Nil(t, err)
 		assert.Contains(t, actual, expected)
 	})
+}
+
+func newLogger(t *testing.T) *zerolog.Logger {
+	t.Helper()
+	logger := zerolog.New(zerolog.NewTestWriter(t))
+	return &logger
 }

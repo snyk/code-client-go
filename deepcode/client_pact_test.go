@@ -22,13 +22,13 @@ import (
 	"net/http"
 	"testing"
 
+	"github.com/golang/mock/gomock"
 	"github.com/pact-foundation/pact-go/dsl"
-	"github.com/snyk/go-application-framework/pkg/configuration"
-	"github.com/snyk/go-application-framework/pkg/workflow"
 	"github.com/stretchr/testify/assert"
 
 	"github.com/snyk/code-client-go/deepcode"
 	codeClientHTTP "github.com/snyk/code-client-go/http"
+	httpmocks "github.com/snyk/code-client-go/http/mocks"
 	"github.com/snyk/code-client-go/internal/util"
 	"github.com/snyk/code-client-go/internal/util/testutil"
 )
@@ -206,11 +206,10 @@ func TestSnykCodeBackendServicePact(t *testing.T) {
 func setupPact(t *testing.T) string {
 	t.Helper()
 
-	config := configuration.NewInMemory()
-	config.Set(configuration.ORGANIZATION, orgUUID)
-	config.Set(configuration.AUTHENTICATION_TOKEN, "00000000-0000-0000-0000-000000000001")
-
-	engine := workflow.NewWorkFlowEngine(config)
+	ctrl := gomock.NewController(t)
+	config := httpmocks.NewMockConfig(ctrl)
+	config.EXPECT().IsFedramp().AnyTimes().Return(false)
+	config.EXPECT().Organization().AnyTimes().Return(orgUUID)
 
 	pact = dsl.Pact{
 		Consumer: consumer,
@@ -221,16 +220,13 @@ func setupPact(t *testing.T) string {
 	// Proactively start service to get access to the port
 	pact.Setup(true)
 	snykCodeApiUrl := fmt.Sprintf("http://localhost:%d", pact.Server.Port)
-	additionalURLs := config.GetStringSlice(configuration.AUTHENTICATION_ADDITIONAL_URLS)
-	additionalURLs = append(additionalURLs, snykCodeApiUrl)
-	config.Set(configuration.AUTHENTICATION_ADDITIONAL_URLS, additionalURLs)
 
 	instrumentor := testutil.NewTestInstrumentor()
 	errorReporter := testutil.NewTestErrorReporter()
-	httpClient := codeClientHTTP.NewHTTPClient(engine, func() *http.Client {
-		return engine.GetNetworkAccess().GetHttpClient()
+	httpClient := codeClientHTTP.NewHTTPClient(newLogger(t), config, func() *http.Client {
+		return http.DefaultClient
 	}, instrumentor, errorReporter)
-	client = deepcode.NewSnykCodeClient(engine, httpClient, instrumentor)
+	client = deepcode.NewSnykCodeClient(newLogger(t), httpClient, instrumentor)
 
 	return snykCodeApiUrl
 }
@@ -239,7 +235,6 @@ func getPutPostHeaderMatcher() dsl.MapMatcher {
 	return dsl.MapMatcher{
 		"Content-Type":     dsl.String("application/octet-stream"),
 		"Content-Encoding": dsl.String("gzip"),
-		"Session-Token":    dsl.Regex("token fc763eba-0905-41c5-a27f-3934ab26786c", sessionTokenMatcher),
 		"snyk-org-name":    dsl.Regex(orgUUID, uuidMatcher),
 		"snyk-request-id":  getSnykRequestIdMatcher(),
 	}
@@ -264,8 +259,6 @@ func TestSnykCodeBackendServicePact_LocalCodeEngine(t *testing.T) {
 		Headers: dsl.MapMatcher{
 			"Content-Type":    dsl.String("application/json"),
 			"snyk-request-id": getSnykRequestIdMatcher(),
-			"Session-Token":   dsl.Regex("token fc763eba-0905-41c5-a27f-3934ab26786c", sessionTokenMatcher),
-			"Authorization":   dsl.Regex("token fc763eba-0905-41c5-a27f-3934ab26786c", sessionTokenMatcher),
 		},
 	}).WillRespondWith(dsl.Response{
 		Status: 200,
