@@ -35,6 +35,18 @@ git fetch
 git pull --ff-only
 ```
 
+## Updating the API clients
+
+In order to update the clients you need access to some private Snyk repositories. Generate a [PAT](https://docs.github.com/en/authentication/keeping-your-account-and-data-secure/managing-your-personal-access-tokens) that is able to read private Snyk repositories and set it in your terminal:
+
+```shell
+export GITHUB_PAT=<GITHUB_PAT>
+```
+
+Then run `make download-apis` to download the latest code. If you want to download a new version, you can also do that.
+
+Then generate the client by running `make generate`.
+
 ## Running tests
 
 To run the tests run:
