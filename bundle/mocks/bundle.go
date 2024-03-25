@@ -107,15 +107,15 @@ func (mr *MockBundleMockRecorder) GetRootPath() *gomock.Call {
 }
 
 // UploadBatch mocks base method.
-func (m *MockBundle) UploadBatch(ctx context.Context, host string, batch *bundle.Batch) error {
+func (m *MockBundle) UploadBatch(ctx context.Context, batch *bundle.Batch) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "UploadBatch", ctx, host, batch)
+	ret := m.ctrl.Call(m, "UploadBatch", ctx, batch)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // UploadBatch indicates an expected call of UploadBatch.
-func (mr *MockBundleMockRecorder) UploadBatch(ctx, host, batch interface{}) *gomock.Call {
+func (mr *MockBundleMockRecorder) UploadBatch(ctx, batch interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UploadBatch", reflect.TypeOf((*MockBundle)(nil).UploadBatch), ctx, host, batch)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UploadBatch", reflect.TypeOf((*MockBundle)(nil).UploadBatch), ctx, batch)
 }

@@ -38,9 +38,8 @@ const (
 	pactDir      = "./pacts"
 	pactProvider = "SnykCodeApi"
 
-	orgUUID             = "00000000-0000-0000-0000-000000000023"
-	sessionTokenMatcher = "^token [0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}"
-	uuidMatcher         = "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}"
+	orgUUID     = "00000000-0000-0000-0000-000000000023"
+	uuidMatcher = "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}"
 )
 
 // Common test data
@@ -48,7 +47,7 @@ var pact dsl.Pact
 var client deepcode.SnykCodeClient
 
 func TestSnykCodeBackendServicePact(t *testing.T) {
-	snykCodeApiUrl := setupPact(t)
+	setupPact(t)
 	defer pact.Teardown()
 
 	defer func() {
@@ -74,7 +73,7 @@ func TestSnykCodeBackendServicePact(t *testing.T) {
 		test := func() error {
 			files := make(map[string]string)
 			files[path1] = util.Hash([]byte(content))
-			bundleHash, missingFiles, err := client.CreateBundle(context.Background(), snykCodeApiUrl, files)
+			bundleHash, missingFiles, err := client.CreateBundle(context.Background(), files)
 
 			if err != nil {
 				return err
@@ -115,7 +114,7 @@ func TestSnykCodeBackendServicePact(t *testing.T) {
 		test := func() error {
 			files := make(map[string]string)
 			files[path1] = util.Hash([]byte(content))
-			_, _, err := client.CreateBundle(context.Background(), snykCodeApiUrl, files)
+			_, _, err := client.CreateBundle(context.Background(), files)
 
 			if err != nil {
 				return nil
@@ -151,7 +150,7 @@ func TestSnykCodeBackendServicePact(t *testing.T) {
 			filesExtend := createTestExtendMap()
 			var removedFiles []string
 
-			extendedBundleHash, missingFiles, err := client.ExtendBundle(context.Background(), snykCodeApiUrl, bundleHash, filesExtend, removedFiles)
+			extendedBundleHash, missingFiles, err := client.ExtendBundle(context.Background(), bundleHash, filesExtend, removedFiles)
 
 			if err != nil {
 				return err
@@ -190,7 +189,7 @@ func TestSnykCodeBackendServicePact(t *testing.T) {
 		})
 
 		test := func() error {
-			if _, err := client.GetFilters(context.Background(), snykCodeApiUrl); err != nil {
+			if _, err := client.GetFilters(context.Background()); err != nil {
 				return err
 			}
 
@@ -203,23 +202,23 @@ func TestSnykCodeBackendServicePact(t *testing.T) {
 	})
 }
 
-func setupPact(t *testing.T) string {
+func setupPact(t *testing.T) {
 	t.Helper()
 
-	ctrl := gomock.NewController(t)
-	config := httpmocks.NewMockConfig(ctrl)
-	config.EXPECT().IsFedramp().AnyTimes().Return(false)
-	config.EXPECT().Organization().AnyTimes().Return(orgUUID)
-
+	// Proactively start service to get access to the port
 	pact = dsl.Pact{
 		Consumer: consumer,
 		Provider: pactProvider,
 		PactDir:  pactDir,
 	}
 
-	// Proactively start service to get access to the port
 	pact.Setup(true)
+	ctrl := gomock.NewController(t)
+	config := httpmocks.NewMockConfig(ctrl)
+	config.EXPECT().IsFedramp().AnyTimes().Return(false)
+	config.EXPECT().Organization().AnyTimes().Return(orgUUID)
 	snykCodeApiUrl := fmt.Sprintf("http://localhost:%d", pact.Server.Port)
+	config.EXPECT().SnykCodeApi().AnyTimes().Return(snykCodeApiUrl)
 
 	instrumentor := testutil.NewTestInstrumentor()
 	errorReporter := testutil.NewTestErrorReporter()
@@ -227,8 +226,6 @@ func setupPact(t *testing.T) string {
 		return http.DefaultClient
 	}, instrumentor, errorReporter)
 	client = deepcode.NewSnykCodeClient(newLogger(t), httpClient, instrumentor)
-
-	return snykCodeApiUrl
 }
 
 func getPutPostHeaderMatcher() dsl.MapMatcher {
@@ -249,7 +246,7 @@ func getSnykRequestIdMatcher() dsl.Matcher {
 }
 
 func TestSnykCodeBackendServicePact_LocalCodeEngine(t *testing.T) {
-	snykCodeApiUrl := setupPact(t)
+	setupPact(t)
 
 	defer pact.Teardown()
 
@@ -269,7 +266,7 @@ func TestSnykCodeBackendServicePact_LocalCodeEngine(t *testing.T) {
 	})
 
 	test := func() error {
-		if _, err := client.GetFilters(context.Background(), snykCodeApiUrl); err != nil {
+		if _, err := client.GetFilters(context.Background()); err != nil {
 			return err
 		}
 		return nil
