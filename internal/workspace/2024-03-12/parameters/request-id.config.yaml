@@ -1,0 +1,6 @@
+package: v20240312
+generate:
+  models: true
+output-options:
+  skip-prune: true
+output: parameters/request-id.go
