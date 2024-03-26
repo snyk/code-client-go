@@ -38,24 +38,11 @@ func GetRepositoryUrl(path string) (string, error) {
 		return "", fmt.Errorf("no repository urls available")
 	}
 
+	// based on the docs, the first URL is being used to fetch, so this is the one we use
 	repoUrl := remote.Config().URLs[0]
 	repoUrl, err = sanitiseCredentials(repoUrl)
 
 	return repoUrl, err
-}
-
-func hasCredentials(rawUrl string) bool {
-	parsedURL, err := url.Parse(rawUrl)
-	if err != nil {
-		return false // Failed to parse URL
-	}
-
-	if parsedURL.User != nil {
-		_, hasPassword := parsedURL.User.Password()
-		return hasPassword
-	}
-
-	return false // No user info in URL
 }
 
 func sanitiseCredentials(rawUrl string) (string, error) {

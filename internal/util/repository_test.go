@@ -16,34 +16,46 @@
 package util
 
 import (
+	"net/url"
 	"testing"
 
+	"github.com/go-git/go-git/v5"
 	"github.com/stretchr/testify/assert"
 )
 
-func Test_GetRepositoryUrl_no_repo(t *testing.T) {
-	randomDir := t.TempDir()
-	actualUrl, err := GetRepositoryUrl(randomDir)
-	assert.Error(t, err)
-	assert.Empty(t, actualUrl)
+func Test_GetRepositoryUrl_repo(t *testing.T) {
+	// check out a repo and prepare its config to contain credentials in the URL
+	expectedRepoUrl := "https://github.com/snyk-fixtures/shallow-goof-locked.git"
+
+	repoDir := t.TempDir()
+	repo, err := git.PlainClone(repoDir, false, &git.CloneOptions{URL: expectedRepoUrl})
+	assert.NoError(t, err)
+	assert.NotNil(t, repo)
+
+	config, err := repo.Config()
+	assert.NoError(t, err)
+
+	for i, remoteUrl := range config.Remotes["origin"].URLs {
+		parsedRemoteUrl, errLocal := url.Parse(remoteUrl)
+		assert.NoError(t, errLocal)
+		parsedRemoteUrl.User = url.UserPassword("albert", "einstein")
+		config.Remotes["origin"].URLs[i] = parsedRemoteUrl.String()
+	}
+
+	err = repo.SetConfig(config)
+	assert.NoError(t, err)
+
+	// run method under test
+	actualUrl, err := GetRepositoryUrl(repoDir)
+	assert.NoError(t, err)
+	assert.Equal(t, expectedRepoUrl, actualUrl)
 }
 
-func Test_CheckCredentials(t *testing.T) {
-	t.Run("has credentials", func(t *testing.T) {
-		urlWithCreds := "https://snykUser:snykSuperSecret@github.com/snyk/cli.git"
-
-		hasCreds := hasCredentials(urlWithCreds)
-
-		assert.True(t, hasCreds)
-	})
-
-	t.Run("no credentials", func(t *testing.T) {
-		urlWithCreds := "https://github.com/snyk/cli.git"
-
-		hasCreds := hasCredentials(urlWithCreds)
-
-		assert.False(t, hasCreds)
-	})
+func Test_GetRepositoryUrl_no_repo(t *testing.T) {
+	repoDir := t.TempDir()
+	actualUrl, err := GetRepositoryUrl(repoDir)
+	assert.Error(t, err)
+	assert.Empty(t, actualUrl)
 }
 
 func Test_SanatiseUrl_url_with_creds(t *testing.T) {
