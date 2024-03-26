@@ -19,7 +19,6 @@ package util
 import (
 	"fmt"
 	"net/url"
-	"regexp"
 
 	"github.com/go-git/go-git/v5"
 )
@@ -42,10 +41,7 @@ func GetRepositoryUrl(path string) (string, error) {
 	}
 
 	repoUrl := remote.Config().URLs[0]
-
-	if hasCredentials(repoUrl) {
-		repoUrl, err = sanatiseCredentials(repoUrl)
-	}
+	repoUrl, err = sanitiseCredentials(repoUrl)
 
 	return repoUrl, nil
 }
@@ -64,14 +60,14 @@ func hasCredentials(rawUrl string) bool {
 	return false // No user info in URL
 }
 
-func sanatiseCredentials(url string) (string, error) {
-	re, err := regexp.Compile(`(?<=://)[^@]+`)
-
+func sanitiseCredentials(rawUrl string) (string, error) {
+	parsedURL, err := url.Parse(rawUrl)
 	if err != nil {
-		//fmt.Errorf("Error compiling regex: %w", err)
-		return "", err
+		return rawUrl, nil
 	}
 
-	strippedURL := re.ReplaceAllString(url, "")
-	return strippedURL, nil
+	parsedURL.User = nil
+	strippedUrl := parsedURL.String()
+
+	return strippedUrl, nil
 }

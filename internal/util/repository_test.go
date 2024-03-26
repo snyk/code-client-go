@@ -53,7 +53,7 @@ func Test_SanatiseUrl_url_with_creds(t *testing.T) {
 	actualUrl := "https://snykUser:snykSuperSecret@github.com/snyk/cli.git"
 	expectedUrl := "https://github.com/snyk/cli.git"
 
-	url, err := sanatiseCredentials(actualUrl)
+	url, err := sanitiseCredentials(actualUrl)
 	assert.NoError(t, err)
 	assert.NotEmpty(t, url)
 	assert.Equal(t, expectedUrl, url)
