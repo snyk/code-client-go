@@ -23,7 +23,6 @@ import (
 )
 
 func Test_GetRepositoryUrl_no_repo(t *testing.T) {
-
 	actualUrl, err := GetRepositoryUrl("")
 	assert.NoError(t, err)
 	assert.NotEmpty(t, actualUrl)

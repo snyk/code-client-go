@@ -26,14 +26,12 @@ import (
 func GetRepositoryUrl(path string) (string, error) {
 	repo, err := git.PlainOpen(path)
 	if err != nil {
-		fmt.Errorf("open local repository: %w", err)
-		return "", err
+		return "", fmt.Errorf("open local repository: %w", err)
 	}
 
 	remote, err := repo.Remote("origin")
 	if err != nil {
-		fmt.Errorf("get remote: %w", err)
-		return "", err
+		return "", fmt.Errorf("get remote: %w", err)
 	}
 
 	if len(remote.Config().URLs) == 0 {
@@ -43,7 +41,7 @@ func GetRepositoryUrl(path string) (string, error) {
 	repoUrl := remote.Config().URLs[0]
 	repoUrl, err = sanitiseCredentials(repoUrl)
 
-	return repoUrl, nil
+	return repoUrl, err
 }
 
 func hasCredentials(rawUrl string) bool {
