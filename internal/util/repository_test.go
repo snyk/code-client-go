@@ -29,3 +29,32 @@ func Test_GetRepositoryUrl_no_repo(t *testing.T) {
 	assert.NotEmpty(t, actualUrl)
 	fmt.Println(actualUrl)
 }
+
+func Test_CheckCredentials(t *testing.T) {
+	t.Run("has credentials", func(t *testing.T) {
+		urlWithCreds := "https://snykUser:snykSuperSecret@github.com/snyk/cli.git"
+
+		hasCreds := hasCredentials(urlWithCreds)
+
+		assert.True(t, hasCreds)
+	})
+
+	t.Run("no credentials", func(t *testing.T) {
+		urlWithCreds := "https://github.com/snyk/cli.git"
+
+		hasCreds := hasCredentials(urlWithCreds)
+
+		assert.False(t, hasCreds)
+	})
+}
+
+func Test_SanatiseUrl_url_with_creds(t *testing.T) {
+	// git http user:password format: https://<user>:<password>@<host>:<port>/<path>.git#<revision>
+	actualUrl := "https://snykUser:snykSuperSecret@github.com/snyk/cli.git"
+	expectedUrl := "https://github.com/snyk/cli.git"
+
+	url, err := sanatiseCredentials(actualUrl)
+	assert.NoError(t, err)
+	assert.NotEmpty(t, url)
+	assert.Equal(t, expectedUrl, url)
+}
