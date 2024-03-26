@@ -16,17 +16,16 @@
 package util
 
 import (
-	"fmt"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
 )
 
 func Test_GetRepositoryUrl_no_repo(t *testing.T) {
-	actualUrl, err := GetRepositoryUrl("")
-	assert.NoError(t, err)
-	assert.NotEmpty(t, actualUrl)
-	fmt.Println(actualUrl)
+	randomDir := t.TempDir()
+	actualUrl, err := GetRepositoryUrl(randomDir)
+	assert.Error(t, err)
+	assert.Empty(t, actualUrl)
 }
 
 func Test_CheckCredentials(t *testing.T) {
