@@ -18,6 +18,8 @@ package util
 
 import (
 	"fmt"
+	"net/url"
+	"regexp"
 
 	"github.com/go-git/go-git/v5"
 )
@@ -39,7 +41,37 @@ func GetRepositoryUrl(path string) (string, error) {
 		return "", fmt.Errorf("no repository urls available")
 	}
 
-	repourl := remote.Config().URLs[0]
+	repoUrl := remote.Config().URLs[0]
 
-	return repourl, nil
+	if hasCredentials(repoUrl) {
+		repoUrl, err = sanatiseCredentials(repoUrl)
+	}
+
+	return repoUrl, nil
+}
+
+func hasCredentials(rawUrl string) bool {
+	parsedURL, err := url.Parse(rawUrl)
+	if err != nil {
+		return false // Failed to parse URL
+	}
+
+	if parsedURL.User != nil {
+		_, hasPassword := parsedURL.User.Password()
+		return hasPassword
+	}
+
+	return false // No user info in URL
+}
+
+func sanatiseCredentials(url string) (string, error) {
+	re, err := regexp.Compile(`(?<=://)[^@]+`)
+
+	if err != nil {
+		//fmt.Errorf("Error compiling regex: %w", err)
+		return "", err
+	}
+
+	strippedURL := re.ReplaceAllString(url, "")
+	return strippedURL, nil
 }
