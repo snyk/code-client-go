@@ -49,12 +49,26 @@ func Test_CheckCredentials(t *testing.T) {
 }
 
 func Test_SanatiseUrl_url_with_creds(t *testing.T) {
-	// git http user:password format: https://<user>:<password>@<host>:<port>/<path>.git#<revision>
-	actualUrl := "https://snykUser:snykSuperSecret@github.com/snyk/cli.git"
 	expectedUrl := "https://github.com/snyk/cli.git"
 
-	url, err := sanitiseCredentials(actualUrl)
-	assert.NoError(t, err)
-	assert.NotEmpty(t, url)
-	assert.Equal(t, expectedUrl, url)
+	t.Run("has credentials", func(t *testing.T) {
+		inputUrl := "https://snykUser:snykSuperSecret@github.com/snyk/cli.git"
+		actualUrl, err := sanitiseCredentials(inputUrl)
+		assert.NoError(t, err)
+		assert.Equal(t, expectedUrl, actualUrl)
+	})
+
+	t.Run("no credentials", func(t *testing.T) {
+		inputUrl := "https://github.com/snyk/cli.git"
+		actualUrl, err := sanitiseCredentials(inputUrl)
+		assert.NoError(t, err)
+		assert.Equal(t, expectedUrl, actualUrl)
+	})
+
+	t.Run("no http url", func(t *testing.T) {
+		inputUrl := "git@github.com:snyk/code-client-go.git"
+		actualUrl, err := sanitiseCredentials(inputUrl)
+		assert.NoError(t, err)
+		assert.Equal(t, inputUrl, actualUrl)
+	})
 }
