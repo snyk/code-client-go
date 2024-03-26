@@ -50,67 +50,31 @@ func (mr *MockHTTPClientMockRecorder) Config() *gomock.Call {
 }
 
 // DoCall mocks base method.
-func (m *MockHTTPClient) DoCall(ctx context.Context, host, method, path string, requestBody []byte) ([]byte, error) {
+func (m *MockHTTPClient) DoCall(ctx context.Context, method, path string, requestBody []byte) ([]byte, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "DoCall", ctx, host, method, path, requestBody)
+	ret := m.ctrl.Call(m, "DoCall", ctx, method, path, requestBody)
 	ret0, _ := ret[0].([]byte)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // DoCall indicates an expected call of DoCall.
-func (mr *MockHTTPClientMockRecorder) DoCall(ctx, host, method, path, requestBody interface{}) *gomock.Call {
+func (mr *MockHTTPClientMockRecorder) DoCall(ctx, method, path, requestBody interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DoCall", reflect.TypeOf((*MockHTTPClient)(nil).DoCall), ctx, host, method, path, requestBody)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DoCall", reflect.TypeOf((*MockHTTPClient)(nil).DoCall), ctx, method, path, requestBody)
 }
 
-// MockConfig is a mock of Config interface.
-type MockConfig struct {
-	ctrl     *gomock.Controller
-	recorder *MockConfigMockRecorder
-}
-
-// MockConfigMockRecorder is the mock recorder for MockConfig.
-type MockConfigMockRecorder struct {
-	mock *MockConfig
-}
-
-// NewMockConfig creates a new mock instance.
-func NewMockConfig(ctrl *gomock.Controller) *MockConfig {
-	mock := &MockConfig{ctrl: ctrl}
-	mock.recorder = &MockConfigMockRecorder{mock}
-	return mock
-}
-
-// EXPECT returns an object that allows the caller to indicate expected use.
-func (m *MockConfig) EXPECT() *MockConfigMockRecorder {
-	return m.recorder
-}
-
-// IsFedramp mocks base method.
-func (m *MockConfig) IsFedramp() bool {
+// FormatCodeApiURL mocks base method.
+func (m *MockHTTPClient) FormatCodeApiURL() (string, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "IsFedramp")
-	ret0, _ := ret[0].(bool)
-	return ret0
-}
-
-// IsFedramp indicates an expected call of IsFedramp.
-func (mr *MockConfigMockRecorder) IsFedramp() *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "IsFedramp", reflect.TypeOf((*MockConfig)(nil).IsFedramp))
-}
-
-// Organization mocks base method.
-func (m *MockConfig) Organization() string {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Organization")
+	ret := m.ctrl.Call(m, "FormatCodeApiURL")
 	ret0, _ := ret[0].(string)
-	return ret0
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
 }
 
-// Organization indicates an expected call of Organization.
-func (mr *MockConfigMockRecorder) Organization() *gomock.Call {
+// FormatCodeApiURL indicates an expected call of FormatCodeApiURL.
+func (mr *MockHTTPClientMockRecorder) FormatCodeApiURL() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Organization", reflect.TypeOf((*MockConfig)(nil).Organization))
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "FormatCodeApiURL", reflect.TypeOf((*MockHTTPClient)(nil).FormatCodeApiURL))
 }

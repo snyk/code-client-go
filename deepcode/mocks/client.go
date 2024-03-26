@@ -36,9 +36,9 @@ func (m *MockSnykCodeClient) EXPECT() *MockSnykCodeClientMockRecorder {
 }
 
 // CreateBundle mocks base method.
-func (m *MockSnykCodeClient) CreateBundle(ctx context.Context, host string, files map[string]string) (string, []string, error) {
+func (m *MockSnykCodeClient) CreateBundle(ctx context.Context, files map[string]string) (string, []string, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "CreateBundle", ctx, host, files)
+	ret := m.ctrl.Call(m, "CreateBundle", ctx, files)
 	ret0, _ := ret[0].(string)
 	ret1, _ := ret[1].([]string)
 	ret2, _ := ret[2].(error)
@@ -46,15 +46,15 @@ func (m *MockSnykCodeClient) CreateBundle(ctx context.Context, host string, file
 }
 
 // CreateBundle indicates an expected call of CreateBundle.
-func (mr *MockSnykCodeClientMockRecorder) CreateBundle(ctx, host, files interface{}) *gomock.Call {
+func (mr *MockSnykCodeClientMockRecorder) CreateBundle(ctx, files interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CreateBundle", reflect.TypeOf((*MockSnykCodeClient)(nil).CreateBundle), ctx, host, files)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CreateBundle", reflect.TypeOf((*MockSnykCodeClient)(nil).CreateBundle), ctx, files)
 }
 
 // ExtendBundle mocks base method.
-func (m *MockSnykCodeClient) ExtendBundle(ctx context.Context, host, bundleHash string, files map[string]deepcode.BundleFile, removedFiles []string) (string, []string, error) {
+func (m *MockSnykCodeClient) ExtendBundle(ctx context.Context, bundleHash string, files map[string]deepcode.BundleFile, removedFiles []string) (string, []string, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "ExtendBundle", ctx, host, bundleHash, files, removedFiles)
+	ret := m.ctrl.Call(m, "ExtendBundle", ctx, bundleHash, files, removedFiles)
 	ret0, _ := ret[0].(string)
 	ret1, _ := ret[1].([]string)
 	ret2, _ := ret[2].(error)
@@ -62,22 +62,22 @@ func (m *MockSnykCodeClient) ExtendBundle(ctx context.Context, host, bundleHash 
 }
 
 // ExtendBundle indicates an expected call of ExtendBundle.
-func (mr *MockSnykCodeClientMockRecorder) ExtendBundle(ctx, host, bundleHash, files, removedFiles interface{}) *gomock.Call {
+func (mr *MockSnykCodeClientMockRecorder) ExtendBundle(ctx, bundleHash, files, removedFiles interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ExtendBundle", reflect.TypeOf((*MockSnykCodeClient)(nil).ExtendBundle), ctx, host, bundleHash, files, removedFiles)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ExtendBundle", reflect.TypeOf((*MockSnykCodeClient)(nil).ExtendBundle), ctx, bundleHash, files, removedFiles)
 }
 
 // GetFilters mocks base method.
-func (m *MockSnykCodeClient) GetFilters(ctx context.Context, host string) (deepcode.FiltersResponse, error) {
+func (m *MockSnykCodeClient) GetFilters(ctx context.Context) (deepcode.FiltersResponse, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "GetFilters", ctx, host)
+	ret := m.ctrl.Call(m, "GetFilters", ctx)
 	ret0, _ := ret[0].(deepcode.FiltersResponse)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // GetFilters indicates an expected call of GetFilters.
-func (mr *MockSnykCodeClientMockRecorder) GetFilters(ctx, host interface{}) *gomock.Call {
+func (mr *MockSnykCodeClientMockRecorder) GetFilters(ctx interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetFilters", reflect.TypeOf((*MockSnykCodeClient)(nil).GetFilters), ctx, host)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetFilters", reflect.TypeOf((*MockSnykCodeClient)(nil).GetFilters), ctx)
 }

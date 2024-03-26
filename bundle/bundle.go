@@ -26,7 +26,7 @@ import (
 
 //go:generate mockgen -destination=mocks/bundle.go -source=bundle.go -package mocks
 type Bundle interface {
-	UploadBatch(ctx context.Context, host string, batch *Batch) error
+	UploadBatch(ctx context.Context, batch *Batch) error
 	GetBundleHash() string
 	GetRootPath() string
 	GetRequestId() string
@@ -95,8 +95,8 @@ func (b *deepCodeBundle) GetMissingFiles() []string {
 	return b.missingFiles
 }
 
-func (b *deepCodeBundle) UploadBatch(ctx context.Context, host string, batch *Batch) error {
-	err := b.extendBundle(ctx, host, batch)
+func (b *deepCodeBundle) UploadBatch(ctx context.Context, batch *Batch) error {
+	err := b.extendBundle(ctx, batch)
 	if err != nil {
 		return err
 	}
@@ -104,10 +104,10 @@ func (b *deepCodeBundle) UploadBatch(ctx context.Context, host string, batch *Ba
 	return nil
 }
 
-func (b *deepCodeBundle) extendBundle(ctx context.Context, host string, uploadBatch *Batch) error {
+func (b *deepCodeBundle) extendBundle(ctx context.Context, uploadBatch *Batch) error {
 	var err error
 	if uploadBatch.hasContent() {
-		b.bundleHash, b.missingFiles, err = b.SnykCode.ExtendBundle(ctx, host, b.bundleHash, uploadBatch.documents, []string{})
+		b.bundleHash, b.missingFiles, err = b.SnykCode.ExtendBundle(ctx, b.bundleHash, uploadBatch.documents, []string{})
 		b.logger.Debug().Str("requestId", b.requestId).Interface("MissingFiles", b.missingFiles).Msg("extended deepCodeBundle on backend")
 	}
 

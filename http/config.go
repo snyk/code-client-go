@@ -1,6 +1,8 @@
 package http
 
 // Config defines the configurable options for the HTTP client.
+//
+//go:generate mockgen -destination=mocks/config.go -source=config.go -package mocks
 type Config interface {
 
 	// Organization is the Snyk organization in which code SAST is being run.
@@ -10,4 +12,8 @@ type Config interface {
 
 	// IsFedramp indicates whether the code SAST is being run in the context of FedRAMP.
 	IsFedramp() bool
+
+	// SnykCodeApi returns the Snyk Code API URL configured to run against, which could be
+	// the one used by the Local Code Engine.
+	SnykCodeApi() string
 }

@@ -19,9 +19,8 @@ package codeclient
 
 import (
 	"context"
-	"github.com/rs/zerolog"
-
 	"github.com/pkg/errors"
+	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
 
 	"github.com/snyk/code-client-go/bundle"
@@ -40,7 +39,6 @@ type codeScanner struct {
 type CodeScanner interface {
 	UploadAndAnalyze(
 		ctx context.Context,
-		host string,
 		path string,
 		files <-chan string,
 		changedFiles map[string]bool,
@@ -65,7 +63,6 @@ func NewCodeScanner(
 // UploadAndAnalyze returns a fake SARIF response for testing. Use target-service to run analysis on.
 func (c *codeScanner) UploadAndAnalyze(
 	ctx context.Context,
-	host string,
 	path string,
 	files <-chan string,
 	changedFiles map[string]bool,
@@ -81,7 +78,7 @@ func (c *codeScanner) UploadAndAnalyze(
 	requestId := span.GetTraceId() // use span trace id as code-request-id
 	c.logger.Info().Str("requestId", requestId).Msg("Starting Code analysis.")
 
-	b, err := c.bundleManager.Create(span.Context(), host, requestId, path, files, changedFiles)
+	b, err := c.bundleManager.Create(span.Context(), requestId, path, files, changedFiles)
 	if err != nil {
 		if bundle.IsNoFilesError(err) {
 			return nil, nil, nil
@@ -98,7 +95,7 @@ func (c *codeScanner) UploadAndAnalyze(
 
 	uploadedFiles := b.GetFiles()
 
-	b, err = c.bundleManager.Upload(span.Context(), host, b, uploadedFiles)
+	b, err = c.bundleManager.Upload(span.Context(), b, uploadedFiles)
 	if err != nil {
 		if ctx.Err() != nil { // Only handle errors that are not intentional cancellations
 			msg := "error uploading files..."

@@ -43,11 +43,11 @@ func Test_Create(t *testing.T) {
 			mockSpan := mocks.NewMockSpan(ctrl)
 			mockSpan.EXPECT().Context().AnyTimes()
 			mockSnykCodeClient := mocks2.NewMockSnykCodeClient(ctrl)
-			mockSnykCodeClient.EXPECT().GetFilters(gomock.Any(), "testHost").Return(deepcode2.FiltersResponse{
+			mockSnykCodeClient.EXPECT().GetFilters(gomock.Any()).Return(deepcode2.FiltersResponse{
 				ConfigFiles: []string{},
 				Extensions:  []string{".java"},
 			}, nil)
-			mockSnykCodeClient.EXPECT().CreateBundle(gomock.Any(), "testHost", map[string]string{
+			mockSnykCodeClient.EXPECT().CreateBundle(gomock.Any(), map[string]string{
 				"file.java": "386f1997f6da5133a0f75c347d5cdff15a428b817231278e2509832c1a80b3ea",
 			}).Times(1)
 			mockInstrumentor := mocks.NewMockInstrumentor(ctrl)
@@ -63,7 +63,6 @@ func Test_Create(t *testing.T) {
 
 			var bundleManager = bundle.NewBundleManager(newLogger(t), mockSnykCodeClient, mockInstrumentor, mockErrorReporter)
 			bundle, err := bundleManager.Create(context.Background(),
-				"testHost",
 				"testRequestId",
 				dir,
 				sliceToChannel([]string{file}),
@@ -79,7 +78,7 @@ func Test_Create(t *testing.T) {
 			mockSpan := mocks.NewMockSpan(ctrl)
 			mockSpan.EXPECT().Context().AnyTimes()
 			mockSnykCodeClient := mocks2.NewMockSnykCodeClient(ctrl)
-			mockSnykCodeClient.EXPECT().GetFilters(gomock.Any(), "testHost").Return(deepcode2.FiltersResponse{
+			mockSnykCodeClient.EXPECT().GetFilters(gomock.Any()).Return(deepcode2.FiltersResponse{
 				ConfigFiles: []string{},
 				Extensions:  []string{".java"},
 			}, nil)
@@ -96,7 +95,6 @@ func Test_Create(t *testing.T) {
 
 			var bundleManager = bundle.NewBundleManager(newLogger(t), mockSnykCodeClient, mockInstrumentor, mockErrorReporter)
 			bundle, err := bundleManager.Create(context.Background(),
-				"testHost",
 				"testRequestId",
 				dir,
 				sliceToChannel([]string{file}),
@@ -113,7 +111,7 @@ func Test_Create(t *testing.T) {
 			mockSpan := mocks.NewMockSpan(ctrl)
 			mockSpan.EXPECT().Context().AnyTimes()
 			mockSnykCodeClient := mocks2.NewMockSnykCodeClient(ctrl)
-			mockSnykCodeClient.EXPECT().GetFilters(gomock.Any(), "testHost").Return(deepcode2.FiltersResponse{
+			mockSnykCodeClient.EXPECT().GetFilters(gomock.Any()).Return(deepcode2.FiltersResponse{
 				ConfigFiles: []string{},
 				Extensions:  []string{".java"},
 			}, nil)
@@ -134,7 +132,6 @@ func Test_Create(t *testing.T) {
 
 			var bundleManager = bundle.NewBundleManager(newLogger(t), mockSnykCodeClient, mockInstrumentor, mockErrorReporter)
 			bundle, err := bundleManager.Create(context.Background(),
-				"testHost",
 				"testRequestId",
 				dir,
 				sliceToChannel([]string{file}),
@@ -151,7 +148,7 @@ func Test_Create(t *testing.T) {
 			mockSpan := mocks.NewMockSpan(ctrl)
 			mockSpan.EXPECT().Context().AnyTimes()
 			mockSnykCodeClient := mocks2.NewMockSnykCodeClient(ctrl)
-			mockSnykCodeClient.EXPECT().GetFilters(gomock.Any(), "testHost").Return(deepcode2.FiltersResponse{
+			mockSnykCodeClient.EXPECT().GetFilters(gomock.Any()).Return(deepcode2.FiltersResponse{
 				ConfigFiles: []string{},
 				Extensions:  []string{".java"},
 			}, nil)
@@ -171,7 +168,6 @@ func Test_Create(t *testing.T) {
 			require.NoError(t, err)
 			var bundleManager = bundle.NewBundleManager(newLogger(t), mockSnykCodeClient, mockInstrumentor, mockErrorReporter)
 			bundle, err := bundleManager.Create(context.Background(),
-				"testHost",
 				"testRequestId",
 				dir,
 				sliceToChannel([]string{file}),
@@ -186,11 +182,11 @@ func Test_Create(t *testing.T) {
 		mockSpan := mocks.NewMockSpan(ctrl)
 		mockSpan.EXPECT().Context().AnyTimes()
 		mockSnykCodeClient := mocks2.NewMockSnykCodeClient(ctrl)
-		mockSnykCodeClient.EXPECT().GetFilters(gomock.Any(), "testHost").Return(deepcode2.FiltersResponse{
+		mockSnykCodeClient.EXPECT().GetFilters(gomock.Any()).Return(deepcode2.FiltersResponse{
 			ConfigFiles: []string{".test"},
 			Extensions:  []string{},
 		}, nil)
-		mockSnykCodeClient.EXPECT().CreateBundle(gomock.Any(), "testHost", map[string]string{
+		mockSnykCodeClient.EXPECT().CreateBundle(gomock.Any(), map[string]string{
 			".test": "9c05690c5b8e22df259431c95df33d01267f799de6810382ada1a9ff1b89710e",
 		}).Times(1)
 		mockInstrumentor := mocks.NewMockInstrumentor(ctrl)
@@ -205,7 +201,6 @@ func Test_Create(t *testing.T) {
 
 		var bundleManager = bundle.NewBundleManager(newLogger(t), mockSnykCodeClient, mockInstrumentor, mockErrorReporter)
 		bundle, err := bundleManager.Create(context.Background(),
-			"testHost",
 			"testRequestId",
 			tempDir,
 			sliceToChannel([]string{file}),
@@ -220,11 +215,11 @@ func Test_Create(t *testing.T) {
 		mockSpan := mocks.NewMockSpan(ctrl)
 		mockSpan.EXPECT().Context().AnyTimes()
 		mockSnykCodeClient := mocks2.NewMockSnykCodeClient(ctrl)
-		mockSnykCodeClient.EXPECT().GetFilters(gomock.Any(), "testHost").Return(deepcode2.FiltersResponse{
+		mockSnykCodeClient.EXPECT().GetFilters(gomock.Any()).Return(deepcode2.FiltersResponse{
 			ConfigFiles: []string{},
 			Extensions:  []string{".java"},
 		}, nil)
-		mockSnykCodeClient.EXPECT().CreateBundle(gomock.Any(), "testHost", map[string]string{
+		mockSnykCodeClient.EXPECT().CreateBundle(gomock.Any(), map[string]string{
 			"path/to/file1.java":            "9c05690c5b8e22df259431c95df33d01267f799de6810382ada1a9ff1b89710e",
 			"path/with%20spaces/file2.java": "9c05690c5b8e22df259431c95df33d01267f799de6810382ada1a9ff1b89710e",
 		}).Times(1)
@@ -254,7 +249,6 @@ func Test_Create(t *testing.T) {
 
 		var bundleManager = bundle.NewBundleManager(newLogger(t), mockSnykCodeClient, mockInstrumentor, mockErrorReporter)
 		bundle, err := bundleManager.Create(context.Background(),
-			"testHost",
 			"testRequestId",
 			tempDir,
 			sliceToChannel(filesFullPaths),
@@ -279,7 +273,7 @@ func Test_Upload(t *testing.T) {
 		mockSpan := mocks.NewMockSpan(ctrl)
 		mockSpan.EXPECT().Context().AnyTimes()
 		mockSnykCodeClient := mocks2.NewMockSnykCodeClient(ctrl)
-		mockSnykCodeClient.EXPECT().ExtendBundle(gomock.Any(), "testHost", "bundleHash", gomock.Len(1), []string{}).Times(1)
+		mockSnykCodeClient.EXPECT().ExtendBundle(gomock.Any(), "bundleHash", gomock.Len(1), []string{}).Times(1)
 		mockInstrumentor := mocks.NewMockInstrumentor(ctrl)
 		mockInstrumentor.EXPECT().StartSpan(gomock.Any(), gomock.Any()).Return(mockSpan).Times(2)
 		mockInstrumentor.EXPECT().Finish(gomock.Any()).Times(2)
@@ -291,7 +285,6 @@ func Test_Upload(t *testing.T) {
 		bundleFileMap[documentURI] = bundleFile
 
 		_, err := bundleManager.Upload(context.Background(),
-			"testHost",
 			bundle.NewBundle(mockSnykCodeClient, mockInstrumentor, mockErrorReporter, &logger, "bundleHash", "testRequestId", "", bundleFileMap, []string{}, []string{documentURI}),
 			bundleFileMap)
 		assert.NoError(t, err)
@@ -302,8 +295,8 @@ func Test_Upload(t *testing.T) {
 		mockSpan := mocks.NewMockSpan(ctrl)
 		mockSpan.EXPECT().Context().AnyTimes()
 		mockSnykCodeClient := mocks2.NewMockSnykCodeClient(ctrl)
-		mockSnykCodeClient.EXPECT().ExtendBundle(gomock.Any(), "testHost", "bundleHash", gomock.Len(3), []string{}).Return("newBundleHash", []string{}, nil).Times(1)
-		mockSnykCodeClient.EXPECT().ExtendBundle(gomock.Any(), "testHost", "newBundleHash", gomock.Len(2), []string{}).Return("newerBundleHash", []string{}, nil).Times(1)
+		mockSnykCodeClient.EXPECT().ExtendBundle(gomock.Any(), "bundleHash", gomock.Len(3), []string{}).Return("newBundleHash", []string{}, nil).Times(1)
+		mockSnykCodeClient.EXPECT().ExtendBundle(gomock.Any(), "newBundleHash", gomock.Len(2), []string{}).Return("newerBundleHash", []string{}, nil).Times(1)
 		mockInstrumentor := mocks.NewMockInstrumentor(ctrl)
 		mockInstrumentor.EXPECT().StartSpan(gomock.Any(), gomock.Any()).Return(mockSpan).Times(2)
 		mockInstrumentor.EXPECT().Finish(gomock.Any()).Times(2)
@@ -329,7 +322,6 @@ func Test_Upload(t *testing.T) {
 		missingFiles = append(missingFiles, path)
 
 		_, err := bundleManager.Upload(context.Background(),
-			"testHost",
 			bundle.NewBundle(mockSnykCodeClient, mockInstrumentor, mockErrorReporter, &logger, "bundleHash", "testRequestId", "", bundleFileMap, []string{}, missingFiles),
 			bundleFileMap)
 		assert.Nil(t, err)
@@ -346,7 +338,7 @@ func createTempFileInDir(t *testing.T, name string, size int, temporaryDir strin
 func Test_IsSupported_Extensions(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	mockSnykCodeClient := mocks2.NewMockSnykCodeClient(ctrl)
-	mockSnykCodeClient.EXPECT().GetFilters(gomock.Any(), "testHost").Return(deepcode2.FiltersResponse{
+	mockSnykCodeClient.EXPECT().GetFilters(gomock.Any()).Return(deepcode2.FiltersResponse{
 		ConfigFiles: []string{},
 		Extensions:  []string{".java"},
 	}, nil)
@@ -355,19 +347,19 @@ func Test_IsSupported_Extensions(t *testing.T) {
 	bundler := bundle.NewBundleManager(newLogger(t), mockSnykCodeClient, mockInstrumentor, mockErrorReporter)
 
 	t.Run("should return true for supported languages", func(t *testing.T) {
-		supported, _ := bundler.IsSupported(context.Background(), "testHost", "C:\\some\\path\\Test.java")
+		supported, _ := bundler.IsSupported(context.Background(), "C:\\some\\path\\Test.java")
 		assert.True(t, supported)
 	})
 
 	t.Run("should return false for unsupported languages", func(t *testing.T) {
-		supported, _ := bundler.IsSupported(context.Background(), "testHost", "C:\\some\\path\\Test.rs")
+		supported, _ := bundler.IsSupported(context.Background(), "C:\\some\\path\\Test.rs")
 		assert.False(t, supported)
 	})
 
 	t.Run("should cache supported extensions", func(t *testing.T) {
 		path := "C:\\some\\path\\Test.rs"
-		_, _ = bundler.IsSupported(context.Background(), "testHost", path)
-		_, _ = bundler.IsSupported(context.Background(), "testHost", path)
+		_, _ = bundler.IsSupported(context.Background(), path)
+		_, _ = bundler.IsSupported(context.Background(), path)
 	})
 }
 
@@ -385,7 +377,7 @@ func Test_IsSupported_ConfigFiles(t *testing.T) {
 
 	ctrl := gomock.NewController(t)
 	mockSnykCodeClient := mocks2.NewMockSnykCodeClient(ctrl)
-	mockSnykCodeClient.EXPECT().GetFilters(gomock.Any(), "testHost").Return(deepcode2.FiltersResponse{
+	mockSnykCodeClient.EXPECT().GetFilters(gomock.Any()).Return(deepcode2.FiltersResponse{
 		ConfigFiles: configFilesFromFiltersEndpoint,
 		Extensions:  []string{},
 	}, nil)
@@ -397,27 +389,27 @@ func Test_IsSupported_ConfigFiles(t *testing.T) {
 	t.Run("should return true for supported config files", func(t *testing.T) {
 		for _, file := range expectedConfigFiles {
 			path := filepath.Join(dir, file)
-			supported, _ := bundler.IsSupported(context.Background(), "testHost", path)
+			supported, _ := bundler.IsSupported(context.Background(), path)
 			assert.True(t, supported)
 		}
 	})
 	t.Run("should exclude .gitignore and .dcignore", func(t *testing.T) {
 		for _, file := range []string{".gitignore", ".dcignore"} {
 			path := filepath.Join(dir, file)
-			supported, _ := bundler.IsSupported(context.Background(), "testHost", path)
+			supported, _ := bundler.IsSupported(context.Background(), path)
 			assert.False(t, supported)
 		}
 	})
 	t.Run("should return false for unsupported config files", func(t *testing.T) {
 		path := "C:\\some\\path\\.unsupported"
-		supported, _ := bundler.IsSupported(context.Background(), "testHost", path)
+		supported, _ := bundler.IsSupported(context.Background(), path)
 		assert.False(t, supported)
 	})
 
 	t.Run("should cache supported extensions", func(t *testing.T) {
 		path := "C:\\some\\path\\Test.rs"
-		_, _ = bundler.IsSupported(context.Background(), "testHost", path)
-		_, _ = bundler.IsSupported(context.Background(), "testHost", path)
+		_, _ = bundler.IsSupported(context.Background(), path)
+		_, _ = bundler.IsSupported(context.Background(), path)
 	})
 }
 

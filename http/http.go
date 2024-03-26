@@ -23,6 +23,8 @@ import (
 	"errors"
 	"io"
 	"net/http"
+	"net/url"
+	"regexp"
 	"time"
 
 	"github.com/rs/zerolog"
@@ -35,11 +37,11 @@ import (
 type HTTPClient interface {
 	Config() Config
 	DoCall(ctx context.Context,
-		host string,
 		method string,
 		path string,
 		requestBody []byte,
 	) (responseBody []byte, err error)
+	FormatCodeApiURL() (string, error)
 }
 
 type httpClient struct {
@@ -72,7 +74,6 @@ func (s *httpClient) Config() Config {
 }
 
 func (s *httpClient) DoCall(ctx context.Context,
-	host string,
 	method string,
 	path string,
 	requestBody []byte,
@@ -91,7 +92,7 @@ func (s *httpClient) DoCall(ctx context.Context,
 		}
 
 		var req *http.Request
-		req, err = s.newRequest(host, method, path, bodyBuffer, requestId)
+		req, err = s.newRequest(method, path, bodyBuffer, requestId)
 		if err != nil {
 			return nil, err
 		}
@@ -131,12 +132,16 @@ func (s *httpClient) DoCall(ctx context.Context,
 }
 
 func (s *httpClient) newRequest(
-	host string,
 	method string,
 	path string,
 	body *bytes.Buffer,
 	requestId string,
 ) (*http.Request, error) {
+	host, err := s.FormatCodeApiURL()
+	if err != nil {
+		return nil, err
+	}
+
 	req, err := http.NewRequest(method, host+path, body)
 	if err != nil {
 		return nil, err
@@ -216,4 +221,29 @@ func (s *httpClient) checkResponseCode(r *http.Response) error {
 		return nil
 	}
 	return errors.New("Unexpected response code: " + r.Status)
+}
+
+var codeApiRegex = regexp.MustCompile(`^(deeproxy\.)?`)
+
+// This is only exported for tests.
+func (s *httpClient) FormatCodeApiURL() (string, error) {
+	snykCodeApiUrl := s.config.SnykCodeApi()
+	if !s.Config().IsFedramp() {
+		return snykCodeApiUrl, nil
+	}
+	u, err := url.Parse(snykCodeApiUrl)
+	if err != nil {
+		return "", err
+	}
+
+	u.Host = codeApiRegex.ReplaceAllString(u.Host, "api.")
+
+	organization := s.Config().Organization()
+	if organization == "" {
+		return "", errors.New("Organization is required in a fedramp environment")
+	}
+
+	u.Path = "/hidden/orgs/" + organization + "/code"
+
+	return u.String(), nil
 }

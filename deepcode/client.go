@@ -19,9 +19,6 @@ package deepcode
 import (
 	"context"
 	"encoding/json"
-	"errors"
-	"net/url"
-	"regexp"
 	"strconv"
 
 	"github.com/rs/zerolog"
@@ -32,19 +29,17 @@ import (
 
 //go:generate mockgen -destination=mocks/client.go -source=client.go -package mocks
 type SnykCodeClient interface {
-	GetFilters(ctx context.Context, host string) (
+	GetFilters(ctx context.Context) (
 		filters FiltersResponse,
 		err error)
 
 	CreateBundle(
 		ctx context.Context,
-		host string,
 		files map[string]string,
 	) (newBundleHash string, missingFiles []string, err error)
 
 	ExtendBundle(
 		ctx context.Context,
-		host string,
 		bundleHash string,
 		files map[string]BundleFile,
 		removedFiles []string,
@@ -80,7 +75,7 @@ func NewSnykCodeClient(
 	return &snykCodeClient{httpClient, instrumentor, logger}
 }
 
-func (s *snykCodeClient) GetFilters(ctx context.Context, snykCodeApiUrl string) (
+func (s *snykCodeClient) GetFilters(ctx context.Context) (
 	filters FiltersResponse,
 	err error,
 ) {
@@ -91,12 +86,7 @@ func (s *snykCodeClient) GetFilters(ctx context.Context, snykCodeApiUrl string) 
 	span := s.instrumentor.StartSpan(ctx, method)
 	defer s.instrumentor.Finish(span)
 
-	host, err := s.FormatCodeApiURL(snykCodeApiUrl)
-	if err != nil {
-		return FiltersResponse{ConfigFiles: nil, Extensions: nil}, err
-	}
-
-	responseBody, err := s.httpClient.DoCall(span.Context(), host, "GET", "/filters", nil)
+	responseBody, err := s.httpClient.DoCall(span.Context(), "GET", "/filters", nil)
 	if err != nil {
 		return FiltersResponse{ConfigFiles: nil, Extensions: nil}, err
 	}
@@ -111,7 +101,6 @@ func (s *snykCodeClient) GetFilters(ctx context.Context, snykCodeApiUrl string) 
 
 func (s *snykCodeClient) CreateBundle(
 	ctx context.Context,
-	snykCodeApiUrl string,
 	filesToFilehashes map[string]string,
 ) (string, []string, error) {
 	method := "code.CreateBundle"
@@ -126,12 +115,7 @@ func (s *snykCodeClient) CreateBundle(
 		return "", nil, err
 	}
 
-	host, err := s.FormatCodeApiURL(snykCodeApiUrl)
-	if err != nil {
-		return "", nil, err
-	}
-
-	responseBody, err := s.httpClient.DoCall(span.Context(), host, "POST", "/bundle", requestBody)
+	responseBody, err := s.httpClient.DoCall(span.Context(), "POST", "/bundle", requestBody)
 	if err != nil {
 		return "", nil, err
 	}
@@ -147,7 +131,6 @@ func (s *snykCodeClient) CreateBundle(
 
 func (s *snykCodeClient) ExtendBundle(
 	ctx context.Context,
-	snykCodeApiUrl string,
 	bundleHash string,
 	files map[string]BundleFile,
 	removedFiles []string,
@@ -168,40 +151,11 @@ func (s *snykCodeClient) ExtendBundle(
 		return "", nil, err
 	}
 
-	host, err := s.FormatCodeApiURL(snykCodeApiUrl)
-	if err != nil {
-		return "", nil, err
-	}
-
-	responseBody, err := s.httpClient.DoCall(span.Context(), host, "PUT", "/bundle/"+bundleHash, requestBody)
+	responseBody, err := s.httpClient.DoCall(span.Context(), "PUT", "/bundle/"+bundleHash, requestBody)
 	if err != nil {
 		return "", nil, err
 	}
 	var bundleResponse BundleResponse
 	err = json.Unmarshal(responseBody, &bundleResponse)
 	return bundleResponse.BundleHash, bundleResponse.MissingFiles, err
-}
-
-var codeApiRegex = regexp.MustCompile(`^(deeproxy\.)?`)
-
-// This is only exported for tests.
-func (s *snykCodeClient) FormatCodeApiURL(snykCodeApiUrl string) (string, error) {
-	if !s.httpClient.Config().IsFedramp() {
-		return snykCodeApiUrl, nil
-	}
-	u, err := url.Parse(snykCodeApiUrl)
-	if err != nil {
-		return "", err
-	}
-
-	u.Host = codeApiRegex.ReplaceAllString(u.Host, "api.")
-
-	organization := s.httpClient.Config().Organization()
-	if organization == "" {
-		return "", errors.New("Organization is required in a fedramp environment")
-	}
-
-	u.Path = "/hidden/orgs/" + organization + "/code"
-
-	return u.String(), nil
 }

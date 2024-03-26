@@ -63,9 +63,10 @@ func TestSnykCodeBackendService_DoCall_shouldRetry(t *testing.T) {
 	config := httpmocks.NewMockConfig(ctrl)
 	config.EXPECT().IsFedramp().AnyTimes().Return(false)
 	config.EXPECT().Organization().AnyTimes().Return("")
+	config.EXPECT().SnykCodeApi().AnyTimes().Return("")
 
 	s := codeClientHTTP.NewHTTPClient(newLogger(t), config, dummyClientFactory, mockInstrumentor, mockErrorReporter)
-	_, err := s.DoCall(context.Background(), "", "GET", "https: //httpstat.us/500", nil)
+	_, err := s.DoCall(context.Background(), "GET", "https: //httpstat.us/500", nil)
 	assert.Error(t, err)
 	assert.Equal(t, 3, d.calls)
 }
@@ -86,10 +87,53 @@ func TestSnykCodeBackendService_doCall_rejected(t *testing.T) {
 	config := httpmocks.NewMockConfig(ctrl)
 	config.EXPECT().IsFedramp().AnyTimes().Return(false)
 	config.EXPECT().Organization().AnyTimes().Return("")
+	config.EXPECT().SnykCodeApi().AnyTimes().Return("")
 
 	s := codeClientHTTP.NewHTTPClient(newLogger(t), config, dummyClientFactory, mockInstrumentor, mockErrorReporter)
-	_, err := s.DoCall(context.Background(), "", "GET", "https://127.0.0.1", nil)
+	_, err := s.DoCall(context.Background(), "GET", "https://127.0.0.1", nil)
 	assert.Error(t, err)
+}
+
+func Test_FormatCodeApiURL(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	mockInstrumentor := mocks.NewMockInstrumentor(ctrl)
+	mockErrorReporter := mocks.NewMockErrorReporter(ctrl)
+	logger := newLogger(t)
+	dummyClientFactory := func() *http.Client {
+		return &http.Client{}
+	}
+
+	orgUUID := "00000000-0000-0000-0000-000000000023"
+
+	t.Run("Changes the URL if FedRAMP", func(t *testing.T) {
+		mockHTTPClient := httpmocks.NewMockHTTPClient(ctrl)
+		config := httpmocks.NewMockConfig(ctrl)
+		config.EXPECT().IsFedramp().AnyTimes().Return(true)
+		config.EXPECT().Organization().AnyTimes().Return(orgUUID)
+		config.EXPECT().SnykCodeApi().AnyTimes().Return("https://snyk.io/api/v1")
+		mockHTTPClient.EXPECT().Config().AnyTimes().Return(config)
+
+		s := codeClientHTTP.NewHTTPClient(logger, config, dummyClientFactory, mockInstrumentor, mockErrorReporter)
+
+		actual, err := s.FormatCodeApiURL()
+		assert.Nil(t, err)
+		assert.Contains(t, actual, "https://api.snyk.io/hidden/orgs/00000000-0000-0000-0000-000000000023/code")
+	})
+
+	t.Run("Does not change the URL if it's not FedRAMP", func(t *testing.T) {
+		mockHTTPClient := httpmocks.NewMockHTTPClient(ctrl)
+		config := httpmocks.NewMockConfig(ctrl)
+		config.EXPECT().IsFedramp().AnyTimes().Return(false)
+		config.EXPECT().Organization().AnyTimes().Return("")
+		config.EXPECT().SnykCodeApi().AnyTimes().Return("https://snyk.io/api/v1")
+		mockHTTPClient.EXPECT().Config().AnyTimes().Return(config)
+
+		s := codeClientHTTP.NewHTTPClient(logger, config, dummyClientFactory, mockInstrumentor, mockErrorReporter)
+
+		actual, err := s.FormatCodeApiURL()
+		assert.Nil(t, err)
+		assert.Contains(t, actual, "https://snyk.io/api/v1")
+	})
 }
 
 func newLogger(t *testing.T) *zerolog.Logger {
