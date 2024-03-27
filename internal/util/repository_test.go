@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package util
+package util_test
 
 import (
 	"net/url"
@@ -21,16 +21,26 @@ import (
 
 	"github.com/go-git/go-git/v5"
 	"github.com/stretchr/testify/assert"
+
+	"github.com/snyk/code-client-go/internal/util"
 )
 
-func Test_GetRepositoryUrl_repo(t *testing.T) {
+func clone(t *testing.T, repoUrl string) (string, *git.Repository) {
+	t.Helper()
+
+	repoDir := t.TempDir()
+	repo, err := git.PlainClone(repoDir, false, &git.CloneOptions{URL: repoUrl})
+	assert.NoError(t, err)
+	assert.NotNil(t, repo)
+
+	return repoDir, repo
+}
+
+func Test_GetRepositoryUrl_repo_with_credentials(t *testing.T) {
 	// check out a repo and prepare its config to contain credentials in the URL
 	expectedRepoUrl := "https://github.com/snyk-fixtures/shallow-goof-locked.git"
 
-	repoDir := t.TempDir()
-	repo, err := git.PlainClone(repoDir, false, &git.CloneOptions{URL: expectedRepoUrl})
-	assert.NoError(t, err)
-	assert.NotNil(t, repo)
+	repoDir, repo := clone(t, expectedRepoUrl)
 
 	config, err := repo.Config()
 	assert.NoError(t, err)
@@ -46,39 +56,25 @@ func Test_GetRepositoryUrl_repo(t *testing.T) {
 	assert.NoError(t, err)
 
 	// run method under test
-	actualUrl, err := GetRepositoryUrl(repoDir)
+	actualUrl, err := util.GetRepositoryUrl(repoDir)
+	assert.NoError(t, err)
+	assert.Equal(t, expectedRepoUrl, actualUrl)
+}
+
+func Test_GetRepositoryUrl_repo_without_credentials(t *testing.T) {
+	// check out a repo and prepare its config to contain credentials in the URL
+	expectedRepoUrl := "git@github.com:snyk-fixtures/shallow-goof-locked.git"
+	repoDir, _ := clone(t, expectedRepoUrl)
+
+	// run method under test
+	actualUrl, err := util.GetRepositoryUrl(repoDir)
 	assert.NoError(t, err)
 	assert.Equal(t, expectedRepoUrl, actualUrl)
 }
 
 func Test_GetRepositoryUrl_no_repo(t *testing.T) {
 	repoDir := t.TempDir()
-	actualUrl, err := GetRepositoryUrl(repoDir)
+	actualUrl, err := util.GetRepositoryUrl(repoDir)
 	assert.Error(t, err)
 	assert.Empty(t, actualUrl)
-}
-
-func Test_SanatiseUrl_url_with_creds(t *testing.T) {
-	expectedUrl := "https://github.com/snyk/cli.git"
-
-	t.Run("has credentials", func(t *testing.T) {
-		inputUrl := "https://snykUser:snykSuperSecret@github.com/snyk/cli.git"
-		actualUrl, err := sanitiseCredentials(inputUrl)
-		assert.NoError(t, err)
-		assert.Equal(t, expectedUrl, actualUrl)
-	})
-
-	t.Run("no credentials", func(t *testing.T) {
-		inputUrl := "https://github.com/snyk/cli.git"
-		actualUrl, err := sanitiseCredentials(inputUrl)
-		assert.NoError(t, err)
-		assert.Equal(t, expectedUrl, actualUrl)
-	})
-
-	t.Run("no http url", func(t *testing.T) {
-		inputUrl := "git@github.com:snyk/code-client-go.git"
-		actualUrl, err := sanitiseCredentials(inputUrl)
-		assert.NoError(t, err)
-		assert.Equal(t, inputUrl, actualUrl)
-	})
 }
