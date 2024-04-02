@@ -178,16 +178,19 @@ func NewCreateWorkspaceRequestWithBody(server string, orgId externalRef2.OrgId, 
 	if err != nil {
 		return nil, err
 	}
-
+	fmt.Println(serverURL)
 	operationPath := fmt.Sprintf("/orgs/%s/workspaces", pathParam0)
 	if operationPath[0] == '/' {
 		operationPath = "." + operationPath
 	}
 
+	fmt.Println(operationPath)
 	queryURL, err := serverURL.Parse(operationPath)
 	if err != nil {
 		return nil, err
 	}
+	fmt.Println("--->")
+	fmt.Println(queryURL)
 
 	if params != nil {
 		queryValues := queryURL.Query()

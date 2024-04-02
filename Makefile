@@ -66,6 +66,7 @@ download-apis: download-workspace-api
 .PHONY: download-workspace-api
 download-workspace-api:
 	./scripts/download-workspace-api.sh
+	./scripts/download-orchestration-api.sh
 
 .PHONY: help
 help:

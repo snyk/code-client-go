@@ -51,3 +51,5 @@ webidentity.json
 #################################
 internal/workspace/**/**/*.yaml
 !internal/workspace/**/**/*.config.yaml
+internal/orchestration/**/**/*.yaml
+!internal/orchestration/**/**/*.config.yaml
