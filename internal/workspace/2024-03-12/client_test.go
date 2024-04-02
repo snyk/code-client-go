@@ -11,7 +11,7 @@ import (
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 
-	v20240312 "github.com/snyk/code-client-go/internal/workspace/2024-03-12"
+	workspaceClient "github.com/snyk/code-client-go/internal/workspace/2024-03-12"
 	externalRef3 "github.com/snyk/code-client-go/internal/workspace/2024-03-12/workspaces"
 )
 
@@ -35,15 +35,15 @@ func TestWorkspace_CreateWorkspaceWithApplicationVndAPIPlusJSONBody_Success(t *t
 		assert.True(t, ok)
 		assert.Equal(t, "/https//api.snyk.io/rest/orgs/e7ea34c9-de0f-422c-bf2c-4654c2e2da90/workspaces?version=2024-03-12~experimental", req.URL.String())
 	})
-	client, err := v20240312.NewClientWithResponses("https//api.snyk.io/rest", v20240312.WithHTTPClient(doer))
+	client, err := workspaceClient.NewClientWithResponses("https//api.snyk.io/rest", workspaceClient.WithHTTPClient(doer))
 	require.NoError(t, err)
 
 	orgUUID := uuid.MustParse("e7ea34c9-de0f-422c-bf2c-4654c2e2da90")
 	requestId := uuid.New()
-	_, err = client.CreateWorkspaceWithApplicationVndAPIPlusJSONBody(context.Background(), orgUUID, &v20240312.CreateWorkspaceParams{
+	_, err = client.CreateWorkspaceWithApplicationVndAPIPlusJSONBody(context.Background(), orgUUID, &workspaceClient.CreateWorkspaceParams{
 		Version:       "2024-03-12~experimental",
 		SnykRequestId: requestId,
-	}, v20240312.CreateWorkspaceApplicationVndAPIPlusJSONRequestBody{
+	}, workspaceClient.CreateWorkspaceApplicationVndAPIPlusJSONRequestBody{
 		Data: struct {
 			Attributes struct {
 				BundleId      string                                                       `json:"bundle_id"`
@@ -79,15 +79,15 @@ func TestWorkspace_CreateWorkspaceWithApplicationVndAPIPlusJSONBody_Failure(t *t
 		assert.True(t, ok)
 		assert.Equal(t, "/https//api.snyk.io/rest/orgs/e7ea34c9-de0f-422c-bf2c-4654c2e2da90/workspaces?version=2024-03-12~experimental", req.URL.String())
 	})
-	client, err := v20240312.NewClientWithResponses("https//api.snyk.io/rest", v20240312.WithHTTPClient(doer))
+	client, err := workspaceClient.NewClientWithResponses("https//api.snyk.io/rest", workspaceClient.WithHTTPClient(doer))
 	require.NoError(t, err)
 
 	orgUUID := uuid.MustParse("e7ea34c9-de0f-422c-bf2c-4654c2e2da90")
 	requestId := uuid.New()
-	_, err = client.CreateWorkspaceWithApplicationVndAPIPlusJSONBody(context.Background(), orgUUID, &v20240312.CreateWorkspaceParams{
+	_, err = client.CreateWorkspaceWithApplicationVndAPIPlusJSONBody(context.Background(), orgUUID, &workspaceClient.CreateWorkspaceParams{
 		Version:       "2024-03-12~experimental",
 		SnykRequestId: requestId,
-	}, v20240312.CreateWorkspaceApplicationVndAPIPlusJSONRequestBody{
+	}, workspaceClient.CreateWorkspaceApplicationVndAPIPlusJSONRequestBody{
 		Data: struct {
 			Attributes struct {
 				BundleId      string                                                       `json:"bundle_id"`
