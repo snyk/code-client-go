@@ -14,7 +14,7 @@ func TestAnalysis_RunAnalysis(t *testing.T) {
 	actual, err := analysis.RunAnalysis()
 	require.NoError(t, err)
 	assert.Equal(t, "COMPLETE", actual.Status)
-	assert.Contains(t, actual.Sarif.Runs[0].Results[0].Locations[0].PhysicalLocation.ArtifactLocation.URI, "src/main.ts")
+	assert.Contains(t, actual.Sarif.Runs[0].Results[0].Locations[0].PhysicalLocation.ArtifactLocation.URI, "scripts/db/migrations/20230811153738_add_generated_grouping_columns_to_collections_table.ts")
 	assert.Nil(t, actual.Sarif.Runs[0].Results[0].Suppressions)
 	assert.NotNil(t, actual.Sarif.Runs[0].Results[1].Suppressions)
 	assert.Len(t, actual.Sarif.Runs[0].Results[1].Suppressions, 1)

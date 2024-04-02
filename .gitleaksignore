@@ -1,1 +1,4 @@
-# add false positives here
+506bf6346668e6e0bac9b9590ae559f49c20f910:internal/analysis/fake.json:generic-api-key:180
+506bf6346668e6e0bac9b9590ae559f49c20f910:internal/analysis/fake.json:generic-api-key:245
+506bf6346668e6e0bac9b9590ae559f49c20f910:internal/analysis/fake.json:generic-api-key:495
+506bf6346668e6e0bac9b9590ae559f49c20f910:internal/analysis/fake.json:generic-api-key:560
