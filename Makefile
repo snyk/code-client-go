@@ -57,8 +57,15 @@ testv:
 	@go test -v ./...
 
 .PHONY: generate
-generate: $(TOOLS_BIN)/go/mockgen
+generate: $(TOOLS_BIN)/go/mockgen $(TOOLS_BIN)/go/oapi-codegen
 	@go generate ./...
+
+.PHONY: download-apis
+download-apis: download-workspace-api
+
+.PHONY: download-workspace-api
+download-workspace-api:
+	./scripts/download-workspace-api.sh
 
 .PHONY: help
 help:

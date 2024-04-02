@@ -46,3 +46,8 @@ Thumbs.db
 ._*
 webidentity.json
 
+#################################
+# Development files              #
+#################################
+internal/workspace/**/**/*.yaml
+!internal/workspace/**/**/*.config.yaml
