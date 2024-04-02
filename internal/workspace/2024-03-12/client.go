@@ -23,6 +23,11 @@ const (
 	BearerAuthScopes = "bearerAuth.Scopes"
 )
 
+// Defines values for CreateWorkspaceParamsContentType.
+const (
+	ApplicationvndApiJson CreateWorkspaceParamsContentType = "application/vnd.api+json"
+)
+
 // CreateWorkspaceParams defines parameters for CreateWorkspace.
 type CreateWorkspaceParams struct {
 	// Version The requested version of the endpoint to process the request
@@ -32,8 +37,14 @@ type CreateWorkspaceParams struct {
 	SnykRequestId externalRef2.RequestId `json:"snyk-request-id"`
 
 	// UserAgent The client that sent the request, as per RFC 7231.
-	UserAgent externalRef2.UserAgent `json:"User-Agent"`
+	UserAgent externalRef2.UserAgent `json:"user-agent"`
+
+	// ContentType Content type header
+	ContentType CreateWorkspaceParamsContentType `json:"content-type"`
 }
+
+// CreateWorkspaceParamsContentType defines parameters for CreateWorkspace.
+type CreateWorkspaceParamsContentType string
 
 // CreateWorkspaceApplicationVndAPIPlusJSONRequestBody defines body for CreateWorkspace for application/vnd.api+json ContentType.
 type CreateWorkspaceApplicationVndAPIPlusJSONRequestBody = externalRef3.WorkspacePostRequest
@@ -216,12 +227,21 @@ func NewCreateWorkspaceRequestWithBody(server string, orgId externalRef2.OrgId, 
 
 		var headerParam1 string
 
-		headerParam1, err = runtime.StyleParamWithLocation("simple", false, "User-Agent", runtime.ParamLocationHeader, params.UserAgent)
+		headerParam1, err = runtime.StyleParamWithLocation("simple", false, "user-agent", runtime.ParamLocationHeader, params.UserAgent)
 		if err != nil {
 			return nil, err
 		}
 
-		req.Header.Set("User-Agent", headerParam1)
+		req.Header.Set("user-agent", headerParam1)
+
+		var headerParam2 string
+
+		headerParam2, err = runtime.StyleParamWithLocation("simple", false, "content-type", runtime.ParamLocationHeader, params.ContentType)
+		if err != nil {
+			return nil, err
+		}
+
+		req.Header.Set("content-type", headerParam2)
 
 	}
 

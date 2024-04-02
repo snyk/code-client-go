@@ -11,4 +11,5 @@ import-mapping:
   ./parameters/orgs.yaml: github.com/snyk/code-client-go/internal/workspace/2024-03-12/parameters
   ./parameters/request-id.yaml: github.com/snyk/code-client-go/internal/workspace/2024-03-12/parameters
   ./parameters/user-agent.yaml: github.com/snyk/code-client-go/internal/workspace/2024-03-12/parameters
+  ./parameters/content-type.yaml: github.com/snyk/code-client-go/internal/workspace/2024-03-12/parameters
 output: client.go
