@@ -31,329 +31,555 @@
             "version": "1.0.0",
             "rules": [
               {
-                "id": "java/DontUsePrintStackTrace",
-                "name": "DontUsePrintStackTrace",
+                "id": "javascript/HardcodedNonCryptoSecret",
+                "name": "HardcodedNonCryptoSecret",
                 "ShortDescription": {
-                  "text": "DontUsePrintStackTrace"
+                  "text": "Hardcoded Secret"
                 },
                 "DefaultConfiguration": {
-                  "level": "note"
+                  "level": "error"
                 },
                 "Help": {
-                  "markdown": "",
+                  "markdown": "## Details\n\nWhen constants are hardcoded into applications, this information could easily be reverse-engineered and become known to attackers. For example, if a breached authentication token is hardcoded in multiple places in the application, it may lead to components of the application remaining vulnerable if not all instances are changed.\nAnother negative effect of hard-coding constants is potential unpredictability in the application's performance if the development team fails to update every single instance of the hardcoded constant throughout the code. For these reasons, hard-coding security-relevant constants is considered bad coding practice and should be remedied if present and avoided in future.\n\n## Best practices for prevention\n- Never hard code security-related constants; use symbolic names or configuration lookup files.\n- As hard coding is often done by coders working alone on a small scale, examine all legacy code components and test carefully when scaling.\n- Adopt a \"future-proof code\" mindset: While use of constants may save a little time now and make development simpler in the short term, it could cost time and money adapting to scale or other unforeseen circumstances (such as new hardware) in the future.",
                   "text": ""
                 },
                 "properties": {
                   "tags": [
-                    "java",
-                    "maintenance",
-                    "bug",
-                    "logging",
-                    "exception",
-                    "error"
+                    "javascript",
+                    "HardcodedNonCryptoSecret",
+                    "Security"
                   ],
                   "categories": [
-                    "security"
+                    "Security"
                   ],
                   "exampleCommitFixes": [
                     {
-                      "commitURL": "https://github.com/apache/flink/commit/5d7c5620804eddd59206b24c87ffc89c12fd1184?diff=split#diff-86ec3e3884662ba3b5f4bb5050221fd6L94",
+                      "commitURL": "https://github.com/DanielMil/Authentication-Server/commit/310ce5500e9e751ee2fd9f3018bf772e9aae8364?diff=split#diff-dcdc3e0b3362edb8fec2a51d3fa51f8fb8af8f70247e06d9887fa934834c9122L-1",
                       "lines": [
                         {
-                          "line": "try {",
-                          "lineNumber": 101,
-                          "lineChange": "none"
-                        },
-                        {
-                          "line": "  newCopy.read(dis);",
-                          "lineNumber": 102,
-                          "lineChange": "none"
-                        },
-                        {
-                          "line": "} catch (IOException e) {",
-                          "lineNumber": 103,
-                          "lineChange": "none"
-                        },
-                        {
-                          "line": "  e.printStackTrace();",
-                          "lineNumber": 94,
-                          "lineChange": "removed"
-                        },
-                        {
-                          "line": "  LOG.error(e);",
-                          "lineNumber": 104,
+                          "line": "// Set environment variables\n",
+                          "lineNumber": 14,
                           "lineChange": "added"
                         },
                         {
-                          "line": "}",
-                          "lineNumber": 105,
+                          "line": "const sessionSecret: any = process.env.SESSION_SECRET;\n",
+                          "lineNumber": 15,
+                          "lineChange": "added"
+                        },
+                        {
+                          "line": "const dbConnection: any = process.env.MONGO_URI; \n",
+                          "lineNumber": 16,
+                          "lineChange": "added"
+                        },
+                        {
+                          "line": "\n",
+                          "lineNumber": 17,
+                          "lineChange": "added"
+                        },
+                        {
+                          "line": "// Mongo config\n",
+                          "lineNumber": 18,
                           "lineChange": "none"
+                        },
+                        {
+                          "line": "const DB_CONNECTION: any = process.env.MONGO_URI; \n",
+                          "lineNumber": 15,
+                          "lineChange": "none"
+                        },
+                        {
+                          "line": "mongoose.connect(DB_CONNECTION, { useNewUrlParser: true })\n",
+                          "lineNumber": 16,
+                          "lineChange": "none"
+                        },
+                        {
+                          "line": " .then(() => console.log(\"Succesfully connected to MongoDB.\"))\n",
+                          "lineNumber": 20,
+                          "lineChange": "none"
+                        },
+                        {
+                          "line": " .catch((err: mongoose.Error) => console.error(err));\n",
+                          "lineNumber": 21,
+                          "lineChange": "none"
+                        },
+                        {
+                          "line": "const MongoStore = mongoStore(session); \n",
+                          "lineNumber": 22,
+                          "lineChange": "none"
+                        },
+                        {
+                          "line": "const db: any  = mongoose.connection;\n",
+                          "lineNumber": 23,
+                          "lineChange": "none"
+                        },
+                        {
+                          "line": " \n",
+                          "lineNumber": 24,
+                          "lineChange": "none"
+                        },
+                        {
+                          "line": "// Fix mongo deprecation warnings\n",
+                          "lineNumber": 25,
+                          "lineChange": "none"
+                        },
+                        {
+                          "line": "mongoose.set('useNewUrlParser', true);\n",
+                          "lineNumber": 26,
+                          "lineChange": "none"
+                        },
+                        {
+                          "line": "mongoose.set('useFindAndModify', false);\n",
+                          "lineNumber": 27,
+                          "lineChange": "none"
+                        },
+                        {
+                          "line": "mongoose.set('useCreateIndex', true);\n",
+                          "lineNumber": 28,
+                          "lineChange": "none"
+                        },
+                        {
+                          "line": "\n",
+                          "lineNumber": 29,
+                          "lineChange": "none"
+                        },
+                        {
+                          "line": "// Configure express session\n",
+                          "lineNumber": 30,
+                          "lineChange": "none"
+                        },
+                        {
+                          "line": "app.use(cookieParser());\n",
+                          "lineNumber": 31,
+                          "lineChange": "none"
+                        },
+                        {
+                          "line": "app.use(session({\n",
+                          "lineNumber": 32,
+                          "lineChange": "none"
+                        },
+                        {
+                          "line": "    secret: \"secret\",\n",
+                          "lineNumber": 30,
+                          "lineChange": "removed"
+                        },
+                        {
+                          "line": "    secret: sessionSecret,\n",
+                          "lineNumber": 33,
+                          "lineChange": "added"
                         }
                       ]
                     },
                     {
-                      "commitURL": "https://github.com/rtr-nettest/open-rmbt/commit/0fa9d5547c5300cf8162b8f31a40aea6847a5c32?diff=split#diff-7e23eb1aa3b7b4d5db89bfd2860277e5L75",
+                      "commitURL": "https://github.com/virena-app/virena/commit/8058527e8ef71bfa81f0cb0fb35eb80d00e08fdb?diff=split#diff-186488e26aa960d29fec244ac086f15e024c5a84df47eeba233d9b8d2525de2dL-1",
                       "lines": [
                         {
-                          "line": "  }",
-                          "lineNumber": 111,
-                          "lineChange": "none"
-                        },
-                        {
-                          "line": "}",
-                          "lineNumber": 112,
-                          "lineChange": "none"
-                        },
-                        {
-                          "line": "catch (Exception e) {",
-                          "lineNumber": 113,
-                          "lineChange": "none"
-                        },
-                        {
-                          "line": "  e.printStackTrace();",
-                          "lineNumber": 75,
+                          "line": "client_id: '8fcf3e5c2d3d5dd78188',\n",
+                          "lineNumber": 36,
                           "lineChange": "removed"
                         },
                         {
-                          "line": "  error(e, 0);",
-                          "lineNumber": 114,
+                          "line": "client_secret: '0e102c56021e1aa28005b469b3c83ef7cb7e5b0e'\n",
+                          "lineNumber": 37,
+                          "lineChange": "removed"
+                        },
+                        {
+                          "line": "client_id: process.env.GITINIT,\n",
+                          "lineNumber": 36,
                           "lineChange": "added"
                         },
                         {
-                          "line": "  state.set(JobState.ERROR);",
-                          "lineNumber": 115,
+                          "line": "client_secret: process.env.GITSEE\n",
+                          "lineNumber": 37,
                           "lineChange": "added"
-                        },
-                        {
-                          "line": "}",
-                          "lineNumber": 116,
-                          "lineChange": "none"
-                        },
-                        {
-                          "line": "finally {",
-                          "lineNumber": 117,
-                          "lineChange": "none"
                         }
                       ]
                     },
                     {
-                      "commitURL": "https://github.com/wso2/developer-studio/commit/cfd84b83349e67de4b0239733bc6ed01287856b7?diff=split#diff-645425e844adc2eab8197719cbb2fe8dL285",
+                      "commitURL": "https://github.com/nemtech/nem2-library-js/commit/dd101718759035849eeb9d4a388656acdb5bf6d9?diff=split#diff-59ccc41578f07869060f7aea9ceca193a407696cce3de9f7219f98187f65c5b7L-1",
                       "lines": [
                         {
-                          "line": "  } catch (SAXException e) {",
-                          "lineNumber": 282,
-                          "lineChange": "none"
-                        },
-                        {
-                          "line": "    e.printStackTrace();",
-                          "lineNumber": 283,
+                          "line": "const hash = sha3_512.create();\n",
+                          "lineNumber": 29,
                           "lineChange": "removed"
                         },
                         {
-                          "line": "    log.error(e);",
-                          "lineNumber": 282,
-                          "lineChange": "added"
-                        },
-                        {
-                          "line": "  } catch (IOException e) {",
-                          "lineNumber": 284,
-                          "lineChange": "none"
-                        },
-                        {
-                          "line": "    e.printStackTrace();",
-                          "lineNumber": 285,
+                          "line": "hash.update('secret');\n",
+                          "lineNumber": 30,
                           "lineChange": "removed"
                         },
                         {
-                          "line": "    log.error(e);",
-                          "lineNumber": 284,
+                          "line": "const hash = new Ripemd160().update(Buffer.from('Test Hash 160')).digest('Hex');\t\t\n",
+                          "lineNumber": 31,
                           "lineChange": "added"
                         },
                         {
-                          "line": "  }",
-                          "lineNumber": 286,
+                          "line": "const secretLockTransaction = {\n",
+                          "lineNumber": 32,
                           "lineChange": "none"
                         },
                         {
-                          "line": "}",
-                          "lineNumber": 287,
+                          "line": "\tdeadline: deadline(),\n",
+                          "lineNumber": 33,
                           "lineChange": "none"
+                        },
+                        {
+                          "line": "\tmosaicId: [3646934825, 3576016193],\n",
+                          "lineNumber": 34,
+                          "lineChange": "none"
+                        },
+                        {
+                          "line": "\tmosaicAmount: uint64.fromUint(10000000),\n",
+                          "lineNumber": 35,
+                          "lineChange": "none"
+                        },
+                        {
+                          "line": "\tduration: uint64.fromUint(100),\n",
+                          "lineNumber": 36,
+                          "lineChange": "none"
+                        },
+                        {
+                          "line": "\thashAlgorithm: 0,\n",
+                          "lineNumber": 36,
+                          "lineChange": "removed"
+                        },
+                        {
+                          "line": "\tsecret: '225fe6d12b73a7d51f2992ce82951dbf8c173fa4',\n",
+                          "lineNumber": 37,
+                          "lineChange": "removed"
+                        },
+                        {
+                          "line": "\thashAlgorithm: HashAlgorithm.RIPEMD_160,\n",
+                          "lineNumber": 37,
+                          "lineChange": "added"
+                        },
+                        {
+                          "line": "\tsecret: hash,\n",
+                          "lineNumber": 38,
+                          "lineChange": "added"
                         }
                       ]
                     }
                   ],
-                  "exampleCommitDescriptions": [
-                    "improve logging and testing",
-                    "more tests, exceptions",
-                    "log errors to the log file"
-                  ],
+                  "exampleCommitDescriptions": [],
                   "precision": "very-high",
-                  "repoDatasetSize": 5854
+                  "repoDatasetSize": 68,
+                  "cwe": [
+                    "CWE-547"
+                  ]
                 }
               },
               {
-                "id": "java/catchingInterruptedExceptionWithoutInterrupt",
-                "name": "catchingInterruptedExceptionWithoutInterrupt",
+                "id": "javascript/HttpToHttps",
+                "name": "HttpToHttps",
                 "ShortDescription": {
-                  "text": "catchingInterruptedExceptionWithoutInterrupt"
+                  "text": "Cleartext Transmission of Sensitive Information"
                 },
                 "DefaultConfiguration": {
                   "level": "warning"
                 },
                 "Help": {
-                  "markdown": "",
+                  "markdown": "\n## Details\nThis weakness occurs when software transmits sensitive information, such as passwords or credit card numbers, in unencrypted form. This information may then be intercepted by threat actors using sniffer tools or interception techniques such as man-in-the-middle (MITM) attacks (often involving social engineering). Attackers can then use information gleaned to perform a variety of actions, depending on the information type. Possible actions include gaining unauthorized access, impersonating a user, moving laterally within the organization's network, or retrieving and potentially modifying files. This weakness is almost completely avoidable through intelligent architecture and design.\n\n## Best practices for prevention\n* Build web applications around a security mindset and the awareness that sniffers may be present at any time.\n* Ensure that all sensitive data transmission uses reliable encryption.\n* Implement security measures so that sensitive results are never returned in plain text.\n* Implement multiple-factor authentication methods to validate remote instances.\n* Use SSL not only at logon but throughout communications.",
                   "text": ""
                 },
                 "properties": {
                   "tags": [
-                    "java",
-                    "bug",
-                    "maintenance",
-                    "import",
-                    "remoting.jar",
-                    "overwrite"
+                    "javascript",
+                    "HttpToHttps",
+                    "Security"
                   ],
                   "categories": [
-                    "security"
+                    "Security"
                   ],
                   "exampleCommitFixes": [
                     {
-                      "commitURL": "https://github.com/markusfisch/ShaderEditor/commit/ea90be086b71df55a675a4a75d35c6f294a634a9?diff=split#diff-924648dd89d8c5ea66b90291ac693c9aL739",
+                      "commitURL": "https://github.com/medic/couch2pg/commit/062eaa0f53d2cd2327232a695c60bf4c9fd589f6?diff=split#diff-e727e4bdf3657fd1d798edcd6b099d6e092f8573cba266154583a746bba0f346L-1",
                       "lines": [
                         {
-                          "line": "    Thread.sleep(100);",
-                          "lineNumber": 736,
-                          "lineChange": "none"
-                        },
-                        {
-                          "line": "  }",
-                          "lineNumber": 737,
-                          "lineChange": "none"
-                        },
-                        {
-                          "line": "} catch (InterruptedException e) {",
-                          "lineNumber": 738,
-                          "lineChange": "none"
-                        },
-                        {
-                          "line": "  // thread got interrupted, ignore that",
-                          "lineNumber": 739,
+                          "line": "var httplib = require('http');\n",
+                          "lineNumber": 1,
                           "lineChange": "removed"
                         },
                         {
-                          "line": "  Thread.currentThread().interrupt();",
-                          "lineNumber": 739,
+                          "line": "var httplib = require('https');\n",
+                          "lineNumber": 1,
                           "lineChange": "added"
-                        },
-                        {
-                          "line": "}",
-                          "lineNumber": 740,
-                          "lineChange": "none"
                         }
                       ]
                     },
                     {
-                      "commitURL": "https://github.com/yegor256/rexsl/commit/c147bbb780882cdf8e62e4de46b8f99b86d94a5c?diff=split#diff-43fdfda5b43f9f592cb0e8fc194b12ddL64",
+                      "commitURL": "https://github.com/dondi/GRNsight/commit/01e7d39d55ea9c18348a48aac5954183d825e834?diff=split#diff-65890f102baa526da3cc5d65e0528ea728fa9fa63659a7f2e1d523686240359cL-1",
                       "lines": [
                         {
-                          "line": "       // @checkstyle MagicNumber (1 line)",
-                          "lineNumber": 61,
-                          "lineChange": "none"
+                          "line": "var https = require(\"http\");\n",
+                          "lineNumber": 2,
+                          "lineChange": "removed"
                         },
                         {
-                          "line": "       Thread.sleep(1000);",
-                          "lineNumber": 62,
-                          "lineChange": "none"
-                        },
-                        {
-                          "line": "   } catch (java.lang.InterruptedException ex) {",
-                          "lineNumber": 63,
-                          "lineChange": "none"
-                        },
-                        {
-                          "line": "       container.stop();",
-                          "lineNumber": 64,
-                          "lineChange": "none"
-                        },
-                        {
-                          "line": "       Thread.currentThread().interrupt();",
-                          "lineNumber": 65,
+                          "line": "var https = require(\"https\");\n",
+                          "lineNumber": 2,
                           "lineChange": "added"
-                        },
-                        {
-                          "line": "   }",
-                          "lineNumber": 66,
-                          "lineChange": "none"
-                        },
-                        {
-                          "line": "}",
-                          "lineNumber": 67,
-                          "lineChange": "none"
                         }
                       ]
                     },
                     {
-                      "commitURL": "https://github.com/apache/tomcat/commit/c6bd6f4afbf24c23b3ff03ec652f7e4524694a1e?diff=split#diff-7fc346c0b69fcfdc8e4ad44afc3b345fL85",
+                      "commitURL": "https://github.com/watilde/npmbrew/commit/968a0cd04e732ede4552e60e86762ce77f7f0a5c?diff=split#diff-94469ba7812da76fe341041375403897426443f146321489331bb46bb45faf5bL-1",
                       "lines": [
                         {
-                          "line": "        configureTask(worker);",
-                          "lineNumber": 82,
-                          "lineChange": "none"
-                        },
-                        {
-                          "line": "    } else {",
-                          "lineNumber": 83,
-                          "lineChange": "none"
-                        },
-                        {
-                          "line": "        try { mutex.wait(); } catch ( java.lang.InterruptedException x ) {Thread.interrupted();}",
-                          "lineNumber": 84,
+                          "line": "var http = require(\"http\")\n",
+                          "lineNumber": 2,
                           "lineChange": "removed"
                         },
                         {
-                          "line": "        try {",
-                          "lineNumber": 84,
+                          "line": "var http = require(\"https\")\n",
+                          "lineNumber": 2,
                           "lineChange": "added"
-                        },
-                        {
-                          "line": "            mutex.wait();",
-                          "lineNumber": 85,
-                          "lineChange": "added"
-                        },
-                        {
-                          "line": "        } catch (java.lang.InterruptedException x) {",
-                          "lineNumber": 86,
-                          "lineChange": "added"
-                        },
-                        {
-                          "line": "            Thread.currentThread().interrupt();",
-                          "lineNumber": 87,
-                          "lineChange": "added"
-                        },
-                        {
-                          "line": "        }",
-                          "lineNumber": 88,
-                          "lineChange": "added"
-                        },
-                        {
-                          "line": "    }",
-                          "lineNumber": 89,
-                          "lineChange": "none"
-                        },
-                        {
-                          "line": "}//while",
-                          "lineNumber": 90,
-                          "lineChange": "none"
                         }
                       ]
                     }
                   ],
-                  "exampleCommitDescriptions": [
-                    "Clean up import statements in java code.",
-                    "Overwrite remoting.jar only when necessary."
-                  ],
+                  "exampleCommitDescriptions": [],
                   "precision": "very-high",
-                  "repoDatasetSize": 26
+                  "repoDatasetSize": 4,
+                  "cwe": [
+                    "CWE-319"
+                  ]
+                }
+              },
+              {
+                "id": "javascript/HardcodedNonCryptoSecret/test",
+                "name": "HardcodedNonCryptoSecret/test",
+                "ShortDescription": {
+                  "text": "Hardcoded Secret"
+                },
+                "DefaultConfiguration": {
+                  "level": "note"
+                },
+                "Help": {
+                  "markdown": "## Details\n\nWhen constants are hardcoded into applications, this information could easily be reverse-engineered and become known to attackers. For example, if a breached authentication token is hardcoded in multiple places in the application, it may lead to components of the application remaining vulnerable if not all instances are changed.\nAnother negative effect of hard-coding constants is potential unpredictability in the application's performance if the development team fails to update every single instance of the hardcoded constant throughout the code. For these reasons, hard-coding security-relevant constants is considered bad coding practice and should be remedied if present and avoided in future.\n\n## Best practices for prevention\n- Never hard code security-related constants; use symbolic names or configuration lookup files.\n- As hard coding is often done by coders working alone on a small scale, examine all legacy code components and test carefully when scaling.\n- Adopt a \"future-proof code\" mindset: While use of constants may save a little time now and make development simpler in the short term, it could cost time and money adapting to scale or other unforeseen circumstances (such as new hardware) in the future.",
+                  "text": ""
+                },
+                "properties": {
+                  "tags": [
+                    "javascript",
+                    "HardcodedNonCryptoSecret",
+                    "Security",
+                    "InTest"
+                  ],
+                  "categories": [
+                    "InTest"
+                  ],
+                  "exampleCommitFixes": [
+                    {
+                      "commitURL": "https://github.com/DanielMil/Authentication-Server/commit/310ce5500e9e751ee2fd9f3018bf772e9aae8364?diff=split#diff-dcdc3e0b3362edb8fec2a51d3fa51f8fb8af8f70247e06d9887fa934834c9122L-1",
+                      "lines": [
+                        {
+                          "line": "// Set environment variables\n",
+                          "lineNumber": 14,
+                          "lineChange": "added"
+                        },
+                        {
+                          "line": "const sessionSecret: any = process.env.SESSION_SECRET;\n",
+                          "lineNumber": 15,
+                          "lineChange": "added"
+                        },
+                        {
+                          "line": "const dbConnection: any = process.env.MONGO_URI; \n",
+                          "lineNumber": 16,
+                          "lineChange": "added"
+                        },
+                        {
+                          "line": "\n",
+                          "lineNumber": 17,
+                          "lineChange": "added"
+                        },
+                        {
+                          "line": "// Mongo config\n",
+                          "lineNumber": 18,
+                          "lineChange": "none"
+                        },
+                        {
+                          "line": "const DB_CONNECTION: any = process.env.MONGO_URI; \n",
+                          "lineNumber": 15,
+                          "lineChange": "none"
+                        },
+                        {
+                          "line": "mongoose.connect(DB_CONNECTION, { useNewUrlParser: true })\n",
+                          "lineNumber": 16,
+                          "lineChange": "none"
+                        },
+                        {
+                          "line": " .then(() => console.log(\"Succesfully connected to MongoDB.\"))\n",
+                          "lineNumber": 20,
+                          "lineChange": "none"
+                        },
+                        {
+                          "line": " .catch((err: mongoose.Error) => console.error(err));\n",
+                          "lineNumber": 21,
+                          "lineChange": "none"
+                        },
+                        {
+                          "line": "const MongoStore = mongoStore(session); \n",
+                          "lineNumber": 22,
+                          "lineChange": "none"
+                        },
+                        {
+                          "line": "const db: any  = mongoose.connection;\n",
+                          "lineNumber": 23,
+                          "lineChange": "none"
+                        },
+                        {
+                          "line": " \n",
+                          "lineNumber": 24,
+                          "lineChange": "none"
+                        },
+                        {
+                          "line": "// Fix mongo deprecation warnings\n",
+                          "lineNumber": 25,
+                          "lineChange": "none"
+                        },
+                        {
+                          "line": "mongoose.set('useNewUrlParser', true);\n",
+                          "lineNumber": 26,
+                          "lineChange": "none"
+                        },
+                        {
+                          "line": "mongoose.set('useFindAndModify', false);\n",
+                          "lineNumber": 27,
+                          "lineChange": "none"
+                        },
+                        {
+                          "line": "mongoose.set('useCreateIndex', true);\n",
+                          "lineNumber": 28,
+                          "lineChange": "none"
+                        },
+                        {
+                          "line": "\n",
+                          "lineNumber": 29,
+                          "lineChange": "none"
+                        },
+                        {
+                          "line": "// Configure express session\n",
+                          "lineNumber": 30,
+                          "lineChange": "none"
+                        },
+                        {
+                          "line": "app.use(cookieParser());\n",
+                          "lineNumber": 31,
+                          "lineChange": "none"
+                        },
+                        {
+                          "line": "app.use(session({\n",
+                          "lineNumber": 32,
+                          "lineChange": "none"
+                        },
+                        {
+                          "line": "    secret: \"secret\",\n",
+                          "lineNumber": 30,
+                          "lineChange": "removed"
+                        },
+                        {
+                          "line": "    secret: sessionSecret,\n",
+                          "lineNumber": 33,
+                          "lineChange": "added"
+                        }
+                      ]
+                    },
+                    {
+                      "commitURL": "https://github.com/virena-app/virena/commit/8058527e8ef71bfa81f0cb0fb35eb80d00e08fdb?diff=split#diff-186488e26aa960d29fec244ac086f15e024c5a84df47eeba233d9b8d2525de2dL-1",
+                      "lines": [
+                        {
+                          "line": "client_id: '8fcf3e5c2d3d5dd78188',\n",
+                          "lineNumber": 36,
+                          "lineChange": "removed"
+                        },
+                        {
+                          "line": "client_secret: '0e102c56021e1aa28005b469b3c83ef7cb7e5b0e'\n",
+                          "lineNumber": 37,
+                          "lineChange": "removed"
+                        },
+                        {
+                          "line": "client_id: process.env.GITINIT,\n",
+                          "lineNumber": 36,
+                          "lineChange": "added"
+                        },
+                        {
+                          "line": "client_secret: process.env.GITSEE\n",
+                          "lineNumber": 37,
+                          "lineChange": "added"
+                        }
+                      ]
+                    },
+                    {
+                      "commitURL": "https://github.com/nemtech/nem2-library-js/commit/dd101718759035849eeb9d4a388656acdb5bf6d9?diff=split#diff-59ccc41578f07869060f7aea9ceca193a407696cce3de9f7219f98187f65c5b7L-1",
+                      "lines": [
+                        {
+                          "line": "const hash = sha3_512.create();\n",
+                          "lineNumber": 29,
+                          "lineChange": "removed"
+                        },
+                        {
+                          "line": "hash.update('secret');\n",
+                          "lineNumber": 30,
+                          "lineChange": "removed"
+                        },
+                        {
+                          "line": "const hash = new Ripemd160().update(Buffer.from('Test Hash 160')).digest('Hex');\t\t\n",
+                          "lineNumber": 31,
+                          "lineChange": "added"
+                        },
+                        {
+                          "line": "const secretLockTransaction = {\n",
+                          "lineNumber": 32,
+                          "lineChange": "none"
+                        },
+                        {
+                          "line": "\tdeadline: deadline(),\n",
+                          "lineNumber": 33,
+                          "lineChange": "none"
+                        },
+                        {
+                          "line": "\tmosaicId: [3646934825, 3576016193],\n",
+                          "lineNumber": 34,
+                          "lineChange": "none"
+                        },
+                        {
+                          "line": "\tmosaicAmount: uint64.fromUint(10000000),\n",
+                          "lineNumber": 35,
+                          "lineChange": "none"
+                        },
+                        {
+                          "line": "\tduration: uint64.fromUint(100),\n",
+                          "lineNumber": 36,
+                          "lineChange": "none"
+                        },
+                        {
+                          "line": "\thashAlgorithm: 0,\n",
+                          "lineNumber": 36,
+                          "lineChange": "removed"
+                        },
+                        {
+                          "line": "\tsecret: '225fe6d12b73a7d51f2992ce82951dbf8c173fa4',\n",
+                          "lineNumber": 37,
+                          "lineChange": "removed"
+                        },
+                        {
+                          "line": "\thashAlgorithm: HashAlgorithm.RIPEMD_160,\n",
+                          "lineNumber": 37,
+                          "lineChange": "added"
+                        },
+                        {
+                          "line": "\tsecret: hash,\n",
+                          "lineNumber": 38,
+                          "lineChange": "added"
+                        }
+                      ]
+                    }
+                  ],
+                  "exampleCommitDescriptions": [],
+                  "precision": "very-high",
+                  "repoDatasetSize": 68,
+                  "cwe": [
+                    "CWE-547"
+                  ]
                 }
               }
             ]
@@ -361,37 +587,36 @@
         },
         "results": [
           {
-            "ruleId": "java/DontUsePrintStackTrace",
+            "ruleId": "javascript/HardcodedNonCryptoSecret",
             "ruleIndex": 0,
-            "level": "note",
+            "level": "error",
             "message": {
-              "text": "Printing the stack trace of java.lang.InterruptedException. Production code should not use printStackTrace.",
-              "markdown": "Printing the stack trace of {0}. Production code should not use {1}. {2}",
+              "text": "Avoid hardcoding values that are meant to be secret. Found a hardcoded string used in here.",
+              "markdown": "Avoid hardcoding values that are meant to be secret. Found {0} used in {1}.",
               "arguments": [
-                "[java.lang.InterruptedException](0)",
-                "[printStackTrace](1)(2)",
-                "[This is a test argument](3)"
+                "[a hardcoded string](0)",
+                "[here](1)"
               ]
             },
             "locations": [
               {
                 "PhysicalLocation": {
                   "ArtifactLocation": {
-                    "uri": "src/main.ts",
-                    "uriBaseId": "dummy"
+                    "uri": "scripts/db/migrations/20230811153738_add_generated_grouping_columns_to_collections_table.ts",
+                    "uriBaseId": "%SRCROOT%"
                   },
                   "region": {
-                    "startLine": 6,
-                    "endLine": 6,
+                    "startLine": 4,
+                    "endLine": 4,
                     "startColumn": 7,
-                    "endColumn": 7
+                    "endColumn": 10
                   }
                 }
               }
             ],
-            "Fingerprints": {
-              "0": "35bc91513238a0a06af1824552fb3f838201f6fbbf1d76632b2604242e838d20",
-              "1": "c2e08f55.1333c445.d1699128.15932eef.606b2add.34c3b532.4a752797.e9000d02.c2e08f55.1333c445.cd271e66.e22980a8.d31a8364.2f2c7742.4a752797.54d46e25"
+            "fingerprints": {
+              "0": "8244ef71e04e646035be8283832b6a309c2f85a239b702daa56de49737ce4087",
+              "1": "40c5fd92.4773f344.8b18f948.d7919eeb.ef9f7d82.5fce695c.ea4b1c47.89d75565.40c5fd92.4773f344.72aa1700.d7919eeb.ef9f7d82.5fce695c.ea4b1c47.89d75565"
             },
             "codeFlows": [
               {
@@ -399,69 +624,35 @@
                   {
                     "locations": [
                       {
-                        "Location": {
+                        "location": {
                           "id": 0,
                           "PhysicalLocation": {
                             "ArtifactLocation": {
-                              "uri": "src/main.ts",
-                              "uriBaseId": "dummy"
+                              "uri": "scripts/db/migrations/20230811153738_add_generated_grouping_columns_to_collections_table.ts",
+                              "uriBaseId": "%SRCROOT%"
                             },
                             "region": {
-                              "startLine": 5,
-                              "endLine": 5,
-                              "startColumn": 14,
-                              "endColumn": 33
+                              "startLine": 4,
+                              "endLine": 4,
+                              "startColumn": 13,
+                              "endColumn": 37
                             }
                           }
                         }
                       },
                       {
-                        "Location": {
+                        "location": {
                           "id": 1,
                           "PhysicalLocation": {
                             "ArtifactLocation": {
-                              "uri": "src/main.ts",
-                              "uriBaseId": "dummy"
+                              "uri": "scripts/db/migrations/20230811153738_add_generated_grouping_columns_to_collections_table.ts",
+                              "uriBaseId": "%SRCROOT%"
                             },
                             "region": {
-                              "startLine": 6,
-                              "endLine": 6,
-                              "startColumn": 9,
-                              "endColumn": 23
-                            }
-                          }
-                        }
-                      },
-                      {
-                        "Location": {
-                          "id": 2,
-                          "PhysicalLocation": {
-                            "ArtifactLocation": {
-                              "uri": "src/main.ts",
-                              "uriBaseId": "dummy"
-                            },
-                            "region": {
-                              "startLine": 10,
-                              "endLine": 10,
-                              "startColumn": 10,
+                              "startLine": 4,
+                              "endLine": 4,
+                              "startColumn": 7,
                               "endColumn": 10
-                            }
-                          }
-                        }
-                      },
-                      {
-                        "Location": {
-                          "id": 3,
-                          "PhysicalLocation": {
-                            "ArtifactLocation": {
-                              "uri": "src/main.ts",
-                              "uriBaseId": "dummy"
-                            },
-                            "region": {
-                              "startLine": 20,
-                              "endLine": 20,
-                              "startColumn": 20,
-                              "endColumn": 20
                             }
                           }
                         }
@@ -472,32 +663,29 @@
               }
             ],
             "properties": {
-              "priorityScore": 550,
+              "priorityScore": 770,
               "priorityScoreFactors": [
                 {
                   "label": true,
-                  "type": "hotFileSource"
+                  "type": "hotFileCodeFlow"
                 },
                 {
                   "label": true,
                   "type": "fixExamples"
-                },
-                {
-                  "label": true,
-                  "type": "commonlyFixed"
                 }
-              ]
+              ],
+              "isAutofixable": false
             }
           },
           {
-            "ruleId": "java/catchingInterruptedExceptionWithoutInterrupt",
+            "ruleId": "javascript/HttpToHttps",
             "ruleIndex": 1,
             "level": "warning",
             "message": {
-              "text": "Either rethrow this java.lang.InterruptedException or set the interrupted flag on the current thread with 'Thread.currentThread().interrupt()'. Otherwise the information that the current thread was interrupted will be lost.",
-              "markdown": "Either rethrow this {0} or set the interrupted flag on the current thread with 'Thread.currentThread().interrupt()'. Otherwise the information that the current thread was interrupted will be lost.",
+              "text": "http.createServer uses HTTP which is an insecure protocol and should not be used in code due to cleartext transmission of information. Data in cleartext in a communication channel can be sniffed by unauthorized actors. Consider using the https module instead.",
+              "markdown": "{0} uses HTTP which is an insecure protocol and should not be used in code due to cleartext transmission of information. Data in cleartext in a communication channel can be sniffed by unauthorized actors. Consider using the https module instead.",
               "arguments": [
-                "[java.lang.InterruptedException](0)"
+                "[http.createServer](0)"
               ]
             },
             "suppressions": [
@@ -519,20 +707,20 @@
                 "PhysicalLocation": {
                   "ArtifactLocation": {
                     "uri": "src/main.ts",
-                    "uriBaseId": "dummy"
+                    "uriBaseId": "%SRCROOT%"
                   },
                   "region": {
-                    "startLine": 5,
-                    "endLine": 5,
-                    "startColumn": 7,
-                    "endColumn": 35
+                    "startLine": 58,
+                    "endLine": 58,
+                    "startColumn": 3,
+                    "endColumn": 20
                   }
                 }
               }
             ],
-            "Fingerprints": {
-              "0": "4ee04cfd17e0a8bee301d4741b26962f0a9630ac811ab48c06513857c3319f4c",
-              "1": "c2e08f55.1333c445.cd271e66.e22980a8.d31a8364.2f2c7742.4a752797.54d46e25.c2e08f55.1333c445.cd271e66.e22980a8.d31a8364.2f2c7742.4a752797.54d46e25"
+            "fingerprints": {
+              "0": "69ef878978ddff268c5edf5768d46f867316d83c0f16e4f87a0c0f22c554192e",
+              "1": "d22593cc.4773f344.607187b5.8df9c25a.261b8da8.6f0d36d4.8b77c8f4.91c60b7d.d22593cc.706318d0.1a243e8e.8df9c25a.db4f5344.5fce695c.8b77c8f4.89d75565"
             },
             "codeFlows": [
               {
@@ -540,18 +728,18 @@
                   {
                     "locations": [
                       {
-                        "Location": {
+                        "location": {
                           "id": 0,
                           "PhysicalLocation": {
                             "ArtifactLocation": {
                               "uri": "src/main.ts",
-                              "uriBaseId": "dummy"
+                              "uriBaseId": "%SRCROOT%"
                             },
                             "region": {
-                              "startLine": 5,
-                              "endLine": 5,
-                              "startColumn": 14,
-                              "endColumn": 33
+                              "startLine": 58,
+                              "endLine": 58,
+                              "startColumn": 3,
+                              "endColumn": 20
                             }
                           }
                         }
@@ -562,8 +750,12 @@
               }
             ],
             "properties": {
-              "priorityScore": 600,
+              "priorityScore": 590,
               "priorityScoreFactors": [
+                {
+                  "label": true,
+                  "type": "multipleOccurrence"
+                },
                 {
                   "label": true,
                   "type": "hotFileSource"
@@ -572,21 +764,297 @@
                   "label": true,
                   "type": "fixExamples"
                 }
+              ],
+              "isAutofixable": false
+            }
+          },
+          {
+            "ruleId": "javascript/HttpToHttps",
+            "ruleIndex": 1,
+            "level": "warning",
+            "message": {
+              "text": "http.createServer uses HTTP which is an insecure protocol and should not be used in code due to cleartext transmission of information. Data in cleartext in a communication channel can be sniffed by unauthorized actors. Consider using the https module instead.",
+              "markdown": "{0} uses HTTP which is an insecure protocol and should not be used in code due to cleartext transmission of information. Data in cleartext in a communication channel can be sniffed by unauthorized actors. Consider using the https module instead.",
+              "arguments": [
+                "[http.createServer](0)"
               ]
+            },
+            "locations": [
+              {
+                "PhysicalLocation": {
+                  "ArtifactLocation": {
+                    "uri": "src/main.ts",
+                    "uriBaseId": "%SRCROOT%"
+                  },
+                  "region": {
+                    "startLine": 59,
+                    "endLine": 59,
+                    "startColumn": 3,
+                    "endColumn": 20
+                  }
+                }
+              }
+            ],
+            "fingerprints": {
+              "0": "c4f8f4eaa6cc507baa24f02ec58f77281f7f15a09de14b318bebfb38cff5c72c",
+              "1": "aac70831.4773f344.607187b5.9a6c48e6.261b8da8.6f0d36d4.8b77c8f4.7cd39cb5.aac70831.4773f344.607187b5.9a6c48e6.261b8da8.6f0d36d4.8b77c8f4.7cd39cb5"
+            },
+            "codeFlows": [
+              {
+                "threadFlows": [
+                  {
+                    "locations": [
+                      {
+                        "location": {
+                          "id": 0,
+                          "PhysicalLocation": {
+                            "ArtifactLocation": {
+                              "uri": "src/main.ts",
+                              "uriBaseId": "%SRCROOT%"
+                            },
+                            "region": {
+                              "startLine": 59,
+                              "endLine": 59,
+                              "startColumn": 3,
+                              "endColumn": 20
+                            }
+                          }
+                        }
+                      }
+                    ]
+                  }
+                ]
+              }
+            ],
+            "properties": {
+              "priorityScore": 590,
+              "priorityScoreFactors": [
+                {
+                  "label": true,
+                  "type": "multipleOccurrence"
+                },
+                {
+                  "label": true,
+                  "type": "hotFileSource"
+                },
+                {
+                  "label": true,
+                  "type": "fixExamples"
+                }
+              ],
+              "isAutofixable": false
+            }
+          },
+          {
+            "ruleId": "javascript/HardcodedNonCryptoSecret/test",
+            "ruleIndex": 2,
+            "level": "note",
+            "message": {
+              "text": "Avoid hardcoding values that are meant to be secret. Found a hardcoded string used in here.",
+              "markdown": "Avoid hardcoding values that are meant to be secret. Found {0} used in {1}.",
+              "arguments": [
+                "[a hardcoded string](0)",
+                "[here](1)"
+              ]
+            },
+            "locations": [
+              {
+                "PhysicalLocation": {
+                  "ArtifactLocation": {
+                    "uri": "test/service-tests/service-utils/knex.service-spec.ts",
+                    "uriBaseId": "%SRCROOT%"
+                  },
+                  "region": {
+                    "startLine": 72,
+                    "endLine": 72,
+                    "startColumn": 9,
+                    "endColumn": 15
+                  }
+                }
+              }
+            ],
+            "fingerprints": {
+              "0": "aa2f1e390ae7c762e8eacf5cabc0b6aae9bbd1e33d5a9fb1d21f0f46432677a4",
+              "1": "fc3065be.4773f344.607187b5.e052b9a9.79a7d027.fcf3002d.63c3be99.0d8886fe.fc3065be.4773f344.c9330245.e052b9a9.79a7d027.8020cfdf.63c3be99.0d8886fe"
+            },
+            "codeFlows": [
+              {
+                "threadFlows": [
+                  {
+                    "locations": [
+                      {
+                        "location": {
+                          "id": 0,
+                          "PhysicalLocation": {
+                            "ArtifactLocation": {
+                              "uri": "test/service-tests/service-utils/knex.service-spec.ts",
+                              "uriBaseId": "%SRCROOT%"
+                            },
+                            "region": {
+                              "startLine": 72,
+                              "endLine": 72,
+                              "startColumn": 17,
+                              "endColumn": 57
+                            }
+                          }
+                        }
+                      },
+                      {
+                        "location": {
+                          "id": 1,
+                          "PhysicalLocation": {
+                            "ArtifactLocation": {
+                              "uri": "test/service-tests/service-utils/knex.service-spec.ts",
+                              "uriBaseId": "%SRCROOT%"
+                            },
+                            "region": {
+                              "startLine": 72,
+                              "endLine": 72,
+                              "startColumn": 9,
+                              "endColumn": 15
+                            }
+                          }
+                        }
+                      }
+                    ]
+                  }
+                ]
+              }
+            ],
+            "properties": {
+              "priorityScore": 440,
+              "priorityScoreFactors": [
+                {
+                  "label": true,
+                  "type": "multipleOccurrence"
+                },
+                {
+                  "label": true,
+                  "type": "hotFileSource"
+                },
+                {
+                  "label": true,
+                  "type": "fixExamples"
+                }
+              ],
+              "isAutofixable": false
+            }
+          },
+          {
+            "ruleId": "javascript/HardcodedNonCryptoSecret/test",
+            "ruleIndex": 2,
+            "level": "note",
+            "message": {
+              "text": "Avoid hardcoding values that are meant to be secret. Found a hardcoded string used in here.",
+              "markdown": "Avoid hardcoding values that are meant to be secret. Found {0} used in {1}.",
+              "arguments": [
+                "[a hardcoded string](0)",
+                "[here](1)"
+              ]
+            },
+            "locations": [
+              {
+                "PhysicalLocation": {
+                  "ArtifactLocation": {
+                    "uri": "test/service-tests/service-utils/knex.service-spec.ts",
+                    "uriBaseId": "%SRCROOT%"
+                  },
+                  "region": {
+                    "startLine": 76,
+                    "endLine": 76,
+                    "startColumn": 9,
+                    "endColumn": 15
+                  }
+                }
+              }
+            ],
+            "fingerprints": {
+              "0": "38de968ba6105240552721b378ac14d3eb7bdd4ccc2c17a6e84caa66ba45f6f0",
+              "1": "fc3065be.4773f344.607187b5.e052b9a9.79a7d027.fcf3002d.a56a8b5b.3cee0341.fc3065be.4773f344.c9330245.e052b9a9.79a7d027.8020cfdf.6977003a.864f3ca8"
+            },
+            "codeFlows": [
+              {
+                "threadFlows": [
+                  {
+                    "locations": [
+                      {
+                        "location": {
+                          "id": 0,
+                          "PhysicalLocation": {
+                            "ArtifactLocation": {
+                              "uri": "test/service-tests/service-utils/knex.service-spec.ts",
+                              "uriBaseId": "%SRCROOT%"
+                            },
+                            "region": {
+                              "startLine": 76,
+                              "endLine": 76,
+                              "startColumn": 17,
+                              "endColumn": 30
+                            }
+                          }
+                        }
+                      },
+                      {
+                        "location": {
+                          "id": 1,
+                          "PhysicalLocation": {
+                            "ArtifactLocation": {
+                              "uri": "test/service-tests/service-utils/knex.service-spec.ts",
+                              "uriBaseId": "%SRCROOT%"
+                            },
+                            "region": {
+                              "startLine": 76,
+                              "endLine": 76,
+                              "startColumn": 9,
+                              "endColumn": 15
+                            }
+                          }
+                        }
+                      }
+                    ]
+                  }
+                ]
+              }
+            ],
+            "properties": {
+              "priorityScore": 440,
+              "priorityScoreFactors": [
+                {
+                  "label": true,
+                  "type": "multipleOccurrence"
+                },
+                {
+                  "label": true,
+                  "type": "hotFileSource"
+                },
+                {
+                  "label": true,
+                  "type": "fixExamples"
+                }
+              ],
+              "isAutofixable": false
             }
           }
         ],
         "properties": {
           "coverage": [
             {
-              "files": 1,
-              "isSupported": false,
-              "lang": "DIGITAL CommandData Language"
+              "isSupported": true,
+              "lang": "TypeScript",
+              "files": 347,
+              "type": "SUPPORTED"
             },
             {
-              "files": 1,
               "isSupported": true,
-              "lang": "Java"
+              "lang": "JavaScript",
+              "files": 2,
+              "type": "SUPPORTED"
+            },
+            {
+              "isSupported": false,
+              "lang": "TypeScript",
+              "files": 5,
+              "type": "FAILED_PARSING"
             }
           ]
         }
