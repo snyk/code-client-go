@@ -57,7 +57,7 @@ workflows:
           name: Scan repository for secrets
           context:
             - snyk-bot-slack
-          channel: team-ide
+          channel: dx-local-alerts
       - security-scans:
           name: Security Scans
           context: code-client-go
