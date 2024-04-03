@@ -49,5 +49,8 @@ webidentity.json
 #################################
 # Development files              #
 #################################
+scripts/__pycache__/
 internal/workspace/**/**/*.yaml
 !internal/workspace/**/**/*.config.yaml
+internal/orchestration/**/**/*.yaml
+!internal/orchestration/**/**/*.config.yaml
