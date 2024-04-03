@@ -1,3 +1,5 @@
+#!/usr/bin/env python3
+
 from utils import mkDir
 from utils import saveGitHubFile
 from utils import formatSpecWithComponents

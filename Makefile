@@ -65,11 +65,11 @@ download-apis: download-workspace-api download-orchestration-api
 
 .PHONY: download-workspace-api
 download-workspace-api:
-	python3 ./scripts/download-workspace-api.py
+	./scripts/download-workspace-api.py
 
 .PHONY: download-orchestration-api
 download-orchestration-api:
-	python3 ./scripts/download-orchestration-api.py
+	./scripts/download-orchestration-api.py
 
 .PHONY: help
 help:
