@@ -61,12 +61,15 @@ generate: $(TOOLS_BIN)/go/mockgen $(TOOLS_BIN)/go/oapi-codegen
 	@go generate ./...
 
 .PHONY: download-apis
-download-apis: download-workspace-api
+download-apis: download-workspace-api download-orchestration-api
 
 .PHONY: download-workspace-api
 download-workspace-api:
-	./scripts/download-workspace-api.sh
-	./scripts/download-orchestration-api.sh
+	python3 ./scripts/download-workspace-api.py
+
+.PHONY: download-orchestration-api
+download-orchestration-api:
+	python3 ./scripts/download-orchestration-api.py
 
 .PHONY: help
 help:
