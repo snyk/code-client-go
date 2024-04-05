@@ -25,15 +25,15 @@ import (
 	"github.com/snyk/code-client-go/config"
 	"github.com/snyk/code-client-go/deepcode"
 	codeClientHTTP "github.com/snyk/code-client-go/http"
+	bundle2 "github.com/snyk/code-client-go/internal/bundle"
 
-	"github.com/snyk/code-client-go/bundle"
 	"github.com/snyk/code-client-go/internal/analysis"
 	"github.com/snyk/code-client-go/observability"
 	"github.com/snyk/code-client-go/sarif"
 )
 
 type codeScanner struct {
-	bundleManager bundle.BundleManager
+	bundleManager bundle2.BundleManager
 	instrumentor  observability.Instrumentor
 	errorReporter observability.ErrorReporter
 	logger        *zerolog.Logger
@@ -45,7 +45,7 @@ type CodeScanner interface {
 		path string,
 		files <-chan string,
 		changedFiles map[string]bool,
-	) (*sarif.SarifResponse, bundle.Bundle, error)
+	) (*sarif.SarifResponse, bundle2.Bundle, error)
 }
 
 // NewCodeScanner creates a Code Scanner which can be used to trigger Snyk Code on a folder.
@@ -57,7 +57,7 @@ func NewCodeScanner(
 	logger *zerolog.Logger,
 ) *codeScanner {
 	snykCode := deepcode.NewSnykCodeClient(logger, httpClient, instrumentor, config)
-	bundleManager := bundle.NewBundleManager(logger, snykCode, instrumentor, errorReporter)
+	bundleManager := bundle2.NewBundleManager(logger, snykCode, instrumentor, errorReporter)
 	return &codeScanner{
 		bundleManager: bundleManager,
 		instrumentor:  instrumentor,
@@ -68,7 +68,7 @@ func NewCodeScanner(
 
 // WithBundleManager creates a new Code Scanner from the current one and replaces the bundle manager.
 // It can be used to replace the bundle manager in tests.
-func (c *codeScanner) WithBundleManager(bundleManager bundle.BundleManager) *codeScanner {
+func (c *codeScanner) WithBundleManager(bundleManager bundle2.BundleManager) *codeScanner {
 	return &codeScanner{
 		bundleManager: bundleManager,
 		instrumentor:  c.instrumentor,
@@ -83,7 +83,7 @@ func (c *codeScanner) UploadAndAnalyze(
 	path string,
 	files <-chan string,
 	changedFiles map[string]bool,
-) (*sarif.SarifResponse, bundle.Bundle, error) {
+) (*sarif.SarifResponse, bundle2.Bundle, error) {
 	if ctx.Err() != nil {
 		c.logger.Info().Msg("Canceling Code scan - Code scanner received cancellation signal")
 		return nil, nil, nil
@@ -97,7 +97,7 @@ func (c *codeScanner) UploadAndAnalyze(
 
 	b, err := c.bundleManager.Create(span.Context(), requestId, path, files, changedFiles)
 	if err != nil {
-		if bundle.IsNoFilesError(err) {
+		if bundle2.IsNoFilesError(err) {
 			return nil, nil, nil
 		}
 		if ctx.Err() == nil { // Only report errors that are not intentional cancellations

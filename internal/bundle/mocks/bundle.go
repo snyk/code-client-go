@@ -6,10 +6,10 @@ package mocks
 
 import (
 	context "context"
+	"github.com/snyk/code-client-go/internal/bundle"
 	reflect "reflect"
 
 	gomock "github.com/golang/mock/gomock"
-	bundle "github.com/snyk/code-client-go/bundle"
 	deepcode "github.com/snyk/code-client-go/deepcode"
 )
 

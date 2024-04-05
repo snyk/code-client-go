@@ -17,6 +17,8 @@ package codeclient_test
 
 import (
 	"context"
+	"github.com/snyk/code-client-go/internal/bundle"
+	bundleMocks "github.com/snyk/code-client-go/internal/bundle/mocks"
 	"os"
 	"path/filepath"
 	"testing"
@@ -27,8 +29,6 @@ import (
 	"github.com/stretchr/testify/require"
 
 	codeclient "github.com/snyk/code-client-go"
-	"github.com/snyk/code-client-go/bundle"
-	bundleMocks "github.com/snyk/code-client-go/bundle/mocks"
 	confMocks "github.com/snyk/code-client-go/config/mocks"
 	"github.com/snyk/code-client-go/deepcode"
 	deepcodeMocks "github.com/snyk/code-client-go/deepcode/mocks"

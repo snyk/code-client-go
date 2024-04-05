@@ -21,13 +21,13 @@ import (
 	"github.com/rs/zerolog"
 	"github.com/snyk/code-client-go/deepcode"
 	mocks2 "github.com/snyk/code-client-go/deepcode/mocks"
+	"github.com/snyk/code-client-go/internal/bundle"
 	"testing"
 
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/snyk/code-client-go/bundle"
 	"github.com/snyk/code-client-go/observability/mocks"
 )
 
