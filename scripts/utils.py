@@ -2,6 +2,9 @@ import requests
 import os
 import json
 import yaml
+import sys
+import pycurl
+from io import BytesIO
 
 def mkDir(directory):
 	if not os.path.exists(directory):
@@ -17,14 +20,25 @@ def replaceInFile(search_text, replace_text, file):
 
 def saveGitHubFile(gitHubFile, localFile):
 	if "GITHUB_PAT" not in os.environ:
-		print >> sys.stderr, "Could not run the script. The GITHUB_PAT environment variable must be set to a valid Personal Access Token."
+		print ("Could not run the script. The GITHUB_PAT environment variable must be set to a valid Personal Access Token.")
 		sys.exit(1)
 
 	gitHubPat = os.environ["GITHUB_PAT"]
-	response = requests.get(f"https://{gitHubPat}@raw.githubusercontent.com/snyk/{gitHubFile}", headers={'Accept': 'application/json'})
 
+	buffer = BytesIO()
+	curl = pycurl.Curl()
+	curl.setopt(curl.URL, f"https://{gitHubPat}@raw.githubusercontent.com/snyk/{gitHubFile}")
+	curl.setopt(curl.WRITEDATA, buffer)
+
+	curl.perform()
+	status_code = curl.getinfo(curl.RESPONSE_CODE)
+
+	if status_code != 200:
+		print(f"Could not retrieve file from GitHub {gitHubFile}.")
+		sys.exit(1)
 	with open(localFile, "w") as f:
-		f.write(response.text)
+		f.write(buffer.getvalue().decode('UTF-8'))
+	curl.close()
 
 def formatSpecWithComponents(file):
 	with open(file, 'r') as f:

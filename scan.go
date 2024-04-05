@@ -19,7 +19,9 @@ package codeclient
 
 import (
 	"context"
+	"fmt"
 
+	"github.com/google/uuid"
 	"github.com/pkg/errors"
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
@@ -29,12 +31,16 @@ import (
 	"github.com/snyk/code-client-go/internal/analysis"
 	"github.com/snyk/code-client-go/internal/bundle"
 	"github.com/snyk/code-client-go/internal/deepcode"
+	"github.com/snyk/code-client-go/internal/util"
+	workspaceClient "github.com/snyk/code-client-go/internal/workspace/2024-03-12"
+	externalRef3 "github.com/snyk/code-client-go/internal/workspace/2024-03-12/workspaces"
 	"github.com/snyk/code-client-go/observability"
 	"github.com/snyk/code-client-go/sarif"
 )
 
 type codeScanner struct {
 	bundleManager bundle.BundleManager
+	workspace     *workspaceClient.ClientWithResponses
 	instrumentor  observability.Instrumentor
 	errorReporter observability.ErrorReporter
 	logger        *zerolog.Logger
@@ -56,15 +62,20 @@ func NewCodeScanner(
 	instrumentor observability.Instrumentor,
 	errorReporter observability.ErrorReporter,
 	logger *zerolog.Logger,
-) *codeScanner {
+) (*codeScanner, error) {
 	snykCode := deepcode.NewSnykCodeClient(logger, httpClient, instrumentor, errorReporter, config)
 	bundleManager := bundle.NewBundleManager(logger, snykCode, instrumentor, errorReporter)
+	workspace, err := workspaceClient.NewClientWithResponses(config.SnykApi(), workspaceClient.WithHTTPClient(httpClient))
+	if err != nil {
+		return nil, err
+	}
 	return &codeScanner{
 		bundleManager: bundleManager,
+		workspace:     workspace,
 		instrumentor:  instrumentor,
 		errorReporter: errorReporter,
 		logger:        logger,
-	}
+	}, nil
 }
 
 // WithBundleManager creates a new Code Scanner from the current one and replaces the bundle manager.
@@ -131,6 +142,57 @@ func (c *codeScanner) UploadAndAnalyze(
 		c.logger.Info().Msg("empty bundle, no Snyk Code analysis")
 		return nil, bundleHash, requestId, nil
 	}
+
+	// TODO: server, orgID, path for repository URI, structure
+	orgUUID := uuid.New()
+	repositoryUri, err := util.GetRepositoryUrl("")
+	if err != nil {
+		if ctx.Err() != nil { // Only handle errors that are not intentional cancellations
+			msg := "error retrieving Git info..."
+			c.errorReporter.CaptureError(errors.Wrap(err, msg), observability.ErrorReporterOptions{ErrorDiagnosticPath: path})
+			return nil, b, err
+		} else {
+			log.Info().Msg("Canceling Code scan - Code scanner received cancellation signal")
+			return nil, b, nil
+		}
+	}
+
+	workspaceResponse, err := c.workspace.CreateWorkspaceWithApplicationVndAPIPlusJSONBodyWithResponse(span.Context(), orgUUID, &workspaceClient.CreateWorkspaceParams{
+		Version:       "2024-03-12~experimental",
+		SnykRequestId: uuid.MustParse(requestId),
+	}, workspaceClient.CreateWorkspaceApplicationVndAPIPlusJSONRequestBody{
+		Data: struct {
+			Attributes struct {
+				BundleId      string                                                       `json:"bundle_id"`
+				RepositoryUri string                                                       `json:"repository_uri"`
+				WorkspaceType externalRef3.WorkspacePostRequestDataAttributesWorkspaceType `json:"workspace_type"`
+			} `json:"attributes"`
+			Type externalRef3.WorkspacePostRequestDataType `json:"type"`
+		}(struct {
+			Attributes struct {
+				BundleId      string                                                       `json:"bundle_id"`
+				RepositoryUri string                                                       `json:"repository_uri"`
+				WorkspaceType externalRef3.WorkspacePostRequestDataAttributesWorkspaceType `json:"workspace_type"`
+			}
+			Type externalRef3.WorkspacePostRequestDataType
+		}{Attributes: struct {
+			BundleId      string                                                       `json:"bundle_id"`
+			RepositoryUri string                                                       `json:"repository_uri"`
+			WorkspaceType externalRef3.WorkspacePostRequestDataAttributesWorkspaceType `json:"workspace_type"`
+		}(struct {
+			BundleId      string
+			RepositoryUri string
+			WorkspaceType externalRef3.WorkspacePostRequestDataAttributesWorkspaceType
+		}{
+			BundleId:      b.GetBundleHash(),
+			RepositoryUri: repositoryUri,
+			WorkspaceType: "workspaceUri",
+		}),
+			Type: "workspace",
+		}),
+	})
+
+	fmt.Println(workspaceResponse.ApplicationvndApiJSON201.Data.Id)
 
 	response, err := analysis.RunAnalysis()
 	if ctx.Err() != nil {
