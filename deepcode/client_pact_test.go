@@ -19,6 +19,7 @@ package deepcode_test
 import (
 	"context"
 	"fmt"
+	confMocks "github.com/snyk/code-client-go/config/mocks"
 	"net/http"
 	"testing"
 
@@ -28,7 +29,6 @@ import (
 
 	"github.com/snyk/code-client-go/deepcode"
 	codeClientHTTP "github.com/snyk/code-client-go/http"
-	httpmocks "github.com/snyk/code-client-go/http/mocks"
 	"github.com/snyk/code-client-go/internal/util"
 	"github.com/snyk/code-client-go/internal/util/testutil"
 )
@@ -214,7 +214,7 @@ func setupPact(t *testing.T) {
 
 	pact.Setup(true)
 	ctrl := gomock.NewController(t)
-	config := httpmocks.NewMockConfig(ctrl)
+	config := confMocks.NewMockConfig(ctrl)
 	config.EXPECT().IsFedramp().AnyTimes().Return(false)
 	config.EXPECT().Organization().AnyTimes().Return(orgUUID)
 	snykCodeApiUrl := fmt.Sprintf("http://localhost:%d", pact.Server.Port)
@@ -222,10 +222,10 @@ func setupPact(t *testing.T) {
 
 	instrumentor := testutil.NewTestInstrumentor()
 	errorReporter := testutil.NewTestErrorReporter()
-	httpClient := codeClientHTTP.NewHTTPClient(newLogger(t), config, func() *http.Client {
+	httpClient := codeClientHTTP.NewHTTPClient(newLogger(t), func() *http.Client {
 		return http.DefaultClient
 	}, instrumentor, errorReporter)
-	client = deepcode.NewSnykCodeClient(newLogger(t), httpClient, instrumentor)
+	client = deepcode.NewSnykCodeClient(newLogger(t), httpClient, instrumentor, config)
 }
 
 func getPutPostHeaderMatcher() dsl.MapMatcher {

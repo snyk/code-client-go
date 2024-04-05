@@ -17,8 +17,15 @@
 package deepcode
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
+	"github.com/snyk/code-client-go/config"
+	"github.com/snyk/code-client-go/internal/util/encoding"
+	"net/http"
+	"net/url"
+	"regexp"
 	"strconv"
 
 	"github.com/rs/zerolog"
@@ -65,14 +72,16 @@ type snykCodeClient struct {
 	httpClient   codeClientHTTP.HTTPClient
 	instrumentor observability.Instrumentor
 	logger       *zerolog.Logger
+	config       config.Config
 }
 
 func NewSnykCodeClient(
 	logger *zerolog.Logger,
 	httpClient codeClientHTTP.HTTPClient,
 	instrumentor observability.Instrumentor,
+	config config.Config,
 ) *snykCodeClient {
-	return &snykCodeClient{httpClient, instrumentor, logger}
+	return &snykCodeClient{httpClient, instrumentor, logger, config}
 }
 
 func (s *snykCodeClient) GetFilters(ctx context.Context) (
@@ -86,7 +95,12 @@ func (s *snykCodeClient) GetFilters(ctx context.Context) (
 	span := s.instrumentor.StartSpan(ctx, method)
 	defer s.instrumentor.Finish(span)
 
-	responseBody, err := s.httpClient.DoCall(span.Context(), "GET", "/filters", nil)
+	host, err := s.Host()
+	if err != nil {
+		return FiltersResponse{ConfigFiles: nil, Extensions: nil}, err
+	}
+
+	responseBody, err := s.httpClient.DoCall(span.Context(), host, s.headers("GET"), "GET", "/filters", bytes.NewBufferString(""))
 	if err != nil {
 		return FiltersResponse{ConfigFiles: nil, Extensions: nil}, err
 	}
@@ -110,12 +124,23 @@ func (s *snykCodeClient) CreateBundle(
 	span := s.instrumentor.StartSpan(ctx, method)
 	defer s.instrumentor.Finish(span)
 
+	host, err := s.Host()
+	if err != nil {
+		return "", nil, err
+	}
+
 	requestBody, err := json.Marshal(filesToFilehashes)
 	if err != nil {
 		return "", nil, err
 	}
 
-	responseBody, err := s.httpClient.DoCall(span.Context(), "POST", "/bundle", requestBody)
+	var bodyBuffer *bytes.Buffer
+	bodyBuffer, err = s.encodeIfNeeded(method, requestBody)
+	if err != nil {
+		return "", nil, err
+	}
+
+	responseBody, err := s.httpClient.DoCall(span.Context(), host, s.headers("POST"), "POST", "/bundle", bodyBuffer)
 	if err != nil {
 		return "", nil, err
 	}
@@ -143,6 +168,11 @@ func (s *snykCodeClient) ExtendBundle(
 	span := s.instrumentor.StartSpan(ctx, method)
 	defer s.instrumentor.Finish(span)
 
+	host, err := s.Host()
+	if err != nil {
+		return "", nil, err
+	}
+
 	requestBody, err := json.Marshal(ExtendBundleRequest{
 		Files:        files,
 		RemovedFiles: removedFiles,
@@ -151,11 +181,79 @@ func (s *snykCodeClient) ExtendBundle(
 		return "", nil, err
 	}
 
-	responseBody, err := s.httpClient.DoCall(span.Context(), "PUT", "/bundle/"+bundleHash, requestBody)
+	var bodyBuffer *bytes.Buffer
+	bodyBuffer, err = s.encodeIfNeeded(method, requestBody)
+	if err != nil {
+		return "", nil, err
+	}
+
+	responseBody, err := s.httpClient.DoCall(span.Context(), host, s.headers("PUT"), "PUT", "/bundle/"+bundleHash, bodyBuffer)
 	if err != nil {
 		return "", nil, err
 	}
 	var bundleResponse BundleResponse
 	err = json.Unmarshal(responseBody, &bundleResponse)
 	return bundleResponse.BundleHash, bundleResponse.MissingFiles, err
+}
+
+func (s *snykCodeClient) headers(method string) map[string]string {
+	headers := map[string]string{}
+	// Setting a chosen org name for the request
+	org := s.config.Organization()
+	if org != "" {
+		headers["snyk-org-name"] = org
+	}
+	// https://www.keycdn.com/blog/http-cache-headers
+	headers["Cache-Control"] = "private, max-age=0, no-cache"
+	if s.mustBeEncoded(method) {
+		headers["Content-Type"] = "application/octet-stream"
+		headers["Content-Encoding"] = "gzip"
+	} else {
+		headers["Content-Type"] = "application/json"
+	}
+	return headers
+}
+
+// This is only exported for tests.
+func (s *snykCodeClient) Host() (string, error) {
+	var codeApiRegex = regexp.MustCompile(`^(deeproxy\.)?`)
+
+	snykCodeApiUrl := s.config.SnykCodeApi()
+	if !s.config.IsFedramp() {
+		return snykCodeApiUrl, nil
+	}
+	u, err := url.Parse(snykCodeApiUrl)
+	if err != nil {
+		return "", err
+	}
+
+	u.Host = codeApiRegex.ReplaceAllString(u.Host, "api.")
+
+	organization := s.config.Organization()
+	if organization == "" {
+		return "", errors.New("Organization is required in a fedramp environment")
+	}
+
+	u.Path = "/hidden/orgs/" + organization + "/code"
+
+	return u.String(), nil
+}
+
+func (s *snykCodeClient) encodeIfNeeded(method string, requestBody []byte) (*bytes.Buffer, error) {
+	b := new(bytes.Buffer)
+	mustBeEncoded := s.mustBeEncoded(method)
+	if mustBeEncoded {
+		enc := encoding.NewEncoder(b)
+		_, err := enc.Write(requestBody)
+		if err != nil {
+			return nil, err
+		}
+	} else {
+		b = bytes.NewBuffer(requestBody)
+	}
+	return b, nil
+}
+
+func (s *snykCodeClient) mustBeEncoded(method string) bool {
+	return method == http.MethodPost || method == http.MethodPut
 }

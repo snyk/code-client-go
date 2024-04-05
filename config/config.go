@@ -1,4 +1,4 @@
-package http
+package config
 
 // Config defines the configurable options for the HTTP client.
 //
@@ -16,4 +16,7 @@ type Config interface {
 	// SnykCodeApi returns the Snyk Code API URL configured to run against, which could be
 	// the one used by the Local Code Engine.
 	SnykCodeApi() string
+
+	// SnykApi returns the Snyk REST API URL configured to run against,
+	SnykApi() string
 }
