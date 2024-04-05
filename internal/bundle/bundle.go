@@ -18,9 +18,10 @@ package bundle
 
 import (
 	"context"
+
 	"github.com/rs/zerolog"
 
-	"github.com/snyk/code-client-go/deepcode"
+	"github.com/snyk/code-client-go/internal/deepcode"
 	"github.com/snyk/code-client-go/observability"
 )
 

@@ -19,6 +19,8 @@ import (
 	"context"
 	"github.com/snyk/code-client-go/internal/bundle"
 	bundleMocks "github.com/snyk/code-client-go/internal/bundle/mocks"
+	"github.com/snyk/code-client-go/internal/deepcode"
+	deepcodeMocks "github.com/snyk/code-client-go/internal/deepcode/mocks"
 	"os"
 	"path/filepath"
 	"testing"
@@ -30,8 +32,6 @@ import (
 
 	codeclient "github.com/snyk/code-client-go"
 	confMocks "github.com/snyk/code-client-go/config/mocks"
-	"github.com/snyk/code-client-go/deepcode"
-	deepcodeMocks "github.com/snyk/code-client-go/deepcode/mocks"
 	httpmocks "github.com/snyk/code-client-go/http/mocks"
 	"github.com/snyk/code-client-go/observability/mocks"
 )

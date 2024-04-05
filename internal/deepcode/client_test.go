@@ -30,8 +30,8 @@ import (
 	"github.com/stretchr/testify/mock"
 
 	confMocks "github.com/snyk/code-client-go/config/mocks"
-	"github.com/snyk/code-client-go/deepcode"
 	httpmocks "github.com/snyk/code-client-go/http/mocks"
+	"github.com/snyk/code-client-go/internal/deepcode"
 	"github.com/snyk/code-client-go/internal/util"
 	"github.com/snyk/code-client-go/observability/mocks"
 )
@@ -125,6 +125,7 @@ func TestSnykCodeBackendService_CreateBundle(t *testing.T) {
 	mockErrorReporter := mocks.NewMockErrorReporter(ctrl)
 
 	s := deepcode.NewSnykCodeClient(newLogger(t), mockHTTPClient, mockInstrumentor, mockErrorReporter, mockConfig)
+
 	files := map[string]string{}
 	randomAddition := fmt.Sprintf("\n public void random() { System.out.println(\"%d\") }", time.Now().UnixMicro())
 	files[path1] = util.Hash([]byte(content + randomAddition))

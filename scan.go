@@ -25,10 +25,10 @@ import (
 	"github.com/rs/zerolog/log"
 
 	"github.com/snyk/code-client-go/config"
-	"github.com/snyk/code-client-go/deepcode"
 	codeClientHTTP "github.com/snyk/code-client-go/http"
 	"github.com/snyk/code-client-go/internal/analysis"
 	"github.com/snyk/code-client-go/internal/bundle"
+	"github.com/snyk/code-client-go/internal/deepcode"
 	"github.com/snyk/code-client-go/observability"
 	"github.com/snyk/code-client-go/sarif"
 )
@@ -89,6 +89,10 @@ func (c *codeScanner) UploadAndAnalyze(
 		return nil, "", nil
 	}
 
+	if ctx.Err() != nil {
+		c.logger.Info().Msg("Canceling Code scan - Code scanner received cancellation signal")
+		return nil, "", nil
+	}
 	b, err := c.bundleManager.Create(ctx, requestId, path, files, changedFiles)
 	if err != nil {
 		if bundle.IsNoFilesError(err) {
@@ -107,7 +111,6 @@ func (c *codeScanner) UploadAndAnalyze(
 	uploadedFiles := b.GetFiles()
 
 	b, err = c.bundleManager.Upload(ctx, requestId, b, uploadedFiles)
-
 	bundleHash := b.GetBundleHash()
 	if err != nil {
 		if ctx.Err() != nil { // Only handle errors that are not intentional cancellations
@@ -120,7 +123,7 @@ func (c *codeScanner) UploadAndAnalyze(
 		}
 	}
 
-	if b.GetBundleHash() == "" {
+	if bundleHash == "" {
 		c.logger.Info().Msg("empty bundle, no Snyk Code analysis")
 		return nil, bundleHash, nil
 	}
