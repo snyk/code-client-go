@@ -6,11 +6,19 @@ package mocks
 
 import (
 	context "context"
+<<<<<<< HEAD
 	reflect "reflect"
 
 	gomock "github.com/golang/mock/gomock"
 	bundle "github.com/snyk/code-client-go/internal/bundle"
 	deepcode "github.com/snyk/code-client-go/internal/deepcode"
+=======
+	"github.com/snyk/code-client-go/internal/bundle"
+	"github.com/snyk/code-client-go/internal/deepcode"
+	reflect "reflect"
+
+	gomock "github.com/golang/mock/gomock"
+>>>>>>> 13ff562 (refactor: move the deepcode package)
 )
 
 // MockBundleManager is a mock of BundleManager interface.

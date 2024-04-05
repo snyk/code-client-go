@@ -19,8 +19,12 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+<<<<<<< HEAD
 	"io"
 	"net/http"
+=======
+	deepcode2 "github.com/snyk/code-client-go/internal/deepcode"
+>>>>>>> 13ff562 (refactor: move the deepcode package)
 	"testing"
 	"time"
 
@@ -88,7 +92,11 @@ func TestSnykCodeBackendService_GetFilters(t *testing.T) {
 	mockInstrumentor.EXPECT().Finish(gomock.Any()).Times(1)
 	mockErrorReporter := mocks.NewMockErrorReporter(ctrl)
 
+<<<<<<< HEAD
 	s := deepcode.NewSnykCodeClient(newLogger(t), mockHTTPClient, mockInstrumentor, mockErrorReporter, mockConfig)
+=======
+	s := deepcode2.NewSnykCodeClient(newLogger(t), mockHTTPClient, mockInstrumentor, mockConfig)
+>>>>>>> 13ff562 (refactor: move the deepcode package)
 	filters, err := s.GetFilters(context.Background())
 	assert.Nil(t, err)
 	assert.Equal(t, 1, len(filters.ConfigFiles))
@@ -124,7 +132,11 @@ func TestSnykCodeBackendService_CreateBundle(t *testing.T) {
 	mockInstrumentor.EXPECT().Finish(gomock.Any()).Times(1)
 	mockErrorReporter := mocks.NewMockErrorReporter(ctrl)
 
+<<<<<<< HEAD
 	s := deepcode.NewSnykCodeClient(newLogger(t), mockHTTPClient, mockInstrumentor, mockErrorReporter, mockConfig)
+=======
+	s := deepcode2.NewSnykCodeClient(newLogger(t), mockHTTPClient, mockInstrumentor, mockConfig)
+>>>>>>> 13ff562 (refactor: move the deepcode package)
 	files := map[string]string{}
 	randomAddition := fmt.Sprintf("\n public void random() { System.out.println(\"%d\") }", time.Now().UnixMicro())
 	files[path1] = util.Hash([]byte(content + randomAddition))
@@ -176,7 +188,11 @@ func TestSnykCodeBackendService_ExtendBundle(t *testing.T) {
 	mockInstrumentor.EXPECT().Finish(gomock.Any()).Times(2)
 	mockErrorReporter := mocks.NewMockErrorReporter(ctrl)
 
+<<<<<<< HEAD
 	s := deepcode.NewSnykCodeClient(newLogger(t), mockHTTPClient, mockInstrumentor, mockErrorReporter, mockConfig)
+=======
+	s := deepcode2.NewSnykCodeClient(newLogger(t), mockHTTPClient, mockInstrumentor, mockConfig)
+>>>>>>> 13ff562 (refactor: move the deepcode package)
 	var removedFiles []string
 	files := map[string]string{}
 	files[path1] = util.Hash([]byte(content))
@@ -200,7 +216,11 @@ func Test_Host(t *testing.T) {
 	t.Run("Changes the URL if FedRAMP", func(t *testing.T) {
 		mockConfig.EXPECT().Organization().AnyTimes().Return("00000000-0000-0000-0000-000000000023")
 		mockConfig.EXPECT().IsFedramp().Times(1).Return(true)
+<<<<<<< HEAD
 		s := deepcode.NewSnykCodeClient(newLogger(t), mockHTTPClient, mockInstrumentor, mockErrorReporter, mockConfig)
+=======
+		s := deepcode2.NewSnykCodeClient(newLogger(t), mockHTTPClient, mockInstrumentor, mockConfig)
+>>>>>>> 13ff562 (refactor: move the deepcode package)
 
 		actual, err := s.Host()
 		assert.Nil(t, err)
@@ -210,7 +230,11 @@ func Test_Host(t *testing.T) {
 	t.Run("Does not change the URL if it's not FedRAMP", func(t *testing.T) {
 		mockConfig.EXPECT().Organization().AnyTimes().Return("")
 		mockConfig.EXPECT().IsFedramp().Times(1).Return(false)
+<<<<<<< HEAD
 		s := deepcode.NewSnykCodeClient(newLogger(t), mockHTTPClient, mockInstrumentor, mockErrorReporter, mockConfig)
+=======
+		s := deepcode2.NewSnykCodeClient(newLogger(t), mockHTTPClient, mockInstrumentor, mockConfig)
+>>>>>>> 13ff562 (refactor: move the deepcode package)
 
 		actual, err := s.Host()
 		assert.Nil(t, err)
@@ -218,14 +242,14 @@ func Test_Host(t *testing.T) {
 	})
 }
 
-func createTestExtendMap() map[string]deepcode.BundleFile {
-	filesExtend := map[string]deepcode.BundleFile{}
+func createTestExtendMap() map[string]deepcode2.BundleFile {
+	filesExtend := map[string]deepcode2.BundleFile{}
 
-	filesExtend[path1] = deepcode.BundleFile{
+	filesExtend[path1] = deepcode2.BundleFile{
 		Hash:    util.Hash([]byte(content)),
 		Content: content,
 	}
-	filesExtend[path2] = deepcode.BundleFile{
+	filesExtend[path2] = deepcode2.BundleFile{
 		Hash:    util.Hash([]byte(content2)),
 		Content: content2,
 	}

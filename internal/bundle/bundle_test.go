@@ -18,6 +18,13 @@ package bundle_test
 
 import (
 	"context"
+<<<<<<< HEAD
+=======
+	"github.com/rs/zerolog"
+	"github.com/snyk/code-client-go/internal/bundle"
+	"github.com/snyk/code-client-go/internal/deepcode"
+	mocks2 "github.com/snyk/code-client-go/internal/deepcode/mocks"
+>>>>>>> 13ff562 (refactor: move the deepcode package)
 	"testing"
 
 	"github.com/golang/mock/gomock"
