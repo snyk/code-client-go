@@ -19,29 +19,25 @@ package bundle
 import (
 	"context"
 	"github.com/rs/zerolog"
+	deepcode2 "github.com/snyk/code-client-go/internal/deepcode"
 
-	"github.com/snyk/code-client-go/deepcode"
 	"github.com/snyk/code-client-go/observability"
 )
 
 //go:generate mockgen -destination=mocks/bundle.go -source=bundle.go -package mocks
 type Bundle interface {
-	UploadBatch(ctx context.Context, batch *Batch) error
+	UploadBatch(ctx context.Context, requestId string, batch *Batch) error
 	GetBundleHash() string
-	GetRootPath() string
-	GetRequestId() string
-	GetFiles() map[string]deepcode.BundleFile
+	GetFiles() map[string]deepcode2.BundleFile
 	GetMissingFiles() []string
 }
 
 type deepCodeBundle struct {
-	SnykCode      deepcode.SnykCodeClient
+	SnykCode      deepcode2.SnykCodeClient
 	instrumentor  observability.Instrumentor
 	errorReporter observability.ErrorReporter
 	logger        *zerolog.Logger
-	requestId     string
-	rootPath      string
-	files         map[string]deepcode.BundleFile
+	files         map[string]deepcode2.BundleFile
 	bundleHash    string
 	batches       []*Batch
 	missingFiles  []string
@@ -49,14 +45,12 @@ type deepCodeBundle struct {
 }
 
 func NewBundle(
-	snykCode deepcode.SnykCodeClient,
+	snykCode deepcode2.SnykCodeClient,
 	instrumentor observability.Instrumentor,
 	errorReporter observability.ErrorReporter,
 	logger *zerolog.Logger,
 	bundleHash string,
-	requestId string,
-	rootPath string,
-	files map[string]deepcode.BundleFile,
+	files map[string]deepcode2.BundleFile,
 	limitToFiles []string,
 	missingFiles []string,
 ) *deepCodeBundle {
@@ -66,8 +60,6 @@ func NewBundle(
 		errorReporter: errorReporter,
 		logger:        logger,
 		bundleHash:    bundleHash,
-		requestId:     requestId,
-		rootPath:      rootPath,
 		batches:       []*Batch{},
 		files:         files,
 		limitToFiles:  limitToFiles,
@@ -79,15 +71,7 @@ func (b *deepCodeBundle) GetBundleHash() string {
 	return b.bundleHash
 }
 
-func (b *deepCodeBundle) GetRootPath() string {
-	return b.rootPath
-}
-
-func (b *deepCodeBundle) GetRequestId() string {
-	return b.requestId
-}
-
-func (b *deepCodeBundle) GetFiles() map[string]deepcode.BundleFile {
+func (b *deepCodeBundle) GetFiles() map[string]deepcode2.BundleFile {
 	return b.files
 }
 
@@ -95,8 +79,8 @@ func (b *deepCodeBundle) GetMissingFiles() []string {
 	return b.missingFiles
 }
 
-func (b *deepCodeBundle) UploadBatch(ctx context.Context, batch *Batch) error {
-	err := b.extendBundle(ctx, batch)
+func (b *deepCodeBundle) UploadBatch(ctx context.Context, requestId string, batch *Batch) error {
+	err := b.extendBundle(ctx, requestId, batch)
 	if err != nil {
 		return err
 	}
@@ -104,11 +88,11 @@ func (b *deepCodeBundle) UploadBatch(ctx context.Context, batch *Batch) error {
 	return nil
 }
 
-func (b *deepCodeBundle) extendBundle(ctx context.Context, uploadBatch *Batch) error {
+func (b *deepCodeBundle) extendBundle(ctx context.Context, requestId string, uploadBatch *Batch) error {
 	var err error
 	if uploadBatch.hasContent() {
 		b.bundleHash, b.missingFiles, err = b.SnykCode.ExtendBundle(ctx, b.bundleHash, uploadBatch.documents, []string{})
-		b.logger.Debug().Str("requestId", b.requestId).Interface("MissingFiles", b.missingFiles).Msg("extended deepCodeBundle on backend")
+		b.logger.Debug().Str("requestId", requestId).Interface("MissingFiles", b.missingFiles).Msg("extended deepCodeBundle on backend")
 	}
 
 	return err
@@ -126,11 +110,11 @@ const (
 )
 
 type Batch struct {
-	documents map[string]deepcode.BundleFile
+	documents map[string]deepcode2.BundleFile
 	size      int
 }
 
-func NewBatch(documents map[string]deepcode.BundleFile) *Batch {
+func NewBatch(documents map[string]deepcode2.BundleFile) *Batch {
 	return &Batch{
 		documents: documents,
 	}

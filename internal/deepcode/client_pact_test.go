@@ -20,6 +20,7 @@ import (
 	"context"
 	"fmt"
 	confMocks "github.com/snyk/code-client-go/config/mocks"
+	"github.com/snyk/code-client-go/internal/deepcode"
 	"net/http"
 	"testing"
 
@@ -27,7 +28,6 @@ import (
 	"github.com/pact-foundation/pact-go/dsl"
 	"github.com/stretchr/testify/assert"
 
-	"github.com/snyk/code-client-go/deepcode"
 	codeClientHTTP "github.com/snyk/code-client-go/http"
 	"github.com/snyk/code-client-go/internal/util"
 	"github.com/snyk/code-client-go/internal/util/testutil"

@@ -6,10 +6,10 @@ package mocks
 
 import (
 	context "context"
+	deepcode2 "github.com/snyk/code-client-go/internal/deepcode"
 	reflect "reflect"
 
 	gomock "github.com/golang/mock/gomock"
-	deepcode "github.com/snyk/code-client-go/deepcode"
 )
 
 // MockSnykCodeClient is a mock of SnykCodeClient interface.
@@ -52,7 +52,7 @@ func (mr *MockSnykCodeClientMockRecorder) CreateBundle(ctx, files interface{}) *
 }
 
 // ExtendBundle mocks base method.
-func (m *MockSnykCodeClient) ExtendBundle(ctx context.Context, bundleHash string, files map[string]deepcode.BundleFile, removedFiles []string) (string, []string, error) {
+func (m *MockSnykCodeClient) ExtendBundle(ctx context.Context, bundleHash string, files map[string]deepcode2.BundleFile, removedFiles []string) (string, []string, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "ExtendBundle", ctx, bundleHash, files, removedFiles)
 	ret0, _ := ret[0].(string)
@@ -68,10 +68,10 @@ func (mr *MockSnykCodeClientMockRecorder) ExtendBundle(ctx, bundleHash, files, r
 }
 
 // GetFilters mocks base method.
-func (m *MockSnykCodeClient) GetFilters(ctx context.Context) (deepcode.FiltersResponse, error) {
+func (m *MockSnykCodeClient) GetFilters(ctx context.Context) (deepcode2.FiltersResponse, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "GetFilters", ctx)
-	ret0, _ := ret[0].(deepcode.FiltersResponse)
+	ret0, _ := ret[0].(deepcode2.FiltersResponse)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }

@@ -22,18 +22,18 @@ import (
 	"github.com/pkg/errors"
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
-	"github.com/snyk/code-client-go/config"
-	"github.com/snyk/code-client-go/deepcode"
-	codeClientHTTP "github.com/snyk/code-client-go/http"
-	bundle2 "github.com/snyk/code-client-go/internal/bundle"
 
+	"github.com/snyk/code-client-go/config"
+	codeClientHTTP "github.com/snyk/code-client-go/http"
 	"github.com/snyk/code-client-go/internal/analysis"
+	"github.com/snyk/code-client-go/internal/bundle"
+	"github.com/snyk/code-client-go/internal/deepcode"
 	"github.com/snyk/code-client-go/observability"
 	"github.com/snyk/code-client-go/sarif"
 )
 
 type codeScanner struct {
-	bundleManager bundle2.BundleManager
+	bundleManager bundle.BundleManager
 	instrumentor  observability.Instrumentor
 	errorReporter observability.ErrorReporter
 	logger        *zerolog.Logger
@@ -45,7 +45,7 @@ type CodeScanner interface {
 		path string,
 		files <-chan string,
 		changedFiles map[string]bool,
-	) (*sarif.SarifResponse, bundle2.Bundle, error)
+	) (*sarif.SarifResponse, string, string, error)
 }
 
 // NewCodeScanner creates a Code Scanner which can be used to trigger Snyk Code on a folder.
@@ -57,7 +57,7 @@ func NewCodeScanner(
 	logger *zerolog.Logger,
 ) *codeScanner {
 	snykCode := deepcode.NewSnykCodeClient(logger, httpClient, instrumentor, config)
-	bundleManager := bundle2.NewBundleManager(logger, snykCode, instrumentor, errorReporter)
+	bundleManager := bundle.NewBundleManager(logger, snykCode, instrumentor, errorReporter)
 	return &codeScanner{
 		bundleManager: bundleManager,
 		instrumentor:  instrumentor,
@@ -68,7 +68,7 @@ func NewCodeScanner(
 
 // WithBundleManager creates a new Code Scanner from the current one and replaces the bundle manager.
 // It can be used to replace the bundle manager in tests.
-func (c *codeScanner) WithBundleManager(bundleManager bundle2.BundleManager) *codeScanner {
+func (c *codeScanner) WithBundleManager(bundleManager bundle.BundleManager) *codeScanner {
 	return &codeScanner{
 		bundleManager: bundleManager,
 		instrumentor:  c.instrumentor,
@@ -83,13 +83,13 @@ func (c *codeScanner) UploadAndAnalyze(
 	path string,
 	files <-chan string,
 	changedFiles map[string]bool,
-) (*sarif.SarifResponse, bundle2.Bundle, error) {
+) (*sarif.SarifResponse, string, string, error) {
 	if ctx.Err() != nil {
 		c.logger.Info().Msg("Canceling Code scan - Code scanner received cancellation signal")
-		return nil, nil, nil
+		return nil, "", "", nil
 	}
 
-	span := c.instrumentor.StartSpan(ctx, "code.uploadAndAnalyze")
+	span := c.instrumentor.StartSpan(ctx, "codeclient.uploadAndAnalyze")
 	defer c.instrumentor.Finish(span)
 
 	requestId := span.GetTraceId() // use span trace id as code-request-id
@@ -97,43 +97,45 @@ func (c *codeScanner) UploadAndAnalyze(
 
 	b, err := c.bundleManager.Create(span.Context(), requestId, path, files, changedFiles)
 	if err != nil {
-		if bundle2.IsNoFilesError(err) {
-			return nil, nil, nil
+		if bundle.IsNoFilesError(err) {
+			return nil, "", requestId, nil
 		}
 		if ctx.Err() == nil { // Only report errors that are not intentional cancellations
 			msg := "error creating bundle..."
 			c.errorReporter.CaptureError(errors.Wrap(err, msg), observability.ErrorReporterOptions{ErrorDiagnosticPath: path})
-			return nil, nil, err
+			return nil, "", requestId, err
 		} else {
 			c.logger.Info().Msg("Canceling Code scan - Code scanner received cancellation signal")
-			return nil, nil, nil
+			return nil, "", requestId, nil
 		}
 	}
 
 	uploadedFiles := b.GetFiles()
 
-	b, err = c.bundleManager.Upload(span.Context(), b, uploadedFiles)
+	b, err = c.bundleManager.Upload(span.Context(), requestId, b, uploadedFiles)
+
+	bundleHash := b.GetBundleHash()
 	if err != nil {
 		if ctx.Err() != nil { // Only handle errors that are not intentional cancellations
 			msg := "error uploading files..."
 			c.errorReporter.CaptureError(errors.Wrap(err, msg), observability.ErrorReporterOptions{ErrorDiagnosticPath: path})
-			return nil, b, err
+			return nil, bundleHash, requestId, err
 		} else {
 			log.Info().Msg("Canceling Code scan - Code scanner received cancellation signal")
-			return nil, b, nil
+			return nil, bundleHash, requestId, nil
 		}
 	}
 
-	if b.GetBundleHash() == "" {
+	if bundleHash == "" {
 		c.logger.Info().Msg("empty bundle, no Snyk Code analysis")
-		return nil, b, nil
+		return nil, bundleHash, requestId, nil
 	}
 
 	response, err := analysis.RunAnalysis()
 	if ctx.Err() != nil {
 		c.logger.Info().Msg("Canceling Code scan - Code scanner received cancellation signal")
-		return nil, nil, nil
+		return nil, bundleHash, requestId, nil
 	}
 
-	return response, b, err
+	return response, bundleHash, requestId, err
 }
