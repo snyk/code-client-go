@@ -19,8 +19,6 @@ package deepcode_test
 import (
 	"context"
 	"fmt"
-	confMocks "github.com/snyk/code-client-go/config/mocks"
-	"github.com/snyk/code-client-go/internal/deepcode"
 	"net/http"
 	"testing"
 
@@ -28,7 +26,9 @@ import (
 	"github.com/pact-foundation/pact-go/dsl"
 	"github.com/stretchr/testify/assert"
 
+	confMocks "github.com/snyk/code-client-go/config/mocks"
 	codeClientHTTP "github.com/snyk/code-client-go/http"
+	"github.com/snyk/code-client-go/internal/deepcode"
 	"github.com/snyk/code-client-go/internal/util"
 	"github.com/snyk/code-client-go/internal/util/testutil"
 )
@@ -225,7 +225,7 @@ func setupPact(t *testing.T) {
 	httpClient := codeClientHTTP.NewHTTPClient(newLogger(t), func() *http.Client {
 		return http.DefaultClient
 	}, instrumentor, errorReporter)
-	client = deepcode.NewSnykCodeClient(newLogger(t), httpClient, instrumentor, config)
+	client = deepcode.NewSnykCodeClient(newLogger(t), httpClient, instrumentor, errorReporter, config)
 }
 
 func getPutPostHeaderMatcher() dsl.MapMatcher {

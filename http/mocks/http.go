@@ -5,8 +5,7 @@
 package mocks
 
 import (
-	bytes "bytes"
-	context "context"
+	http "net/http"
 	reflect "reflect"
 
 	gomock "github.com/golang/mock/gomock"
@@ -35,17 +34,17 @@ func (m *MockHTTPClient) EXPECT() *MockHTTPClientMockRecorder {
 	return m.recorder
 }
 
-// DoCall mocks base method.
-func (m *MockHTTPClient) DoCall(ctx context.Context, host string, headers map[string]string, method, path string, requestBody *bytes.Buffer) ([]byte, error) {
+// Do mocks base method.
+func (m *MockHTTPClient) Do(req *http.Request) (*http.Response, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "DoCall", ctx, host, headers, method, path, requestBody)
-	ret0, _ := ret[0].([]byte)
+	ret := m.ctrl.Call(m, "Do", req)
+	ret0, _ := ret[0].(*http.Response)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
-// DoCall indicates an expected call of DoCall.
-func (mr *MockHTTPClientMockRecorder) DoCall(ctx, host, headers, method, path, requestBody interface{}) *gomock.Call {
+// Do indicates an expected call of Do.
+func (mr *MockHTTPClientMockRecorder) Do(req interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DoCall", reflect.TypeOf((*MockHTTPClient)(nil).DoCall), ctx, host, headers, method, path, requestBody)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Do", reflect.TypeOf((*MockHTTPClient)(nil).Do), req)
 }

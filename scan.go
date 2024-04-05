@@ -19,6 +19,7 @@ package codeclient
 
 import (
 	"context"
+
 	"github.com/pkg/errors"
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
@@ -56,7 +57,7 @@ func NewCodeScanner(
 	errorReporter observability.ErrorReporter,
 	logger *zerolog.Logger,
 ) *codeScanner {
-	snykCode := deepcode.NewSnykCodeClient(logger, httpClient, instrumentor, config)
+	snykCode := deepcode.NewSnykCodeClient(logger, httpClient, instrumentor, errorReporter, config)
 	bundleManager := bundle.NewBundleManager(logger, snykCode, instrumentor, errorReporter)
 	return &codeScanner{
 		bundleManager: bundleManager,

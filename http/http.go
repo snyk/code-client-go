@@ -18,10 +18,7 @@
 package http
 
 import (
-	"bytes"
-	"context"
 	"errors"
-	"io"
 	"net/http"
 	"time"
 
@@ -32,13 +29,7 @@ import (
 
 //go:generate mockgen -destination=mocks/http.go -source=http.go -package mocks
 type HTTPClient interface {
-	DoCall(ctx context.Context,
-		host string,
-		headers map[string]string,
-		method string,
-		path string,
-		requestBody *bytes.Buffer,
-	) (responseBody []byte, err error)
+	Do(req *http.Request) (*http.Response, error)
 }
 
 type httpClient struct {
@@ -64,35 +55,21 @@ var retryErrorCodes = map[int]bool{
 	http.StatusInternalServerError: true,
 }
 
-// TODO: conver to doer (request outside of docall and rename docall to do)
-func (s *httpClient) DoCall(ctx context.Context,
-	host string,
-	headers map[string]string,
-	method string,
-	path string,
-	requestBody *bytes.Buffer,
-) (responseBody []byte, err error) {
-	span := s.instrumentor.StartSpan(ctx, "http.DoCall")
+func (s *httpClient) Do(req *http.Request) (response *http.Response, err error) {
+	span := s.instrumentor.StartSpan(req.Context(), "http.Do")
 	defer s.instrumentor.Finish(span)
 
 	const retryCount = 3
 	for i := 0; i < retryCount; i++ {
 		requestId := span.GetTraceId()
-		headers["snyk-request-id"] = requestId
+		req.Header.Set("snyk-request-id", requestId)
 
-		var req *http.Request
-		req, err = s.newRequest(host, headers, method, path, requestBody)
-		if err != nil {
-			return nil, err
-		}
+		s.logger.Trace().Str("snyk-request-id", requestId).Msg("SEND TO REMOTE")
 
-		s.logger.Trace().Str("requestBody", requestBody.String()).Str("snyk-request-id", requestId).Msg("SEND TO REMOTE")
+		response, err = s.httpCall(req)
 
-		var response *http.Response
-		response, responseBody, err = s.httpCall(req) //nolint:bodyclose // Already closed before in httpCall
-
-		if response != nil && responseBody != nil {
-			s.logger.Trace().Str("response.Status", response.Status).Str("responseBody", string(responseBody)).Str("snyk-request-id", requestId).Msg("RECEIVED FROM REMOTE")
+		if response != nil {
+			s.logger.Trace().Str("response.Status", response.Status).Str("snyk-request-id", requestId).Msg("RECEIVED FROM REMOTE")
 		} else {
 			s.logger.Trace().Str("snyk-request-id", requestId).Msg("RECEIVED FROM REMOTE")
 		}
@@ -104,7 +81,7 @@ func (s *httpClient) DoCall(ctx context.Context,
 		err = s.checkResponseCode(response)
 		if err != nil {
 			if retryErrorCodes[response.StatusCode] {
-				s.logger.Debug().Err(err).Str("method", method).Int("attempts done", i+1).Msg("retrying")
+				s.logger.Debug().Err(err).Str("method", req.Method).Int("attempts done", i+1).Msg("retrying")
 				if i < retryCount-1 {
 					time.Sleep(5 * time.Second)
 					continue
@@ -117,57 +94,19 @@ func (s *httpClient) DoCall(ctx context.Context,
 		// no error, we can break the retry loop
 		break
 	}
-	return responseBody, err
+	return response, err
 }
 
-func (s *httpClient) newRequest(
-	host string,
-	headers map[string]string,
-	method string,
-	path string,
-	body *bytes.Buffer,
-) (*http.Request, error) {
-	if body == nil {
-		body = bytes.NewBufferString("")
-	}
-	req, err := http.NewRequest(method, host+path, body)
-	if err != nil {
-		return nil, err
-	}
-
-	s.addHeaders(req, headers)
-	return req, nil
-}
-
-func (s *httpClient) httpCall(req *http.Request) (*http.Response, []byte, error) {
-	log := s.logger.With().Str("method", "code.httpCall").Logger()
+func (s *httpClient) httpCall(req *http.Request) (*http.Response, error) {
+	log := s.logger.With().Str("method", "http.httpCall").Logger()
 	response, err := s.clientFactory().Do(req)
 	if err != nil {
 		log.Error().Err(err).Msg("got http error")
 		s.errorReporter.CaptureError(err, observability.ErrorReporterOptions{ErrorDiagnosticPath: req.RequestURI})
-		return nil, nil, err
+		return nil, err
 	}
 
-	defer func(Body io.ReadCloser) {
-		closeErr := Body.Close()
-		if closeErr != nil {
-			log.Error().Err(closeErr).Msg("Couldn't close response body in call to Snyk Code")
-		}
-	}(response.Body)
-	responseBody, err := io.ReadAll(response.Body)
-
-	if err != nil {
-		log.Error().Err(err).Msg("error reading response body")
-		s.errorReporter.CaptureError(err, observability.ErrorReporterOptions{ErrorDiagnosticPath: req.RequestURI})
-		return nil, nil, err
-	}
-	return response, responseBody, nil
-}
-
-func (s *httpClient) addHeaders(req *http.Request, headers map[string]string) {
-	for key, value := range headers {
-		req.Header.Set(key, value)
-	}
+	return response, nil
 }
 
 func (s *httpClient) checkResponseCode(r *http.Response) error {

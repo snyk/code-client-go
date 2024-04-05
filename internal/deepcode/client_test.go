@@ -16,18 +16,22 @@
 package deepcode_test
 
 import (
+	"bytes"
 	"context"
 	"fmt"
-	deepcode2 "github.com/snyk/code-client-go/internal/deepcode"
+	"io"
+	"net/http"
 	"testing"
 	"time"
 
 	"github.com/golang/mock/gomock"
 	"github.com/rs/zerolog"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/mock"
 
 	confMocks "github.com/snyk/code-client-go/config/mocks"
 	httpmocks "github.com/snyk/code-client-go/http/mocks"
+	"github.com/snyk/code-client-go/internal/deepcode"
 	"github.com/snyk/code-client-go/internal/util"
 	"github.com/snyk/code-client-go/observability/mocks"
 )
@@ -64,24 +68,27 @@ func TestSnykCodeBackendService_GetFilters(t *testing.T) {
 	mockConfig.EXPECT().Organization().AnyTimes().Return("")
 	mockConfig.EXPECT().IsFedramp().AnyTimes().Return(false)
 	mockConfig.EXPECT().SnykCodeApi().AnyTimes().Return("http://localhost")
+
 	mockHTTPClient := httpmocks.NewMockHTTPClient(ctrl)
-	mockHTTPClient.EXPECT().DoCall(
-		gomock.Any(),
-		"http://localhost",
-		map[string]string{
-			"Cache-Control": "private, max-age=0, no-cache",
-			"Content-Type":  "application/json",
-		},
-		"GET",
-		"/filters",
-		gomock.Any(),
-	).Return([]byte(`{"configFiles": ["test"], "extensions": ["test"]}`), nil).Times(1)
+	mockHTTPClient.EXPECT().Do(
+		mock.MatchedBy(func(i interface{}) bool {
+			req := i.(*http.Request)
+			return req.URL.String() == "http://localhost/filters" &&
+				req.Method == "GET" &&
+				req.Header.Get("Cache-Control") == "private, max-age=0, no-cache" &&
+				req.Header.Get("Content-Type") == "application/json"
+		}),
+	).Return(&http.Response{
+		StatusCode: http.StatusOK,
+		Body:       io.NopCloser(bytes.NewReader([]byte(`{"configFiles": ["test"], "extensions": ["test"]}`))),
+	}, nil).Times(1)
 
 	mockInstrumentor := mocks.NewMockInstrumentor(ctrl)
 	mockInstrumentor.EXPECT().StartSpan(gomock.Any(), gomock.Any()).Return(mockSpan).Times(1)
 	mockInstrumentor.EXPECT().Finish(gomock.Any()).Times(1)
+	mockErrorReporter := mocks.NewMockErrorReporter(ctrl)
 
-	s := deepcode2.NewSnykCodeClient(newLogger(t), mockHTTPClient, mockInstrumentor, mockConfig)
+	s := deepcode.NewSnykCodeClient(newLogger(t), mockHTTPClient, mockInstrumentor, mockErrorReporter, mockConfig)
 	filters, err := s.GetFilters(context.Background())
 	assert.Nil(t, err)
 	assert.Equal(t, 1, len(filters.ConfigFiles))
@@ -98,23 +105,26 @@ func TestSnykCodeBackendService_CreateBundle(t *testing.T) {
 	mockConfig.EXPECT().IsFedramp().AnyTimes().Return(false)
 	mockConfig.EXPECT().SnykCodeApi().AnyTimes().Return("http://localhost")
 	mockHTTPClient := httpmocks.NewMockHTTPClient(ctrl)
-	mockHTTPClient.EXPECT().DoCall(
-		gomock.Any(),
-		"http://localhost",
-		map[string]string{
-			"Cache-Control":    "private, max-age=0, no-cache",
-			"Content-Encoding": "gzip",
-			"Content-Type":     "application/octet-stream",
-		},
-		"POST",
-		"/bundle",
-		gomock.Any(),
-	).Return([]byte(`{"bundleHash":   "bundleHash", "missingFiles": ["test"]}`), nil).Times(1)
+	mockHTTPClient.EXPECT().Do(
+		mock.MatchedBy(func(i interface{}) bool {
+			req := i.(*http.Request)
+			return req.URL.String() == "http://localhost/bundle" &&
+				req.Method == "POST" &&
+				req.Header.Get("Cache-Control") == "private, max-age=0, no-cache" &&
+				req.Header.Get("Content-Encoding") == "gzip" &&
+				req.Header.Get("Content-Type") == "application/octet-stream"
+		}),
+	).Return(&http.Response{
+		StatusCode: http.StatusOK,
+		Body:       io.NopCloser(bytes.NewReader([]byte(`{"bundleHash":   "bundleHash", "missingFiles": ["test"]}`))),
+	}, nil).Times(1)
+
 	mockInstrumentor := mocks.NewMockInstrumentor(ctrl)
 	mockInstrumentor.EXPECT().StartSpan(gomock.Any(), gomock.Any()).Return(mockSpan).Times(1)
 	mockInstrumentor.EXPECT().Finish(gomock.Any()).Times(1)
+	mockErrorReporter := mocks.NewMockErrorReporter(ctrl)
 
-	s := deepcode2.NewSnykCodeClient(newLogger(t), mockHTTPClient, mockInstrumentor, mockConfig)
+	s := deepcode.NewSnykCodeClient(newLogger(t), mockHTTPClient, mockInstrumentor, mockErrorReporter, mockConfig)
 	files := map[string]string{}
 	randomAddition := fmt.Sprintf("\n public void random() { System.out.println(\"%d\") }", time.Now().UnixMicro())
 	files[path1] = util.Hash([]byte(content + randomAddition))
@@ -135,35 +145,38 @@ func TestSnykCodeBackendService_ExtendBundle(t *testing.T) {
 	mockConfig.EXPECT().IsFedramp().AnyTimes().Return(false)
 	mockConfig.EXPECT().SnykCodeApi().AnyTimes().Return("http://localhost")
 	mockHTTPClient := httpmocks.NewMockHTTPClient(ctrl)
-	mockHTTPClient.EXPECT().DoCall(
-		gomock.Any(),
-		"http://localhost",
-		map[string]string{
-			"Cache-Control":    "private, max-age=0, no-cache",
-			"Content-Encoding": "gzip",
-			"Content-Type":     "application/octet-stream",
-		},
-		"POST",
-		"/bundle",
-		gomock.Any(),
-	).Return([]byte(`{"bundleHash":   "bundleHash", "missingFiles": []}`), nil).Times(1)
-	mockHTTPClient.EXPECT().DoCall(
-		gomock.Any(),
-		"http://localhost",
-		map[string]string{
-			"Cache-Control":    "private, max-age=0, no-cache",
-			"Content-Encoding": "gzip",
-			"Content-Type":     "application/octet-stream",
-		},
-		"PUT",
-		"/bundle/bundleHash",
-		gomock.Any(),
-	).Return([]byte(`{"bundleHash":   "bundleHash", "missingFiles": []}`), nil).Times(1)
+	mockHTTPClient.EXPECT().Do(
+		mock.MatchedBy(func(i interface{}) bool {
+			req := i.(*http.Request)
+			return req.URL.String() == "http://localhost/bundle" &&
+				req.Method == "POST" &&
+				req.Header.Get("Cache-Control") == "private, max-age=0, no-cache" &&
+				req.Header.Get("Content-Encoding") == "gzip" &&
+				req.Header.Get("Content-Type") == "application/octet-stream"
+		}),
+	).Return(&http.Response{
+		StatusCode: http.StatusOK,
+		Body:       io.NopCloser(bytes.NewReader([]byte(`{"bundleHash":   "bundleHash", "missingFiles": []}`))),
+	}, nil).Times(1)
+	mockHTTPClient.EXPECT().Do(
+		mock.MatchedBy(func(i interface{}) bool {
+			req := i.(*http.Request)
+			return req.URL.String() == "http://localhost/bundle/bundleHash" &&
+				req.Method == "PUT" &&
+				req.Header.Get("Cache-Control") == "private, max-age=0, no-cache" &&
+				req.Header.Get("Content-Encoding") == "gzip" &&
+				req.Header.Get("Content-Type") == "application/octet-stream"
+		}),
+	).Return(&http.Response{
+		StatusCode: http.StatusOK,
+		Body:       io.NopCloser(bytes.NewReader([]byte(`{"bundleHash":   "bundleHash", "missingFiles": []}`))),
+	}, nil).Times(1)
 	mockInstrumentor := mocks.NewMockInstrumentor(ctrl)
 	mockInstrumentor.EXPECT().StartSpan(gomock.Any(), gomock.Any()).Return(mockSpan).Times(2)
 	mockInstrumentor.EXPECT().Finish(gomock.Any()).Times(2)
+	mockErrorReporter := mocks.NewMockErrorReporter(ctrl)
 
-	s := deepcode2.NewSnykCodeClient(newLogger(t), mockHTTPClient, mockInstrumentor, mockConfig)
+	s := deepcode.NewSnykCodeClient(newLogger(t), mockHTTPClient, mockInstrumentor, mockErrorReporter, mockConfig)
 	var removedFiles []string
 	files := map[string]string{}
 	files[path1] = util.Hash([]byte(content))
@@ -182,11 +195,12 @@ func Test_Host(t *testing.T) {
 	mockConfig.EXPECT().SnykCodeApi().AnyTimes().Return("https://snyk.io/api/v1")
 	mockHTTPClient := httpmocks.NewMockHTTPClient(ctrl)
 	mockInstrumentor := mocks.NewMockInstrumentor(ctrl)
+	mockErrorReporter := mocks.NewMockErrorReporter(ctrl)
 
 	t.Run("Changes the URL if FedRAMP", func(t *testing.T) {
 		mockConfig.EXPECT().Organization().AnyTimes().Return("00000000-0000-0000-0000-000000000023")
 		mockConfig.EXPECT().IsFedramp().Times(1).Return(true)
-		s := deepcode2.NewSnykCodeClient(newLogger(t), mockHTTPClient, mockInstrumentor, mockConfig)
+		s := deepcode.NewSnykCodeClient(newLogger(t), mockHTTPClient, mockInstrumentor, mockErrorReporter, mockConfig)
 
 		actual, err := s.Host()
 		assert.Nil(t, err)
@@ -196,7 +210,7 @@ func Test_Host(t *testing.T) {
 	t.Run("Does not change the URL if it's not FedRAMP", func(t *testing.T) {
 		mockConfig.EXPECT().Organization().AnyTimes().Return("")
 		mockConfig.EXPECT().IsFedramp().Times(1).Return(false)
-		s := deepcode2.NewSnykCodeClient(newLogger(t), mockHTTPClient, mockInstrumentor, mockConfig)
+		s := deepcode.NewSnykCodeClient(newLogger(t), mockHTTPClient, mockInstrumentor, mockErrorReporter, mockConfig)
 
 		actual, err := s.Host()
 		assert.Nil(t, err)
@@ -204,14 +218,14 @@ func Test_Host(t *testing.T) {
 	})
 }
 
-func createTestExtendMap() map[string]deepcode2.BundleFile {
-	filesExtend := map[string]deepcode2.BundleFile{}
+func createTestExtendMap() map[string]deepcode.BundleFile {
+	filesExtend := map[string]deepcode.BundleFile{}
 
-	filesExtend[path1] = deepcode2.BundleFile{
+	filesExtend[path1] = deepcode.BundleFile{
 		Hash:    util.Hash([]byte(content)),
 		Content: content,
 	}
-	filesExtend[path2] = deepcode2.BundleFile{
+	filesExtend[path2] = deepcode.BundleFile{
 		Hash:    util.Hash([]byte(content2)),
 		Content: content2,
 	}

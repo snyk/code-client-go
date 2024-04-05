@@ -23,6 +23,7 @@ import (
 	"errors"
 	"github.com/snyk/code-client-go/config"
 	"github.com/snyk/code-client-go/internal/util/encoding"
+	"io"
 	"net/http"
 	"net/url"
 	"regexp"
@@ -69,19 +70,21 @@ type BundleResponse struct {
 }
 
 type snykCodeClient struct {
-	httpClient   codeClientHTTP.HTTPClient
-	instrumentor observability.Instrumentor
-	logger       *zerolog.Logger
-	config       config.Config
+	httpClient    codeClientHTTP.HTTPClient
+	instrumentor  observability.Instrumentor
+	errorReporter observability.ErrorReporter
+	logger        *zerolog.Logger
+	config        config.Config
 }
 
 func NewSnykCodeClient(
 	logger *zerolog.Logger,
 	httpClient codeClientHTTP.HTTPClient,
 	instrumentor observability.Instrumentor,
+	errorReporter observability.ErrorReporter,
 	config config.Config,
 ) *snykCodeClient {
-	return &snykCodeClient{httpClient, instrumentor, logger, config}
+	return &snykCodeClient{httpClient, instrumentor, errorReporter, logger, config}
 }
 
 func (s *snykCodeClient) GetFilters(ctx context.Context) (
@@ -100,7 +103,7 @@ func (s *snykCodeClient) GetFilters(ctx context.Context) (
 		return FiltersResponse{ConfigFiles: nil, Extensions: nil}, err
 	}
 
-	responseBody, err := s.httpClient.DoCall(span.Context(), host, s.headers("GET"), "GET", "/filters", bytes.NewBufferString(""))
+	responseBody, err := s.makeRequest(host, http.MethodGet, "/filters", nil)
 	if err != nil {
 		return FiltersResponse{ConfigFiles: nil, Extensions: nil}, err
 	}
@@ -134,13 +137,7 @@ func (s *snykCodeClient) CreateBundle(
 		return "", nil, err
 	}
 
-	var bodyBuffer *bytes.Buffer
-	bodyBuffer, err = s.encodeIfNeeded(method, requestBody)
-	if err != nil {
-		return "", nil, err
-	}
-
-	responseBody, err := s.httpClient.DoCall(span.Context(), host, s.headers("POST"), "POST", "/bundle", bodyBuffer)
+	responseBody, err := s.makeRequest(host, http.MethodPost, "/bundle", requestBody)
 	if err != nil {
 		return "", nil, err
 	}
@@ -181,37 +178,13 @@ func (s *snykCodeClient) ExtendBundle(
 		return "", nil, err
 	}
 
-	var bodyBuffer *bytes.Buffer
-	bodyBuffer, err = s.encodeIfNeeded(method, requestBody)
-	if err != nil {
-		return "", nil, err
-	}
-
-	responseBody, err := s.httpClient.DoCall(span.Context(), host, s.headers("PUT"), "PUT", "/bundle/"+bundleHash, bodyBuffer)
+	responseBody, err := s.makeRequest(host, http.MethodPut, "/bundle/"+bundleHash, requestBody)
 	if err != nil {
 		return "", nil, err
 	}
 	var bundleResponse BundleResponse
 	err = json.Unmarshal(responseBody, &bundleResponse)
 	return bundleResponse.BundleHash, bundleResponse.MissingFiles, err
-}
-
-func (s *snykCodeClient) headers(method string) map[string]string {
-	headers := map[string]string{}
-	// Setting a chosen org name for the request
-	org := s.config.Organization()
-	if org != "" {
-		headers["snyk-org-name"] = org
-	}
-	// https://www.keycdn.com/blog/http-cache-headers
-	headers["Cache-Control"] = "private, max-age=0, no-cache"
-	if s.mustBeEncoded(method) {
-		headers["Content-Type"] = "application/octet-stream"
-		headers["Content-Encoding"] = "gzip"
-	} else {
-		headers["Content-Type"] = "application/json"
-	}
-	return headers
 }
 
 // This is only exported for tests.
@@ -237,6 +210,62 @@ func (s *snykCodeClient) Host() (string, error) {
 	u.Path = "/hidden/orgs/" + organization + "/code"
 
 	return u.String(), nil
+}
+
+func (s *snykCodeClient) makeRequest(
+	host string,
+	method string,
+	path string,
+	requestBody []byte,
+) ([]byte, error) {
+	log := s.logger.With().Str("method", "deepcode.makeRequest").Logger()
+
+	bodyBuffer, err := s.encodeIfNeeded(method, requestBody)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(method, host+path, bodyBuffer)
+	if err != nil {
+		return nil, err
+	}
+
+	s.addHeaders(method, req)
+
+	response, err := s.httpClient.Do(req)
+	if err != nil {
+		return nil, err
+	}
+	defer func() {
+		closeErr := response.Body.Close()
+		if closeErr != nil {
+			s.logger.Error().Err(closeErr).Msg("Couldn't close response body in call to Snyk Code")
+		}
+	}()
+	responseBody, err := io.ReadAll(response.Body)
+	if err != nil {
+		log.Error().Err(err).Msg("error reading response body")
+		s.errorReporter.CaptureError(err, observability.ErrorReporterOptions{ErrorDiagnosticPath: req.RequestURI})
+		return nil, err
+	}
+
+	return responseBody, nil
+}
+
+func (s *snykCodeClient) addHeaders(method string, req *http.Request) {
+	// Setting a chosen org name for the request
+	org := s.config.Organization()
+	if org != "" {
+		req.Header.Set("snyk-org-name", org)
+	}
+	// https://www.keycdn.com/blog/http-cache-headers
+	req.Header.Set("Cache-Control", "private, max-age=0, no-cache")
+	if s.mustBeEncoded(method) {
+		req.Header.Set("Content-Type", "application/octet-stream")
+		req.Header.Set("Content-Encoding", "gzip")
+	} else {
+		req.Header.Set("Content-Type", "application/json")
+	}
 }
 
 func (s *snykCodeClient) encodeIfNeeded(method string, requestBody []byte) (*bytes.Buffer, error) {

@@ -18,16 +18,16 @@ package bundle_test
 
 import (
 	"context"
-	"github.com/rs/zerolog"
-	"github.com/snyk/code-client-go/internal/bundle"
-	"github.com/snyk/code-client-go/internal/deepcode"
-	mocks2 "github.com/snyk/code-client-go/internal/deepcode/mocks"
 	"testing"
 
 	"github.com/golang/mock/gomock"
+	"github.com/rs/zerolog"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"github.com/snyk/code-client-go/internal/bundle"
+	"github.com/snyk/code-client-go/internal/deepcode"
+	deepcodeMocks "github.com/snyk/code-client-go/internal/deepcode/mocks"
 	"github.com/snyk/code-client-go/observability/mocks"
 )
 
@@ -42,7 +42,7 @@ func Test_UploadBatch(t *testing.T) {
 
 	t.Run("when no documents - creates nothing", func(t *testing.T) {
 		ctrl := gomock.NewController(t)
-		mockSnykCodeClient := mocks2.NewMockSnykCodeClient(ctrl)
+		mockSnykCodeClient := deepcodeMocks.NewMockSnykCodeClient(ctrl)
 
 		mockSpan := mocks.NewMockSpan(ctrl)
 		mockSpan.EXPECT().Context().AnyTimes()
@@ -59,7 +59,7 @@ func Test_UploadBatch(t *testing.T) {
 
 	t.Run("when no bundles - creates new deepCodeBundle and sets hash", func(t *testing.T) {
 		ctrl := gomock.NewController(t)
-		mockSnykCodeClient := mocks2.NewMockSnykCodeClient(ctrl)
+		mockSnykCodeClient := deepcodeMocks.NewMockSnykCodeClient(ctrl)
 		mockSnykCodeClient.EXPECT().ExtendBundle(gomock.Any(), "testBundleHash", map[string]deepcode.BundleFile{
 			"file": {},
 		}, []string{}).Return("testBundleHash", []string{}, nil)
@@ -78,7 +78,7 @@ func Test_UploadBatch(t *testing.T) {
 
 	t.Run("when existing bundles - extends deepCodeBundle and updates hash", func(t *testing.T) {
 		ctrl := gomock.NewController(t)
-		mockSnykCodeClient := mocks2.NewMockSnykCodeClient(ctrl)
+		mockSnykCodeClient := deepcodeMocks.NewMockSnykCodeClient(ctrl)
 		mockSnykCodeClient.EXPECT().ExtendBundle(gomock.Any(), "testBundleHash", map[string]deepcode.BundleFile{
 			"another": {},
 			"file":    {},

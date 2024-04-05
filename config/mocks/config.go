@@ -61,6 +61,20 @@ func (mr *MockConfigMockRecorder) Organization() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Organization", reflect.TypeOf((*MockConfig)(nil).Organization))
 }
 
+// SnykApi mocks base method.
+func (m *MockConfig) SnykApi() string {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "SnykApi")
+	ret0, _ := ret[0].(string)
+	return ret0
+}
+
+// SnykApi indicates an expected call of SnykApi.
+func (mr *MockConfigMockRecorder) SnykApi() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SnykApi", reflect.TypeOf((*MockConfig)(nil).SnykApi))
+}
+
 // SnykCodeApi mocks base method.
 func (m *MockConfig) SnykCodeApi() string {
 	m.ctrl.T.Helper()
@@ -73,18 +87,4 @@ func (m *MockConfig) SnykCodeApi() string {
 func (mr *MockConfigMockRecorder) SnykCodeApi() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SnykCodeApi", reflect.TypeOf((*MockConfig)(nil).SnykCodeApi))
-}
-
-// SnykRESTApi mocks base method.
-func (m *MockConfig) SnykApi() string {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "SnykApi")
-	ret0, _ := ret[0].(string)
-	return ret0
-}
-
-// SnykRESTApi indicates an expected call of SnykRESTApi.
-func (mr *MockConfigMockRecorder) SnykRESTApi() *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SnykApi", reflect.TypeOf((*MockConfig)(nil).SnykApi))
 }
