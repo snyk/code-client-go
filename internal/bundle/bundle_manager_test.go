@@ -288,8 +288,7 @@ func Test_Upload(t *testing.T) {
 			context.Background(),
 			"testRequestId",
 			bundle.NewBundle(mockSnykCodeClient, mockInstrumentor, mockErrorReporter, &logger, "bundleHash", bundleFileMap, []string{}, []string{documentURI}),
-			bundleFileMap)
-		assert.NoError(t, err)
+			assert.NoError(t, err)
 	})
 
 	t.Run("when loads of files breaks down in 4MB bundles", func(t *testing.T) {

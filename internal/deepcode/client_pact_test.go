@@ -19,11 +19,6 @@ package deepcode_test
 import (
 	"context"
 	"fmt"
-<<<<<<< HEAD
-=======
-	confMocks "github.com/snyk/code-client-go/config/mocks"
-	"github.com/snyk/code-client-go/internal/deepcode"
->>>>>>> 13ff562 (refactor: move the deepcode package)
 	"net/http"
 	"testing"
 
@@ -31,10 +26,7 @@ import (
 	"github.com/pact-foundation/pact-go/dsl"
 	"github.com/stretchr/testify/assert"
 
-<<<<<<< HEAD
 	confMocks "github.com/snyk/code-client-go/config/mocks"
-=======
->>>>>>> 13ff562 (refactor: move the deepcode package)
 	codeClientHTTP "github.com/snyk/code-client-go/http"
 	"github.com/snyk/code-client-go/internal/deepcode"
 	"github.com/snyk/code-client-go/internal/util"

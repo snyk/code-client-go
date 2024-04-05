@@ -23,13 +23,6 @@ import (
 	"github.com/pkg/errors"
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
-<<<<<<< HEAD
-=======
-	"github.com/snyk/code-client-go/config"
-	codeClientHTTP "github.com/snyk/code-client-go/http"
-	bundle2 "github.com/snyk/code-client-go/internal/bundle"
-	"github.com/snyk/code-client-go/internal/deepcode"
->>>>>>> 13ff562 (refactor: move the deepcode package)
 
 	"github.com/snyk/code-client-go/config"
 	codeClientHTTP "github.com/snyk/code-client-go/http"
