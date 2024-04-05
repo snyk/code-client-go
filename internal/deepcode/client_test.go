@@ -115,6 +115,7 @@ func TestSnykCodeBackendService_CreateBundle(t *testing.T) {
 				req.Header.Get("Content-Type") == "application/octet-stream"
 		}),
 	).Return(&http.Response{
+
 		StatusCode: http.StatusOK,
 		Body:       io.NopCloser(bytes.NewReader([]byte(`{"bundleHash":   "bundleHash", "missingFiles": ["test"]}`))),
 	}, nil).Times(1)
