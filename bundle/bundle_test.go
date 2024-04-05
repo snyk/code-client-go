@@ -50,10 +50,10 @@ func Test_UploadBatch(t *testing.T) {
 		mockInstrumentor.EXPECT().StartSpan(gomock.Any(), gomock.Any()).Return(mockSpan).AnyTimes()
 		mockInstrumentor.EXPECT().Finish(gomock.Any()).AnyTimes()
 		mockErrorReporter := mocks.NewMockErrorReporter(ctrl)
-		b := bundle.NewBundle(mockSnykCodeClient, mockInstrumentor, mockErrorReporter, &testLogger, "testBundleHash", "testRequestId", "", map[string]deepcode.BundleFile{}, []string{}, []string{})
+		b := bundle.NewBundle(mockSnykCodeClient, mockInstrumentor, mockErrorReporter, &testLogger, "testBundleHash", map[string]deepcode.BundleFile{}, []string{}, []string{})
 
 		emptyBundle := &bundle.Batch{}
-		err := b.UploadBatch(context.Background(), emptyBundle)
+		err := b.UploadBatch(context.Background(), "testRequestId", emptyBundle)
 		assert.NoError(t, err)
 	})
 
@@ -70,9 +70,9 @@ func Test_UploadBatch(t *testing.T) {
 		mockInstrumentor.EXPECT().StartSpan(gomock.Any(), gomock.Any()).Return(mockSpan).AnyTimes()
 		mockInstrumentor.EXPECT().Finish(gomock.Any()).AnyTimes()
 		mockErrorReporter := mocks.NewMockErrorReporter(ctrl)
-		b := bundle.NewBundle(mockSnykCodeClient, mockInstrumentor, mockErrorReporter, &testLogger, "testBundleHash", "testRequestId", "", map[string]deepcode.BundleFile{}, []string{}, []string{})
+		b := bundle.NewBundle(mockSnykCodeClient, mockInstrumentor, mockErrorReporter, &testLogger, "testBundleHash", map[string]deepcode.BundleFile{}, []string{}, []string{})
 
-		err := b.UploadBatch(context.Background(), bundleWithFiles)
+		err := b.UploadBatch(context.Background(), "testRequestId", bundleWithFiles)
 		assert.NoError(t, err)
 	})
 
@@ -93,12 +93,12 @@ func Test_UploadBatch(t *testing.T) {
 		mockInstrumentor.EXPECT().StartSpan(gomock.Any(), gomock.Any()).Return(mockSpan).AnyTimes()
 		mockInstrumentor.EXPECT().Finish(gomock.Any()).AnyTimes()
 		mockErrorReporter := mocks.NewMockErrorReporter(ctrl)
-		b := bundle.NewBundle(mockSnykCodeClient, mockInstrumentor, mockErrorReporter, &testLogger, "testBundleHash", "testRequestId", "", map[string]deepcode.BundleFile{}, []string{}, []string{})
+		b := bundle.NewBundle(mockSnykCodeClient, mockInstrumentor, mockErrorReporter, &testLogger, "testBundleHash", map[string]deepcode.BundleFile{}, []string{}, []string{})
 
-		err := b.UploadBatch(context.Background(), bundleWithFiles)
+		err := b.UploadBatch(context.Background(), "testRequestId", bundleWithFiles)
 		require.NoError(t, err)
 		oldHash := b.GetBundleHash()
-		err = b.UploadBatch(context.Background(), bundleWithMultipleFiles)
+		err = b.UploadBatch(context.Background(), "testRequestId", bundleWithMultipleFiles)
 		require.NoError(t, err)
 		newHash := b.GetBundleHash()
 		assert.NotEqual(t, oldHash, newHash)

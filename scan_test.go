@@ -28,9 +28,11 @@ import (
 
 	codeclient "github.com/snyk/code-client-go"
 	"github.com/snyk/code-client-go/bundle"
-	mocks2 "github.com/snyk/code-client-go/bundle/mocks"
+	bundleMocks "github.com/snyk/code-client-go/bundle/mocks"
+	confMocks "github.com/snyk/code-client-go/config/mocks"
 	"github.com/snyk/code-client-go/deepcode"
-	mocks3 "github.com/snyk/code-client-go/deepcode/mocks"
+	deepcodeMocks "github.com/snyk/code-client-go/deepcode/mocks"
+	httpmocks "github.com/snyk/code-client-go/http/mocks"
 	"github.com/snyk/code-client-go/observability/mocks"
 )
 
@@ -44,52 +46,49 @@ func Test_UploadAndAnalyze(t *testing.T) {
 
 	logger := zerolog.Nop()
 
+	ctrl := gomock.NewController(t)
+	mockHTTPClient := httpmocks.NewMockHTTPClient(ctrl)
+	mockConfig := confMocks.NewMockConfig(ctrl)
+	mockConfig.EXPECT().SnykCodeApi().AnyTimes().Return("")
+	mockConfig.EXPECT().IsFedramp().AnyTimes().Return(false)
+	mockConfig.EXPECT().Organization().AnyTimes().Return("")
+	mockSpan := mocks.NewMockSpan(ctrl)
+	mockSpan.EXPECT().GetTraceId().Return("testRequestId").AnyTimes()
+	mockSpan.EXPECT().Context().Return(context.Background()).AnyTimes()
+	mockInstrumentor := mocks.NewMockInstrumentor(ctrl)
+	mockInstrumentor.EXPECT().StartSpan(gomock.Any(), gomock.Any()).Return(mockSpan).AnyTimes()
+	mockInstrumentor.EXPECT().Finish(gomock.Any()).AnyTimes()
+	mockErrorReporter := mocks.NewMockErrorReporter(ctrl)
+
 	t.Run(
 		"should create bundle when hash empty", func(t *testing.T) {
-			ctrl := gomock.NewController(t)
-			mockSpan := mocks.NewMockSpan(ctrl)
-			mockSpan.EXPECT().GetTraceId().Return("testRequestId").AnyTimes()
-			mockSpan.EXPECT().Context().Return(context.Background()).AnyTimes()
-			mockInstrumentor := mocks.NewMockInstrumentor(ctrl)
-			mockInstrumentor.EXPECT().StartSpan(gomock.Any(), gomock.Any()).Return(mockSpan).AnyTimes()
-			mockInstrumentor.EXPECT().Finish(gomock.Any()).AnyTimes()
-			mockErrorReporter := mocks.NewMockErrorReporter(ctrl)
-			mockBundle := bundle.NewBundle(mocks3.NewMockSnykCodeClient(ctrl), mockInstrumentor, mockErrorReporter, &logger, "", "testRequestId", baseDir, files, []string{}, []string{})
-			mockBundleManager := mocks2.NewMockBundleManager(ctrl)
+			mockBundle := bundle.NewBundle(deepcodeMocks.NewMockSnykCodeClient(ctrl), mockInstrumentor, mockErrorReporter, &logger, "", files, []string{}, []string{})
+			mockBundleManager := bundleMocks.NewMockBundleManager(ctrl)
 			mockBundleManager.EXPECT().Create(gomock.Any(), "testRequestId", baseDir, gomock.Any(), map[string]bool{}).Return(mockBundle, nil)
-			mockBundleManager.EXPECT().Upload(gomock.Any(), mockBundle, files).Return(mockBundle, nil)
+			mockBundleManager.EXPECT().Upload(gomock.Any(), "testRequestId", mockBundle, files).Return(mockBundle, nil)
 
-			codeScanner := codeclient.NewCodeScanner(mockBundleManager, mockInstrumentor, mockErrorReporter, &logger)
+			codeScanner := codeclient.NewCodeScanner(mockHTTPClient, mockConfig, mockInstrumentor, mockErrorReporter, &logger)
 
-			response, bundle, err := codeScanner.UploadAndAnalyze(context.Background(), baseDir, docs, map[string]bool{})
+			response, bundleHash, err := codeScanner.WithBundleManager(mockBundleManager).UploadAndAnalyze(context.Background(), "testRequestId", baseDir, docs, map[string]bool{})
 			require.NoError(t, err)
-			assert.Equal(t, "", bundle.GetBundleHash())
-			assert.Equal(t, files, bundle.GetFiles())
+			assert.Equal(t, "", bundleHash)
 			assert.Nil(t, response)
 		},
 	)
 
 	t.Run(
 		"should retrieve from backend", func(t *testing.T) {
-			ctrl := gomock.NewController(t)
-			mockSpan := mocks.NewMockSpan(ctrl)
-			mockSpan.EXPECT().GetTraceId().Return("testRequestId").AnyTimes()
-			mockSpan.EXPECT().Context().Return(context.Background()).AnyTimes()
-			mockInstrumentor := mocks.NewMockInstrumentor(ctrl)
-			mockInstrumentor.EXPECT().StartSpan(gomock.Any(), gomock.Any()).Return(mockSpan).AnyTimes()
-			mockInstrumentor.EXPECT().Finish(gomock.Any()).AnyTimes()
-			mockErrorReporter := mocks.NewMockErrorReporter(ctrl)
-			mockBundle := bundle.NewBundle(mocks3.NewMockSnykCodeClient(ctrl), mockInstrumentor, mockErrorReporter, &logger, "testBundleHash", "testRequestId", baseDir, files, []string{}, []string{})
-			mockBundleManager := mocks2.NewMockBundleManager(ctrl)
+			mockBundle := bundle.NewBundle(deepcodeMocks.NewMockSnykCodeClient(ctrl), mockInstrumentor, mockErrorReporter, &logger, "testBundleHash", files, []string{}, []string{})
+			mockBundleManager := bundleMocks.NewMockBundleManager(ctrl)
 			mockBundleManager.EXPECT().Create(gomock.Any(), "testRequestId", baseDir, gomock.Any(), map[string]bool{}).Return(mockBundle, nil)
-			mockBundleManager.EXPECT().Upload(gomock.Any(), mockBundle, files).Return(mockBundle, nil)
+			mockBundleManager.EXPECT().Upload(gomock.Any(), "testRequestId", mockBundle, files).Return(mockBundle, nil)
 
-			codeScanner := codeclient.NewCodeScanner(mockBundleManager, mockInstrumentor, mockErrorReporter, &logger)
+			codeScanner := codeclient.NewCodeScanner(mockHTTPClient, mockConfig, mockInstrumentor, mockErrorReporter, &logger)
 
-			response, bundle, err := codeScanner.UploadAndAnalyze(context.Background(), baseDir, docs, map[string]bool{})
+			response, bundleHash, err := codeScanner.WithBundleManager(mockBundleManager).UploadAndAnalyze(context.Background(), "testRequestId", baseDir, docs, map[string]bool{})
 			require.NoError(t, err)
 			assert.Equal(t, "COMPLETE", response.Status)
-			assert.Equal(t, "testBundleHash", bundle.GetBundleHash())
+			assert.Equal(t, "testBundleHash", bundleHash)
 		},
 	)
 }

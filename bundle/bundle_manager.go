@@ -50,6 +50,7 @@ type BundleManager interface {
 
 	Upload(
 		ctx context.Context,
+		requestId string,
 		originalBundle Bundle,
 		files map[string]deepcode.BundleFile,
 	) (Bundle, error)
@@ -139,8 +140,6 @@ func (b *bundleManager) Create(ctx context.Context,
 		b.errorReporter,
 		b.logger,
 		bundleHash,
-		requestId,
-		rootPath,
 		bundleFiles,
 		limitToFiles,
 		missingFiles,
@@ -150,6 +149,7 @@ func (b *bundleManager) Create(ctx context.Context,
 
 func (b *bundleManager) Upload(
 	ctx context.Context,
+	requestId string,
 	bundle Bundle,
 	files map[string]deepcode.BundleFile,
 ) (Bundle, error) {
@@ -168,7 +168,7 @@ func (b *bundleManager) Upload(
 			if err := ctx.Err(); err != nil {
 				return bundle, err
 			}
-			err := bundle.UploadBatch(s.Context(), batch)
+			err := bundle.UploadBatch(s.Context(), requestId, batch)
 			if err != nil {
 				return bundle, err
 			}

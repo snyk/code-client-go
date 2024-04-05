@@ -284,8 +284,10 @@ func Test_Upload(t *testing.T) {
 		bundleFileMap := map[string]deepcode2.BundleFile{}
 		bundleFileMap[documentURI] = bundleFile
 
-		_, err := bundleManager.Upload(context.Background(),
-			bundle.NewBundle(mockSnykCodeClient, mockInstrumentor, mockErrorReporter, &logger, "bundleHash", "testRequestId", "", bundleFileMap, []string{}, []string{documentURI}),
+		_, err := bundleManager.Upload(
+			context.Background(),
+			"testRequestId",
+			bundle.NewBundle(mockSnykCodeClient, mockInstrumentor, mockErrorReporter, &logger, "bundleHash", bundleFileMap, []string{}, []string{documentURI}),
 			bundleFileMap)
 		assert.NoError(t, err)
 	})
@@ -321,8 +323,10 @@ func Test_Upload(t *testing.T) {
 		bundleFileMap[path] = bundleFile
 		missingFiles = append(missingFiles, path)
 
-		_, err := bundleManager.Upload(context.Background(),
-			bundle.NewBundle(mockSnykCodeClient, mockInstrumentor, mockErrorReporter, &logger, "bundleHash", "testRequestId", "", bundleFileMap, []string{}, missingFiles),
+		_, err := bundleManager.Upload(
+			context.Background(),
+			"testRequestId",
+			bundle.NewBundle(mockSnykCodeClient, mockInstrumentor, mockErrorReporter, &logger, "bundleHash", bundleFileMap, []string{}, missingFiles),
 			bundleFileMap)
 		assert.Nil(t, err)
 	})
