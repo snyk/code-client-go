@@ -1,4 +1,4 @@
-package http
+package config
 
 // Config defines the configurable options for the HTTP client.
 //
