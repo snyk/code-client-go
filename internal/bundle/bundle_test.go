@@ -18,16 +18,16 @@ package bundle_test
 
 import (
 	"context"
-	"github.com/rs/zerolog"
 	"testing"
 
 	"github.com/golang/mock/gomock"
+	"github.com/rs/zerolog"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/snyk/code-client-go/bundle"
 	"github.com/snyk/code-client-go/deepcode"
 	deepcodeMocks "github.com/snyk/code-client-go/deepcode/mocks"
+	"github.com/snyk/code-client-go/internal/bundle"
 	"github.com/snyk/code-client-go/observability/mocks"
 )
 
