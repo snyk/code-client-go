@@ -22,6 +22,9 @@ import (
 	"github.com/pkg/errors"
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
+	"github.com/snyk/code-client-go/config"
+	"github.com/snyk/code-client-go/deepcode"
+	codeClientHTTP "github.com/snyk/code-client-go/http"
 
 	"github.com/snyk/code-client-go/bundle"
 	"github.com/snyk/code-client-go/internal/analysis"
@@ -47,16 +50,30 @@ type CodeScanner interface {
 
 // NewCodeScanner creates a Code Scanner which can be used to trigger Snyk Code on a folder.
 func NewCodeScanner(
-	bundleManager bundle.BundleManager,
+	httpClient codeClientHTTP.HTTPClient,
+	config config.Config,
 	instrumentor observability.Instrumentor,
 	errorReporter observability.ErrorReporter,
 	logger *zerolog.Logger,
 ) *codeScanner {
+	snykCode := deepcode.NewSnykCodeClient(logger, httpClient, instrumentor, config)
+	bundleManager := bundle.NewBundleManager(logger, snykCode, instrumentor, errorReporter)
 	return &codeScanner{
 		bundleManager: bundleManager,
 		instrumentor:  instrumentor,
 		errorReporter: errorReporter,
 		logger:        logger,
+	}
+}
+
+// WithBundleManager creates a new Code Scanner from the current one and replaces the bundle manager.
+// It can be used to replace the bundle manager in tests.
+func (c *codeScanner) WithBundleManager(bundleManager bundle.BundleManager) *codeScanner {
+	return &codeScanner{
+		bundleManager: bundleManager,
+		instrumentor:  c.instrumentor,
+		errorReporter: c.errorReporter,
+		logger:        c.logger,
 	}
 }
 
