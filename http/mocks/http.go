@@ -5,11 +5,10 @@
 package mocks
 
 import (
-	context "context"
+	http "net/http"
 	reflect "reflect"
 
 	gomock "github.com/golang/mock/gomock"
-	http "github.com/snyk/code-client-go/http"
 )
 
 // MockHTTPClient is a mock of HTTPClient interface.
@@ -35,46 +34,17 @@ func (m *MockHTTPClient) EXPECT() *MockHTTPClientMockRecorder {
 	return m.recorder
 }
 
-// Config mocks base method.
-func (m *MockHTTPClient) Config() http.Config {
+// Do mocks base method.
+func (m *MockHTTPClient) Do(req *http.Request) (*http.Response, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Config")
-	ret0, _ := ret[0].(http.Config)
-	return ret0
-}
-
-// Config indicates an expected call of Config.
-func (mr *MockHTTPClientMockRecorder) Config() *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Config", reflect.TypeOf((*MockHTTPClient)(nil).Config))
-}
-
-// DoCall mocks base method.
-func (m *MockHTTPClient) DoCall(ctx context.Context, method, path string, requestBody []byte) ([]byte, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "DoCall", ctx, method, path, requestBody)
-	ret0, _ := ret[0].([]byte)
+	ret := m.ctrl.Call(m, "Do", req)
+	ret0, _ := ret[0].(*http.Response)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
-// DoCall indicates an expected call of DoCall.
-func (mr *MockHTTPClientMockRecorder) DoCall(ctx, method, path, requestBody interface{}) *gomock.Call {
+// Do indicates an expected call of Do.
+func (mr *MockHTTPClientMockRecorder) Do(req interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DoCall", reflect.TypeOf((*MockHTTPClient)(nil).DoCall), ctx, method, path, requestBody)
-}
-
-// FormatCodeApiURL mocks base method.
-func (m *MockHTTPClient) FormatCodeApiURL() (string, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "FormatCodeApiURL")
-	ret0, _ := ret[0].(string)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// FormatCodeApiURL indicates an expected call of FormatCodeApiURL.
-func (mr *MockHTTPClientMockRecorder) FormatCodeApiURL() *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "FormatCodeApiURL", reflect.TypeOf((*MockHTTPClient)(nil).FormatCodeApiURL))
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Do", reflect.TypeOf((*MockHTTPClient)(nil).Do), req)
 }
