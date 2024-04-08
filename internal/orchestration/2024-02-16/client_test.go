@@ -4,7 +4,7 @@ import (
 	"bytes"
 	"context"
 	"errors"
-	openapi_types "github.com/deepmap/oapi-codegen/pkg/types"
+	openapi_types "github.com/oapi-codegen/runtime/types"
 	externalRef2 "github.com/snyk/code-client-go/internal/orchestration/2024-02-16/scans"
 	"io"
 	"net/http"
