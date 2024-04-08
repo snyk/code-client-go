@@ -9,8 +9,8 @@ import (
 	reflect "reflect"
 
 	gomock "github.com/golang/mock/gomock"
-	bundle "github.com/snyk/code-client-go/bundle"
-	deepcode "github.com/snyk/code-client-go/deepcode"
+	bundle "github.com/snyk/code-client-go/internal/bundle"
+	deepcode "github.com/snyk/code-client-go/internal/deepcode"
 )
 
 // MockBundle is a mock of Bundle interface.
@@ -78,44 +78,16 @@ func (mr *MockBundleMockRecorder) GetMissingFiles() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetMissingFiles", reflect.TypeOf((*MockBundle)(nil).GetMissingFiles))
 }
 
-// GetRequestId mocks base method.
-func (m *MockBundle) GetRequestId() string {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "GetRequestId")
-	ret0, _ := ret[0].(string)
-	return ret0
-}
-
-// GetRequestId indicates an expected call of GetRequestId.
-func (mr *MockBundleMockRecorder) GetRequestId() *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetRequestId", reflect.TypeOf((*MockBundle)(nil).GetRequestId))
-}
-
-// GetRootPath mocks base method.
-func (m *MockBundle) GetRootPath() string {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "GetRootPath")
-	ret0, _ := ret[0].(string)
-	return ret0
-}
-
-// GetRootPath indicates an expected call of GetRootPath.
-func (mr *MockBundleMockRecorder) GetRootPath() *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetRootPath", reflect.TypeOf((*MockBundle)(nil).GetRootPath))
-}
-
 // UploadBatch mocks base method.
-func (m *MockBundle) UploadBatch(ctx context.Context, batch *bundle.Batch) error {
+func (m *MockBundle) UploadBatch(ctx context.Context, requestId string, batch *bundle.Batch) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "UploadBatch", ctx, batch)
+	ret := m.ctrl.Call(m, "UploadBatch", ctx, requestId, batch)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // UploadBatch indicates an expected call of UploadBatch.
-func (mr *MockBundleMockRecorder) UploadBatch(ctx, batch interface{}) *gomock.Call {
+func (mr *MockBundleMockRecorder) UploadBatch(ctx, requestId, batch interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UploadBatch", reflect.TypeOf((*MockBundle)(nil).UploadBatch), ctx, batch)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UploadBatch", reflect.TypeOf((*MockBundle)(nil).UploadBatch), ctx, requestId, batch)
 }

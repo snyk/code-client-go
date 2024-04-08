@@ -27,8 +27,8 @@ import (
 	"github.com/stretchr/testify/assert"
 
 	confMocks "github.com/snyk/code-client-go/config/mocks"
-	"github.com/snyk/code-client-go/deepcode"
 	codeClientHTTP "github.com/snyk/code-client-go/http"
+	"github.com/snyk/code-client-go/internal/deepcode"
 	"github.com/snyk/code-client-go/internal/util"
 	"github.com/snyk/code-client-go/internal/util/testutil"
 )
