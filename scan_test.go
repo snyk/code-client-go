@@ -17,13 +17,14 @@ package codeclient_test
 
 import (
 	"context"
+	"os"
+	"path/filepath"
+	"testing"
+
 	"github.com/snyk/code-client-go/internal/bundle"
 	bundleMocks "github.com/snyk/code-client-go/internal/bundle/mocks"
 	"github.com/snyk/code-client-go/internal/deepcode"
 	deepcodeMocks "github.com/snyk/code-client-go/internal/deepcode/mocks"
-	"os"
-	"path/filepath"
-	"testing"
 
 	"github.com/golang/mock/gomock"
 	"github.com/rs/zerolog"
@@ -40,8 +41,8 @@ func Test_UploadAndAnalyze(t *testing.T) {
 	baseDir, firstDocPath, secondDocPath, firstDocContent, secondDocContent := setupDocs(t)
 	docs := sliceToChannel([]string{firstDocPath, secondDocPath})
 	files := map[string]deepcode.BundleFile{
-		firstDocPath: deepcode.BundleFileFrom(firstDocPath, firstDocContent),
-		firstDocPath: deepcode.BundleFileFrom(secondDocPath, secondDocContent),
+		firstDocPath: deepcode.BundleFileFrom(firstDocContent),
+		firstDocPath: deepcode.BundleFileFrom(secondDocContent),
 	}
 
 	logger := zerolog.Nop()

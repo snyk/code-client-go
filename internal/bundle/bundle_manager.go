@@ -18,9 +18,10 @@ package bundle
 
 import (
 	"context"
-	deepcode2 "github.com/snyk/code-client-go/internal/deepcode"
 	"os"
 	"path/filepath"
+
+	deepcode2 "github.com/snyk/code-client-go/internal/deepcode"
 
 	"github.com/puzpuzpuz/xsync"
 	"github.com/rs/zerolog"
@@ -116,9 +117,10 @@ func (b *bundleManager) Create(ctx context.Context,
 		}
 		relativePath = util.EncodePath(relativePath)
 
-		bundleFile := deepcode2.BundleFileFrom(absoluteFilePath, fileContent)
+		bundleFile := deepcode2.BundleFileFrom(fileContent)
 		bundleFiles[relativePath] = bundleFile
 		fileHashes[relativePath] = bundleFile.Hash
+		b.logger.Trace().Str("method", "BundleFileFrom").Str("hash", bundleFile.Hash).Str("filePath", absoluteFilePath).Msg("")
 
 		if changedFiles[absoluteFilePath] {
 			limitToFiles = append(limitToFiles, relativePath)
