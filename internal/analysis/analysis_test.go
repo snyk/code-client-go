@@ -18,7 +18,6 @@ package analysis_test
 import (
 	"bytes"
 	"context"
-	"fmt"
 	"github.com/stretchr/testify/mock"
 	"io"
 	"net/http"
@@ -77,7 +76,6 @@ func TestAnalysis_CreateWorkspace(t *testing.T) {
 		"b372d1db-b465-4764-99e1-ecedad03b06a",
 		"../../",
 		"testBundleHash")
-	fmt.Println(err)
 	assert.NoError(t, err)
 }
 
