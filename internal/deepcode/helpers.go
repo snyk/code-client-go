@@ -16,8 +16,6 @@
 package deepcode
 
 import (
-	"github.com/rs/zerolog/log"
-
 	"github.com/snyk/code-client-go/internal/util"
 )
 
@@ -26,11 +24,10 @@ type BundleFile struct {
 	Content string `json:"content"`
 }
 
-func BundleFileFrom(filePath string, content []byte) BundleFile {
+func BundleFileFrom(content []byte) BundleFile {
 	file := BundleFile{
 		Hash:    util.Hash(content),
 		Content: string(content),
 	}
-	log.Trace().Str("method", "BundleFileFrom").Str("hash", file.Hash).Str("filePath", filePath).Msg("")
 	return file
 }
