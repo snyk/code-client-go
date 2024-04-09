@@ -63,8 +63,8 @@ func Test_GetRepositoryUrl_repo_with_credentials(t *testing.T) {
 
 func Test_GetRepositoryUrl_repo_without_credentials(t *testing.T) {
 	// check out a repo and prepare its config to contain credentials in the URL
-	expectedRepoUrl := "git@github.com:snyk-fixtures/shallow-goof-locked.git"
-	repoDir, _ := clone(t, expectedRepoUrl)
+	expectedRepoUrl := "https://github.com/snyk-fixtures/shallow-goof-locked.git"
+	repoDir, _ := clone(t, "git@github.com:snyk-fixtures/shallow-goof-locked.git")
 
 	// run method under test
 	actualUrl, err := util.GetRepositoryUrl(repoDir)
