@@ -21,6 +21,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"github.com/snyk/code-client-go/config"
 	"github.com/snyk/code-client-go/internal/util/encoding"
 	"io"
@@ -84,26 +85,27 @@ func NewSnykCodeClient(
 	errorReporter observability.ErrorReporter,
 	config config.Config,
 ) *snykCodeClient {
-	return &snykCodeClient{httpClient, instrumentor, errorReporter, logger, config}
+	return &snykCodeClient{
+		httpClient,
+		instrumentor,
+		errorReporter,
+		logger,
+		config,
+	}
 }
 
 func (s *snykCodeClient) GetFilters(ctx context.Context) (
 	filters FiltersResponse,
 	err error,
 ) {
-	method := "code.GetFilters"
+	method := "deepcode.GetFilters"
 	log := s.logger.With().Str("method", method).Logger()
 	log.Debug().Msg("API: Getting file extension filters")
 
 	span := s.instrumentor.StartSpan(ctx, method)
 	defer s.instrumentor.Finish(span)
 
-	host, err := s.Host()
-	if err != nil {
-		return FiltersResponse{ConfigFiles: nil, Extensions: nil}, err
-	}
-
-	responseBody, err := s.Request(host, http.MethodGet, "/filters", nil)
+	responseBody, err := s.Request(http.MethodGet, "/filters", nil)
 	if err != nil {
 		return FiltersResponse{ConfigFiles: nil, Extensions: nil}, err
 	}
@@ -120,24 +122,19 @@ func (s *snykCodeClient) CreateBundle(
 	ctx context.Context,
 	filesToFilehashes map[string]string,
 ) (string, []string, error) {
-	method := "code.CreateBundle"
+	method := "deepcode.CreateBundle"
 	log := s.logger.With().Str("method", method).Logger()
 	log.Debug().Msg("API: Creating bundle for " + strconv.Itoa(len(filesToFilehashes)) + " files")
 
 	span := s.instrumentor.StartSpan(ctx, method)
 	defer s.instrumentor.Finish(span)
 
-	host, err := s.Host()
-	if err != nil {
-		return "", nil, err
-	}
-
 	requestBody, err := json.Marshal(filesToFilehashes)
 	if err != nil {
 		return "", nil, err
 	}
 
-	responseBody, err := s.Request(host, http.MethodPost, "/bundle", requestBody)
+	responseBody, err := s.Request(http.MethodPost, "/bundle", requestBody)
 	if err != nil {
 		return "", nil, err
 	}
@@ -157,18 +154,13 @@ func (s *snykCodeClient) ExtendBundle(
 	files map[string]BundleFile,
 	removedFiles []string,
 ) (string, []string, error) {
-	method := "code.ExtendBundle"
+	method := "deepcode.ExtendBundle"
 	log := s.logger.With().Str("method", method).Logger()
 	log.Debug().Msg("API: Extending bundle for " + strconv.Itoa(len(files)) + " files")
 	defer log.Debug().Str("method", method).Msg("API: Extend done")
 
 	span := s.instrumentor.StartSpan(ctx, method)
 	defer s.instrumentor.Finish(span)
-
-	host, err := s.Host()
-	if err != nil {
-		return "", nil, err
-	}
 
 	requestBody, err := json.Marshal(ExtendBundleRequest{
 		Files:        files,
@@ -178,7 +170,7 @@ func (s *snykCodeClient) ExtendBundle(
 		return "", nil, err
 	}
 
-	responseBody, err := s.Request(host, http.MethodPut, "/bundle/"+bundleHash, requestBody)
+	responseBody, err := s.Request(http.MethodPut, "/bundle/"+bundleHash, requestBody)
 	if err != nil {
 		return "", nil, err
 	}
@@ -213,12 +205,18 @@ func (s *snykCodeClient) Host() (string, error) {
 }
 
 func (s *snykCodeClient) Request(
-	host string,
 	method string,
 	path string,
 	requestBody []byte,
 ) ([]byte, error) {
 	log := s.logger.With().Str("method", "deepcode.Request").Logger()
+
+	host, err := s.Host()
+	if err != nil {
+		return nil, err
+	}
+
+	s.logger.Trace().Str("requestBody", string(requestBody)).Msg("SEND TO REMOTE")
 
 	bodyBuffer, err := s.encodeIfNeeded(method, requestBody)
 	if err != nil {
@@ -236,6 +234,12 @@ func (s *snykCodeClient) Request(
 	if err != nil {
 		return nil, err
 	}
+
+	err = s.checkResponseCode(response)
+	if err != nil {
+		return nil, err
+	}
+
 	defer func() {
 		closeErr := response.Body.Close()
 		if closeErr != nil {
@@ -285,4 +289,11 @@ func (s *snykCodeClient) encodeIfNeeded(method string, requestBody []byte) (*byt
 
 func (s *snykCodeClient) mustBeEncoded(method string) bool {
 	return method == http.MethodPost || method == http.MethodPut
+}
+
+func (s *snykCodeClient) checkResponseCode(r *http.Response) error {
+	if r.StatusCode >= 200 && r.StatusCode <= 299 {
+		return nil
+	}
+	return fmt.Errorf("Unexpected response code: %s", r.Status)
 }

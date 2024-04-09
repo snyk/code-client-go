@@ -22,7 +22,6 @@ import (
 
 	"github.com/pkg/errors"
 	"github.com/rs/zerolog"
-	"github.com/rs/zerolog/log"
 
 	"github.com/snyk/code-client-go/config"
 	codeClientHTTP "github.com/snyk/code-client-go/http"
@@ -34,9 +33,11 @@ import (
 )
 
 type codeScanner struct {
-	bundleManager bundle.BundleManager
-	errorReporter observability.ErrorReporter
-	logger        *zerolog.Logger
+	bundleManager        bundle.BundleManager
+	analysisOrchestrator analysis.AnalysisOrchestrator
+	errorReporter        observability.ErrorReporter
+	logger               *zerolog.Logger
+	config               config.Config
 }
 
 type CodeScanner interface {
@@ -59,10 +60,13 @@ func NewCodeScanner(
 ) *codeScanner {
 	snykCode := deepcode.NewSnykCodeClient(logger, httpClient, instrumentor, errorReporter, config)
 	bundleManager := bundle.NewBundleManager(logger, snykCode, instrumentor, errorReporter)
+	analysisOrchestrator := analysis.NewAnalysisOrchestrator(logger, httpClient, instrumentor, errorReporter, config)
 	return &codeScanner{
-		bundleManager: bundleManager,
-		errorReporter: errorReporter,
-		logger:        logger,
+		bundleManager:        bundleManager,
+		analysisOrchestrator: analysisOrchestrator,
+		errorReporter:        errorReporter,
+		logger:               logger,
+		config:               config,
 	}
 }
 
@@ -70,9 +74,23 @@ func NewCodeScanner(
 // It can be used to replace the bundle manager in tests.
 func (c *codeScanner) WithBundleManager(bundleManager bundle.BundleManager) *codeScanner {
 	return &codeScanner{
-		bundleManager: bundleManager,
-		errorReporter: c.errorReporter,
-		logger:        c.logger,
+		bundleManager:        bundleManager,
+		analysisOrchestrator: c.analysisOrchestrator,
+		errorReporter:        c.errorReporter,
+		logger:               c.logger,
+		config:               c.config,
+	}
+}
+
+// WithAnalysisOrchestrator creates a new Code Scanner from the current one and replaces the analysis orchestrator.
+// It can be used to replace the analysis orchestrator in tests.
+func (c *codeScanner) WithAnalysisOrchestrator(analysisOrchestrator analysis.AnalysisOrchestrator) *codeScanner {
+	return &codeScanner{
+		bundleManager:        c.bundleManager,
+		analysisOrchestrator: analysisOrchestrator,
+		errorReporter:        c.errorReporter,
+		logger:               c.logger,
+		config:               c.config,
 	}
 }
 
@@ -118,7 +136,7 @@ func (c *codeScanner) UploadAndAnalyze(
 			c.errorReporter.CaptureError(errors.Wrap(err, msg), observability.ErrorReporterOptions{ErrorDiagnosticPath: path})
 			return nil, bundleHash, err
 		} else {
-			log.Info().Msg("Canceling Code scan - Code scanner received cancellation signal")
+			c.logger.Info().Msg("Canceling Code scan - Code scanner received cancellation signal")
 			return nil, bundleHash, nil
 		}
 	}
@@ -128,7 +146,21 @@ func (c *codeScanner) UploadAndAnalyze(
 		return nil, bundleHash, nil
 	}
 
-	response, err := analysis.RunAnalysis()
+	workspaceId, err := c.analysisOrchestrator.CreateWorkspace(ctx, c.config.Organization(), requestId, path, bundleHash)
+	if err != nil {
+		if ctx.Err() == nil { // Only handle errors that are not intentional cancellations
+			msg := "error creating workspace for bundle..."
+			c.errorReporter.CaptureError(errors.Wrap(err, msg), observability.ErrorReporterOptions{ErrorDiagnosticPath: path})
+			return nil, bundleHash, err
+		} else {
+			c.logger.Info().Msg("Canceling Code scan - Code scanner received cancellation signal")
+			return nil, bundleHash, nil
+		}
+	}
+
+	c.logger.Info().Str("workspaceId", workspaceId).Msg("finished wrapping the bundle in a workspace")
+
+	response, err := c.analysisOrchestrator.RunAnalysis()
 	if ctx.Err() != nil {
 		c.logger.Info().Msg("Canceling Code scan - Code scanner received cancellation signal")
 		return nil, bundleHash, nil

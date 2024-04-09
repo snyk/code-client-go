@@ -1,17 +1,177 @@
+/*
+ * © 2024 Snyk Limited All rights reserved.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 package analysis_test
 
 import (
+	"bytes"
+	"context"
+	"fmt"
+	"github.com/stretchr/testify/mock"
+	"io"
+	"net/http"
 	"testing"
 
+	"github.com/golang/mock/gomock"
+	"github.com/rs/zerolog"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	confMocks "github.com/snyk/code-client-go/config/mocks"
+	httpmocks "github.com/snyk/code-client-go/http/mocks"
 	"github.com/snyk/code-client-go/internal/analysis"
+	"github.com/snyk/code-client-go/observability/mocks"
 	"github.com/snyk/code-client-go/sarif"
 )
 
+func TestAnalysis_CreateWorkspace(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	mockSpan := mocks.NewMockSpan(ctrl)
+	mockSpan.EXPECT().GetTraceId().AnyTimes()
+	mockSpan.EXPECT().Context().AnyTimes()
+	mockConfig := confMocks.NewMockConfig(ctrl)
+	mockConfig.EXPECT().Organization().AnyTimes().Return("")
+	mockConfig.EXPECT().SnykApi().AnyTimes().Return("http://localhost")
+
+	mockHTTPClient := httpmocks.NewMockHTTPClient(ctrl)
+	mockHTTPClient.EXPECT().Do(
+		mock.MatchedBy(func(i interface{}) bool {
+			req := i.(*http.Request)
+			return req.URL.String() == "http://localhost/hidden/orgs/4a72d1db-b465-4764-99e1-ecedad03b06a/workspaces?version=2024-03-12~experimental" &&
+				req.Method == "POST" &&
+				req.Header.Get("Content-Type") == "application/vnd.api+json" &&
+				req.Header.Get("Snyk-Request-Id") == "b372d1db-b465-4764-99e1-ecedad03b06a" &&
+				req.Header.Get("User-Agent") == "cli"
+		}),
+	).Return(&http.Response{
+		StatusCode: http.StatusCreated,
+		Header: http.Header{
+			"Content-Type": []string{"application/vnd.api+json"},
+		},
+		Body: io.NopCloser(bytes.NewReader([]byte(`{"data":{"id": "c172d1db-b465-4764-99e1-ecedad03b06a"}}`))),
+	}, nil).Times(1)
+
+	mockInstrumentor := mocks.NewMockInstrumentor(ctrl)
+	mockInstrumentor.EXPECT().StartSpan(gomock.Any(), gomock.Any()).Return(mockSpan).AnyTimes()
+	mockInstrumentor.EXPECT().Finish(gomock.Any()).AnyTimes()
+	mockErrorReporter := mocks.NewMockErrorReporter(ctrl)
+
+	logger := zerolog.Nop()
+
+	analysisOrchestrator := analysis.NewAnalysisOrchestrator(&logger, mockHTTPClient, mockInstrumentor, mockErrorReporter, mockConfig)
+	_, err := analysisOrchestrator.CreateWorkspace(
+		context.Background(),
+		"4a72d1db-b465-4764-99e1-ecedad03b06a",
+		"b372d1db-b465-4764-99e1-ecedad03b06a",
+		"../../",
+		"testBundleHash")
+	fmt.Println(err)
+	assert.NoError(t, err)
+}
+
+func TestAnalysis_CreateWorkspace_NotARepository(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	mockSpan := mocks.NewMockSpan(ctrl)
+	mockSpan.EXPECT().GetTraceId().AnyTimes()
+	mockSpan.EXPECT().Context().AnyTimes()
+	mockConfig := confMocks.NewMockConfig(ctrl)
+	mockConfig.EXPECT().SnykCodeApi().AnyTimes().Return("http://localhost")
+
+	mockHTTPClient := httpmocks.NewMockHTTPClient(ctrl)
+
+	mockInstrumentor := mocks.NewMockInstrumentor(ctrl)
+	mockInstrumentor.EXPECT().StartSpan(gomock.Any(), gomock.Any()).Return(mockSpan).Times(1)
+	mockInstrumentor.EXPECT().Finish(gomock.Any()).Times(1)
+	mockErrorReporter := mocks.NewMockErrorReporter(ctrl)
+	mockErrorReporter.EXPECT().CaptureError(gomock.Any(), gomock.Any())
+
+	logger := zerolog.Nop()
+
+	analysisOrchestrator := analysis.NewAnalysisOrchestrator(&logger, mockHTTPClient, mockInstrumentor, mockErrorReporter, mockConfig)
+	_, err := analysisOrchestrator.CreateWorkspace(
+		context.Background(),
+		"4a72d1db-b465-4764-99e1-ecedad03b06a",
+		"b372d1db-b465-4764-99e1-ecedad03b06a",
+		"../",
+		"testBundleHash")
+	assert.ErrorContains(t, err, "open local repository")
+}
+
+func TestAnalysis_CreateWorkspace_Failure(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	mockSpan := mocks.NewMockSpan(ctrl)
+	mockSpan.EXPECT().GetTraceId().AnyTimes()
+	mockSpan.EXPECT().Context().AnyTimes()
+	mockConfig := confMocks.NewMockConfig(ctrl)
+	mockConfig.EXPECT().SnykApi().AnyTimes().Return("http://localhost")
+
+	mockHTTPClient := httpmocks.NewMockHTTPClient(ctrl)
+	mockHTTPClient.EXPECT().Do(
+		mock.MatchedBy(func(i interface{}) bool {
+			req := i.(*http.Request)
+			return req.URL.String() == "http://localhost/hidden/orgs/4a72d1db-b465-4764-99e1-ecedad03b06a/workspaces?version=2024-03-12~experimental" &&
+				req.Method == "POST" &&
+				req.Header.Get("Content-Type") == "application/vnd.api+json" &&
+				req.Header.Get("Snyk-Request-Id") == "b372d1db-b465-4764-99e1-ecedad03b06a" &&
+				req.Header.Get("User-Agent") == "cli"
+		}),
+	).Return(&http.Response{
+		StatusCode: http.StatusBadRequest,
+		Header: http.Header{
+			"Content-Type": []string{"application/vnd.api+json"},
+		},
+		Body: io.NopCloser(bytes.NewReader([]byte(`{"errors": [{"detail": "error detail", "status": "400"}], "jsonapi": {"version": "version"}}`))),
+	}, nil).Times(1)
+
+	mockInstrumentor := mocks.NewMockInstrumentor(ctrl)
+	mockInstrumentor.EXPECT().StartSpan(gomock.Any(), gomock.Any()).Return(mockSpan).AnyTimes()
+	mockInstrumentor.EXPECT().Finish(gomock.Any()).AnyTimes()
+	mockErrorReporter := mocks.NewMockErrorReporter(ctrl)
+
+	logger := zerolog.Nop()
+
+	analysisOrchestrator := analysis.NewAnalysisOrchestrator(&logger, mockHTTPClient, mockInstrumentor, mockErrorReporter, mockConfig)
+	_, err := analysisOrchestrator.CreateWorkspace(
+		context.Background(),
+		"4a72d1db-b465-4764-99e1-ecedad03b06a",
+		"b372d1db-b465-4764-99e1-ecedad03b06a",
+		"../../",
+		"testBundleHash")
+	assert.ErrorContains(t, err, "error detail")
+}
+
 func TestAnalysis_RunAnalysis(t *testing.T) {
-	actual, err := analysis.RunAnalysis()
+	ctrl := gomock.NewController(t)
+	mockSpan := mocks.NewMockSpan(ctrl)
+	mockSpan.EXPECT().GetTraceId().AnyTimes()
+	mockSpan.EXPECT().Context().AnyTimes()
+	mockConfig := confMocks.NewMockConfig(ctrl)
+	mockConfig.EXPECT().Organization().AnyTimes().Return("")
+	mockConfig.EXPECT().SnykCodeApi().AnyTimes().Return("http://localhost")
+
+	mockHTTPClient := httpmocks.NewMockHTTPClient(ctrl)
+
+	mockInstrumentor := mocks.NewMockInstrumentor(ctrl)
+	mockInstrumentor.EXPECT().StartSpan(gomock.Any(), gomock.Any()).Return(mockSpan).AnyTimes()
+	mockInstrumentor.EXPECT().Finish(gomock.Any()).AnyTimes()
+	mockErrorReporter := mocks.NewMockErrorReporter(ctrl)
+
+	logger := zerolog.Nop()
+
+	analysisOrchestrator := analysis.NewAnalysisOrchestrator(&logger, mockHTTPClient, mockInstrumentor, mockErrorReporter, mockConfig)
+	actual, err := analysisOrchestrator.RunAnalysis()
 	require.NoError(t, err)
 	assert.Equal(t, "COMPLETE", actual.Status)
 	assert.Contains(t, actual.Sarif.Runs[0].Results[0].Locations[0].PhysicalLocation.ArtifactLocation.URI, "scripts/db/migrations/20230811153738_add_generated_grouping_columns_to_collections_table.ts")

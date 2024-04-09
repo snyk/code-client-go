@@ -16,7 +16,10 @@
 package http_test
 
 import (
+	"fmt"
+	"io"
 	"net/http"
+	"strings"
 	"testing"
 
 	"github.com/golang/mock/gomock"
@@ -36,8 +39,17 @@ type dummyTransport struct {
 	calls        int
 }
 
-func (d *dummyTransport) RoundTrip(_ *http.Request) (*http.Response, error) {
+func (d *dummyTransport) RoundTrip(req *http.Request) (*http.Response, error) {
 	d.calls++
+	if req.Body != nil {
+		body, err := io.ReadAll(req.Body)
+		if err != nil {
+			return nil, err
+		}
+		if string(body) == "" {
+			return nil, fmt.Errorf("body is empty")
+		}
+	}
 	return &http.Response{
 		StatusCode: d.responseCode,
 		Status:     d.status,
@@ -64,8 +76,35 @@ func TestSnykCodeBackendService_DoCall_shouldRetry(t *testing.T) {
 	require.NoError(t, err)
 
 	s := codeClientHTTP.NewHTTPClient(newLogger(t), dummyClientFactory, mockInstrumentor, mockErrorReporter)
-	_, err = s.Do(req)
-	assert.Error(t, err)
+	res, err := s.Do(req)
+	assert.NoError(t, err)
+	assert.NotNil(t, res)
+	assert.Equal(t, 3, d.calls)
+}
+
+func TestSnykCodeBackendService_DoCall_shouldRetryWithARequestBody(t *testing.T) {
+	d := &dummyTransport{responseCode: 502, status: "502 Bad Gateway"}
+	dummyClientFactory := func() *http.Client {
+		return &http.Client{
+			Transport: d,
+		}
+	}
+
+	ctrl := gomock.NewController(t)
+	mockSpan := mocks.NewMockSpan(ctrl)
+	mockSpan.EXPECT().GetTraceId().AnyTimes()
+	mockInstrumentor := mocks.NewMockInstrumentor(ctrl)
+	mockInstrumentor.EXPECT().StartSpan(gomock.Any(), gomock.Any()).Return(mockSpan).Times(1)
+	mockInstrumentor.EXPECT().Finish(gomock.Any()).Times(1)
+	mockErrorReporter := mocks.NewMockErrorReporter(ctrl)
+
+	req, err := http.NewRequest(http.MethodGet, "https://httpstat.us/500", io.NopCloser(strings.NewReader("body")))
+	require.NoError(t, err)
+
+	s := codeClientHTTP.NewHTTPClient(newLogger(t), dummyClientFactory, mockInstrumentor, mockErrorReporter)
+	res, err := s.Do(req)
+	assert.NoError(t, err)
+	assert.NotNil(t, res)
 	assert.Equal(t, 3, d.calls)
 }
 

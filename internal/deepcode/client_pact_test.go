@@ -34,7 +34,7 @@ import (
 )
 
 const (
-	consumer     = "SnykLS"
+	consumer     = "code-client-go"
 	pactDir      = "./pacts"
 	pactProvider = "SnykCodeApi"
 
@@ -46,7 +46,7 @@ const (
 var pact dsl.Pact
 var client deepcode.SnykCodeClient
 
-func TestSnykCodeBackendServicePact(t *testing.T) {
+func TestSnykCodeClientPact(t *testing.T) {
 	setupPact(t)
 	defer pact.Teardown()
 
@@ -245,7 +245,7 @@ func getSnykRequestIdMatcher() dsl.Matcher {
 	return dsl.Regex("fc763eba-0905-41c5-a27f-3934ab26786c", uuidMatcher)
 }
 
-func TestSnykCodeBackendServicePact_LocalCodeEngine(t *testing.T) {
+func TestSnykCodeClientPact_LocalCodeEngine(t *testing.T) {
 	setupPact(t)
 
 	defer pact.Teardown()

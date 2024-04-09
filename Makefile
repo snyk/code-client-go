@@ -54,7 +54,11 @@ test:
 .PHONY: testv
 testv: 
 	@echo "Testing verbosely..."
-	@go test -v ./...
+	@go test -v
+
+.PHONY: smoke-test
+smoke-test:
+	@go test -run="Test_SmokeScan"
 
 .PHONY: generate
 generate: $(TOOLS_BIN)/go/mockgen $(TOOLS_BIN)/go/oapi-codegen
