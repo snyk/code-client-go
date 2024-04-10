@@ -17,7 +17,13 @@
 //nolint:revive,tagliatelle // These are all SARIF documented types that need to match the exact JSON format.
 package sarif
 
-// SarifResponse matches the spec in https://docs.oasis-open.org/sarif/sarif/v2.1.0/os/schemas/sarif-schema-2.1.0.json
+// SarifDocument matches the spec in https://docs.oasis-open.org/sarif/sarif/v2.1.0/os/schemas/sarif-schema-2.1.0.json
+type SarifDocument struct {
+	Schema  string `json:"$schema"`
+	Version string `json:"version"`
+	Runs    []Run  `json:"runs"`
+}
+
 type SarifResponse struct {
 	Type     string  `json:"type"`
 	Progress float64 `json:"progress"`
@@ -32,11 +38,7 @@ type SarifResponse struct {
 		IsSupported bool   `json:"isSupported"`
 		Lang        string `json:"lang"`
 	} `json:"coverage"`
-	Sarif struct {
-		Schema  string `json:"$schema"`
-		Version string `json:"version"`
-		Runs    []Run  `json:"runs"`
-	} `json:"sarif"`
+	Sarif SarifDocument `json:"sarif"`
 }
 
 type region struct {
