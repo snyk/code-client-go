@@ -34,6 +34,16 @@ jobs:
       - run:
           name: Run unit tests
           command: make test
+  smoke_test:
+    executor: default
+    steps:
+      - checkout
+      - run:
+          name: Install tools
+          command: make tools
+      - run:
+          name: Run smoke tests
+          command: make smoke-test
   build:
     executor: default
     steps:
@@ -67,9 +77,15 @@ workflows:
           name: Unit tests
           requires:
             - Lint & Format
+      - smoke_test:
+          name: Smoke tests
+          context:
+            - code-client-go-smoke-tests-token
+          requires:
+            - Unit tests
       - build:
           name: Build
           requires:
-            - Unit tests
+            - Smoke tests
             - Security Scans
             - Scan repository for secrets

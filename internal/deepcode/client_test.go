@@ -95,6 +95,39 @@ func TestSnykCodeBackendService_GetFilters(t *testing.T) {
 	assert.Equal(t, 1, len(filters.ConfigFiles))
 }
 
+func TestSnykCodeBackendService_GetFilters_Failure(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	mockSpan := mocks.NewMockSpan(ctrl)
+	mockSpan.EXPECT().GetTraceId().AnyTimes()
+	mockSpan.EXPECT().Context().AnyTimes()
+	mockConfig := confMocks.NewMockConfig(ctrl)
+	mockConfig.EXPECT().Organization().AnyTimes().Return("")
+	mockConfig.EXPECT().IsFedramp().AnyTimes().Return(false)
+	mockConfig.EXPECT().SnykCodeApi().AnyTimes().Return("http://localhost")
+
+	mockHTTPClient := httpmocks.NewMockHTTPClient(ctrl)
+	mockHTTPClient.EXPECT().Do(
+		mock.MatchedBy(func(i interface{}) bool {
+			req := i.(*http.Request)
+			return req.URL.String() == "http://localhost/filters" &&
+				req.Method == "GET" &&
+				req.Header.Get("Cache-Control") == "private, max-age=0, no-cache" &&
+				req.Header.Get("Content-Type") == "application/json"
+		}),
+	).Return(&http.Response{
+		StatusCode: http.StatusBadRequest,
+	}, nil).Times(1)
+
+	mockInstrumentor := mocks.NewMockInstrumentor(ctrl)
+	mockInstrumentor.EXPECT().StartSpan(gomock.Any(), gomock.Any()).Return(mockSpan).Times(1)
+	mockInstrumentor.EXPECT().Finish(gomock.Any()).Times(1)
+	mockErrorReporter := mocks.NewMockErrorReporter(ctrl)
+
+	s := deepcode.NewSnykCodeClient(newLogger(t), mockHTTPClient, mockInstrumentor, mockErrorReporter, mockConfig)
+	_, err := s.GetFilters(context.Background())
+	assert.Error(t, err)
+}
+
 func TestSnykCodeBackendService_CreateBundle(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	mockSpan := mocks.NewMockSpan(ctrl)
@@ -134,6 +167,43 @@ func TestSnykCodeBackendService_CreateBundle(t *testing.T) {
 	assert.NotNil(t, bundleHash)
 	assert.Equal(t, "bundleHash", bundleHash)
 	assert.Equal(t, 1, len(missingFiles))
+}
+
+func TestSnykCodeBackendService_CreateBundle_Failure(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	mockSpan := mocks.NewMockSpan(ctrl)
+	mockSpan.EXPECT().GetTraceId().AnyTimes()
+	mockSpan.EXPECT().Context().AnyTimes()
+	mockConfig := confMocks.NewMockConfig(ctrl)
+	mockConfig.EXPECT().Organization().AnyTimes().Return("")
+	mockConfig.EXPECT().IsFedramp().AnyTimes().Return(false)
+	mockConfig.EXPECT().SnykCodeApi().AnyTimes().Return("http://localhost")
+	mockHTTPClient := httpmocks.NewMockHTTPClient(ctrl)
+	mockHTTPClient.EXPECT().Do(
+		mock.MatchedBy(func(i interface{}) bool {
+			req := i.(*http.Request)
+			return req.URL.String() == "http://localhost/bundle" &&
+				req.Method == "POST" &&
+				req.Header.Get("Cache-Control") == "private, max-age=0, no-cache" &&
+				req.Header.Get("Content-Encoding") == "gzip" &&
+				req.Header.Get("Content-Type") == "application/octet-stream"
+		}),
+	).Return(&http.Response{
+		StatusCode: http.StatusBadRequest,
+	}, nil).Times(1)
+
+	mockInstrumentor := mocks.NewMockInstrumentor(ctrl)
+	mockInstrumentor.EXPECT().StartSpan(gomock.Any(), gomock.Any()).Return(mockSpan).Times(1)
+	mockInstrumentor.EXPECT().Finish(gomock.Any()).Times(1)
+	mockErrorReporter := mocks.NewMockErrorReporter(ctrl)
+
+	s := deepcode.NewSnykCodeClient(newLogger(t), mockHTTPClient, mockInstrumentor, mockErrorReporter, mockConfig)
+
+	files := map[string]string{}
+	randomAddition := fmt.Sprintf("\n public void random() { System.out.println(\"%d\") }", time.Now().UnixMicro())
+	files[path1] = util.Hash([]byte(content + randomAddition))
+	_, _, err := s.CreateBundle(context.Background(), files)
+	assert.Error(t, err)
 }
 
 func TestSnykCodeBackendService_ExtendBundle(t *testing.T) {
@@ -188,6 +258,57 @@ func TestSnykCodeBackendService_ExtendBundle(t *testing.T) {
 	assert.Nil(t, err)
 	assert.Equal(t, 0, len(missingFiles))
 	assert.NotEmpty(t, bundleHash)
+}
+
+func TestSnykCodeBackendService_ExtendBundle_Failure(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	mockSpan := mocks.NewMockSpan(ctrl)
+	mockSpan.EXPECT().GetTraceId().AnyTimes()
+	mockSpan.EXPECT().Context().AnyTimes()
+	mockConfig := confMocks.NewMockConfig(ctrl)
+	mockConfig.EXPECT().Organization().AnyTimes().Return("")
+	mockConfig.EXPECT().IsFedramp().AnyTimes().Return(false)
+	mockConfig.EXPECT().SnykCodeApi().AnyTimes().Return("http://localhost")
+	mockHTTPClient := httpmocks.NewMockHTTPClient(ctrl)
+	mockHTTPClient.EXPECT().Do(
+		mock.MatchedBy(func(i interface{}) bool {
+			req := i.(*http.Request)
+			return req.URL.String() == "http://localhost/bundle" &&
+				req.Method == "POST" &&
+				req.Header.Get("Cache-Control") == "private, max-age=0, no-cache" &&
+				req.Header.Get("Content-Encoding") == "gzip" &&
+				req.Header.Get("Content-Type") == "application/octet-stream"
+		}),
+	).Return(&http.Response{
+		StatusCode: http.StatusCreated,
+		Body:       io.NopCloser(bytes.NewReader([]byte(`{"bundleHash":   "bundleHash", "missingFiles": ["test"]}`))),
+	}, nil).Times(1)
+	mockHTTPClient.EXPECT().Do(
+		mock.MatchedBy(func(i interface{}) bool {
+			req := i.(*http.Request)
+			return req.URL.String() == "http://localhost/bundle/bundleHash" &&
+				req.Method == "PUT" &&
+				req.Header.Get("Cache-Control") == "private, max-age=0, no-cache" &&
+				req.Header.Get("Content-Encoding") == "gzip" &&
+				req.Header.Get("Content-Type") == "application/octet-stream"
+		}),
+	).Return(&http.Response{
+		StatusCode: http.StatusBadRequest,
+	}, nil).Times(1)
+	mockInstrumentor := mocks.NewMockInstrumentor(ctrl)
+	mockInstrumentor.EXPECT().StartSpan(gomock.Any(), gomock.Any()).Return(mockSpan).Times(2)
+	mockInstrumentor.EXPECT().Finish(gomock.Any()).Times(2)
+	mockErrorReporter := mocks.NewMockErrorReporter(ctrl)
+
+	s := deepcode.NewSnykCodeClient(newLogger(t), mockHTTPClient, mockInstrumentor, mockErrorReporter, mockConfig)
+	var removedFiles []string
+	files := map[string]string{}
+	files[path1] = util.Hash([]byte(content))
+	bundleHash, _, _ := s.CreateBundle(context.Background(), files)
+	filesExtend := createTestExtendMap()
+
+	_, _, err := s.ExtendBundle(context.Background(), bundleHash, filesExtend, removedFiles)
+	assert.Error(t, err)
 }
 
 func Test_Host(t *testing.T) {

@@ -38,44 +38,30 @@ The HTTP client exposes a `DoCall` function.
 
 Implement the `http.Config` interface to configure the Snyk Code API client from applications.
 
-### Snyk Code Client
-
-Use the Snyk Code Client to make calls to the DeepCode API using the `httpClient` HTTP client created above.
-
-```go
-snykCode := deepcode.NewSnykCodeClient(logger, httpClient, testutil.NewTestInstrumentor())
-```
-
-The Snyk Code Client exposes the following functions:
-- `GetFilters`
-- `CreateBundle`
-- `ExtendBundle`
-
-### Bundle Manager
-
-Use the Bundle Manager to create bundles using the `snykCode` Snyk Code Client created above and then to extend it by uploading more files to it.
-
-```go
-bundleManager := bundle.NewBundleManager(logger, snykCode, testutil.NewTestInstrumentor(), testutil.NewTestCodeInstrumentor())
-```
-
-The Bundle Manager exposes the following functions:
-- `Create`
-- `Upload`
-
 ### Code Scanner
 
 Use the Code Scanner to trigger a scan for a Snyk Code workspace using the Bundle Manager created above.
 The Code Scanner exposes a `UploadAndAnalyze` function, which can be used like this:
 
 ```go
-codeScanner := codeclient.NewCodeScanner(
-    bundleManager,
-    testutil.NewTestInstrumentor(),
-    testutil.NewTestErrorReporter(),
+import (
+    "net/http"
+    
+    "github.com/rs/zerolog"
+    code "github.com/snyk/code-client-go"
+)
+
+logger := zerlog.NewLogger(...)
+config := newConfigForMyApp()
+
+codeScanner := code.NewCodeScanner(
+    httpClient,
+	config,
+    codeInstrumentor, 
+	codeErrorReporter,
     logger,
 )
-codeScanner.UploadAndAnalyze(context.Background(), "path/to/workspace", channelForWalkingFiles, changedFiles)
+code.UploadAndAnalyze(context.Background(), requestId, "path/to/workspace", channelForWalkingFiles, changedFiles)
 ```
 
 

@@ -1,6 +1,6 @@
 {
   "consumer": {
-    "name": "SnykLS"
+    "name": "code-client-go"
   },
   "provider": {
     "name": "SnykCodeApi"

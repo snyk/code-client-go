@@ -18,7 +18,8 @@
 package http
 
 import (
-	"errors"
+	"bytes"
+	"io"
 	"net/http"
 	"time"
 
@@ -78,19 +79,14 @@ func (s *httpClient) Do(req *http.Request) (response *http.Response, err error) 
 			return nil, err // no retries for errors
 		}
 
-		err = s.checkResponseCode(response)
-		if err != nil {
-			if retryErrorCodes[response.StatusCode] {
-				s.logger.Debug().Err(err).Str("method", req.Method).Int("attempts done", i+1).Msg("retrying")
-				if i < retryCount-1 {
-					time.Sleep(5 * time.Second)
-					continue
-				}
-				// return the error on last try
-				return nil, err
+		if retryErrorCodes[response.StatusCode] {
+			s.logger.Debug().Err(err).Str("method", req.Method).Int("attempts done", i+1).Msg("retrying")
+			if i < retryCount-1 {
+				time.Sleep(5 * time.Second)
+				continue
 			}
-			return nil, err
 		}
+
 		// no error, we can break the retry loop
 		break
 	}
@@ -99,7 +95,18 @@ func (s *httpClient) Do(req *http.Request) (response *http.Response, err error) 
 
 func (s *httpClient) httpCall(req *http.Request) (*http.Response, error) {
 	log := s.logger.With().Str("method", "http.httpCall").Logger()
+
+	// store the request body so that after retrying it can be read again
+	var copyReqBody io.ReadCloser
+	if req.Body != nil {
+		buf, _ := io.ReadAll(req.Body)
+		reqBody := io.NopCloser(bytes.NewBuffer(buf))
+		copyReqBody = io.NopCloser(bytes.NewBuffer(buf))
+		req.Body = reqBody
+	}
 	response, err := s.clientFactory().Do(req)
+	req.Body = copyReqBody
+
 	if err != nil {
 		log.Error().Err(err).Msg("got http error")
 		s.errorReporter.CaptureError(err, observability.ErrorReporterOptions{ErrorDiagnosticPath: req.RequestURI})
@@ -107,11 +114,4 @@ func (s *httpClient) httpCall(req *http.Request) (*http.Response, error) {
 	}
 
 	return response, nil
-}
-
-func (s *httpClient) checkResponseCode(r *http.Response) error {
-	if r.StatusCode >= 200 && r.StatusCode <= 299 {
-		return nil
-	}
-	return errors.New("Unexpected response code: " + r.Status)
 }

@@ -21,18 +21,17 @@ import (
 	"os"
 	"path/filepath"
 
-	deepcode2 "github.com/snyk/code-client-go/internal/deepcode"
-
 	"github.com/puzpuzpuz/xsync"
 	"github.com/rs/zerolog"
 
+	"github.com/snyk/code-client-go/internal/deepcode"
 	"github.com/snyk/code-client-go/internal/util"
 	"github.com/snyk/code-client-go/observability"
 )
 
 // TODO: add progress tracker for percentage progress
 type bundleManager struct {
-	SnykCode             deepcode2.SnykCodeClient
+	SnykCode             deepcode.SnykCodeClient
 	instrumentor         observability.Instrumentor
 	errorReporter        observability.ErrorReporter
 	logger               *zerolog.Logger
@@ -53,13 +52,13 @@ type BundleManager interface {
 		ctx context.Context,
 		requestId string,
 		originalBundle Bundle,
-		files map[string]deepcode2.BundleFile,
+		files map[string]deepcode.BundleFile,
 	) (Bundle, error)
 }
 
 func NewBundleManager(
 	logger *zerolog.Logger,
-	SnykCode deepcode2.SnykCodeClient,
+	SnykCode deepcode.SnykCodeClient,
 	instrumentor observability.Instrumentor,
 	errorReporter observability.ErrorReporter,
 ) *bundleManager {
@@ -84,7 +83,7 @@ func (b *bundleManager) Create(ctx context.Context,
 
 	var limitToFiles []string
 	fileHashes := make(map[string]string)
-	bundleFiles := make(map[string]deepcode2.BundleFile)
+	bundleFiles := make(map[string]deepcode.BundleFile)
 	noFiles := true
 	for absoluteFilePath := range filePaths {
 		noFiles = false
@@ -117,7 +116,7 @@ func (b *bundleManager) Create(ctx context.Context,
 		}
 		relativePath = util.EncodePath(relativePath)
 
-		bundleFile := deepcode2.BundleFileFrom(fileContent)
+		bundleFile := deepcode.BundleFileFrom(fileContent)
 		bundleFiles[relativePath] = bundleFile
 		fileHashes[relativePath] = bundleFile.Hash
 		b.logger.Trace().Str("method", "BundleFileFrom").Str("hash", bundleFile.Hash).Str("filePath", absoluteFilePath).Msg("")
@@ -153,7 +152,7 @@ func (b *bundleManager) Upload(
 	ctx context.Context,
 	requestId string,
 	bundle Bundle,
-	files map[string]deepcode2.BundleFile,
+	files map[string]deepcode.BundleFile,
 ) (Bundle, error) {
 	method := "code.Batch"
 	s := b.instrumentor.StartSpan(ctx, method)
@@ -183,14 +182,14 @@ func (b *bundleManager) Upload(
 func (b *bundleManager) groupInBatches(
 	ctx context.Context,
 	bundle Bundle,
-	files map[string]deepcode2.BundleFile,
+	files map[string]deepcode.BundleFile,
 ) []*Batch {
 	method := "code.groupInBatches"
 	s := b.instrumentor.StartSpan(ctx, method)
 	defer b.instrumentor.Finish(s)
 
 	var batches []*Batch
-	batch := NewBatch(map[string]deepcode2.BundleFile{})
+	batch := NewBatch(map[string]deepcode.BundleFile{})
 	for _, filePath := range bundle.GetMissingFiles() {
 		if len(batches) == 0 { // first batch added after first file found
 			batches = append(batches, batch)
@@ -203,7 +202,7 @@ func (b *bundleManager) groupInBatches(
 			batch.documents[filePath] = file
 		} else {
 			b.logger.Trace().Str("path", filePath).Int("size", len(fileContent)).Msgf("created new deepCodeBundle - %v bundles in this upload so far", len(batches))
-			newUploadBatch := NewBatch(map[string]deepcode2.BundleFile{})
+			newUploadBatch := NewBatch(map[string]deepcode.BundleFile{})
 			newUploadBatch.documents[filePath] = file
 			batches = append(batches, newUploadBatch)
 			batch = newUploadBatch
