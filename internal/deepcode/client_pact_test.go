@@ -222,7 +222,7 @@ func setupPact(t *testing.T) {
 
 	instrumentor := testutil.NewTestInstrumentor()
 	errorReporter := testutil.NewTestErrorReporter()
-	httpClient := codeClientHTTP.NewHTTPClient(newLogger(t), func() *http.Client {
+	httpClient := codeClientHTTP.NewHTTPClient(3, newLogger(t), func() *http.Client {
 		return http.DefaultClient
 	}, instrumentor, errorReporter)
 	client = deepcode.NewSnykCodeClient(newLogger(t), httpClient, instrumentor, errorReporter, config)

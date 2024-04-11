@@ -51,7 +51,7 @@ func Test_SmokeScan_HTTPS(t *testing.T) {
 	instrumentor := testutil.NewTestInstrumentor()
 	errorReporter := testutil.NewTestErrorReporter()
 	config := testutil.NewTestConfig()
-	httpClient := codeClientHTTP.NewHTTPClient(&logger, func() *http.Client {
+	httpClient := codeClientHTTP.NewHTTPClient(3, &logger, func() *http.Client {
 		client := http.Client{
 			Timeout:   time.Duration(180) * time.Second,
 			Transport: TestAuthRoundTripper{http.DefaultTransport},
@@ -82,7 +82,7 @@ func Test_SmokeScan_SSH(t *testing.T) {
 	instrumentor := testutil.NewTestInstrumentor()
 	errorReporter := testutil.NewTestErrorReporter()
 	config := testutil.NewTestConfig()
-	httpClient := codeClientHTTP.NewHTTPClient(&logger, func() *http.Client {
+	httpClient := codeClientHTTP.NewHTTPClient(3, &logger, func() *http.Client {
 		client := http.Client{
 			Timeout:   time.Duration(180) * time.Second,
 			Transport: TestAuthRoundTripper{http.DefaultTransport},
@@ -110,7 +110,7 @@ func Test_SmokeScan_Folder(t *testing.T) {
 	instrumentor := testutil.NewTestInstrumentor()
 	errorReporter := testutil.NewTestErrorReporter()
 	config := testutil.NewTestConfig()
-	httpClient := codeClientHTTP.NewHTTPClient(&logger, func() *http.Client {
+	httpClient := codeClientHTTP.NewHTTPClient(3, &logger, func() *http.Client {
 		client := http.Client{
 			Timeout:   time.Duration(180) * time.Second,
 			Transport: TestAuthRoundTripper{http.DefaultTransport},

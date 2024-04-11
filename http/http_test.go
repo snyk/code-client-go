@@ -75,7 +75,7 @@ func TestSnykCodeBackendService_DoCall_shouldRetry(t *testing.T) {
 	req, err := http.NewRequest(http.MethodGet, "https://httpstat.us/500", nil)
 	require.NoError(t, err)
 
-	s := codeClientHTTP.NewHTTPClient(newLogger(t), dummyClientFactory, mockInstrumentor, mockErrorReporter)
+	s := codeClientHTTP.NewHTTPClient(3, newLogger(t), dummyClientFactory, mockInstrumentor, mockErrorReporter)
 	res, err := s.Do(req)
 	assert.NoError(t, err)
 	assert.NotNil(t, res)
@@ -101,7 +101,7 @@ func TestSnykCodeBackendService_DoCall_shouldRetryWithARequestBody(t *testing.T)
 	req, err := http.NewRequest(http.MethodGet, "https://httpstat.us/500", io.NopCloser(strings.NewReader("body")))
 	require.NoError(t, err)
 
-	s := codeClientHTTP.NewHTTPClient(newLogger(t), dummyClientFactory, mockInstrumentor, mockErrorReporter)
+	s := codeClientHTTP.NewHTTPClient(3, newLogger(t), dummyClientFactory, mockInstrumentor, mockErrorReporter)
 	res, err := s.Do(req)
 	assert.NoError(t, err)
 	assert.NotNil(t, res)
@@ -125,7 +125,7 @@ func TestSnykCodeBackendService_doCall_rejected(t *testing.T) {
 	req, err := http.NewRequest(http.MethodGet, "https://127.0.0.1", nil)
 	require.NoError(t, err)
 
-	s := codeClientHTTP.NewHTTPClient(newLogger(t), dummyClientFactory, mockInstrumentor, mockErrorReporter)
+	s := codeClientHTTP.NewHTTPClient(3, newLogger(t), dummyClientFactory, mockInstrumentor, mockErrorReporter)
 	_, err = s.Do(req)
 	assert.Error(t, err)
 }
