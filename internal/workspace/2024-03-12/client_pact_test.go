@@ -135,9 +135,15 @@ func setupPact(t *testing.T) {
 	logger := zerolog.New(zerolog.NewTestWriter(t))
 	instrumentor := testutil.NewTestInstrumentor()
 	errorReporter := testutil.NewTestErrorReporter()
-	httpClient := codeClientHTTP.NewHTTPClient(3, &logger, func() *http.Client {
-		return http.DefaultClient
-	}, instrumentor, errorReporter)
+	httpClient := codeClientHTTP.NewHTTPClient(
+		func() *http.Client {
+			return http.DefaultClient
+		},
+		codeClientHTTP.WithRetryCount(3),
+		codeClientHTTP.WithInstrumentor(instrumentor),
+		codeClientHTTP.WithErrorReporter(errorReporter),
+		codeClientHTTP.WithLogger(&logger),
+	)
 	var err error
 	client, err = v20240312.NewClientWithResponses(restApi, v20240312.WithHTTPClient(httpClient))
 	require.NoError(t, err)

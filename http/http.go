@@ -41,14 +41,52 @@ type httpClient struct {
 	logger        *zerolog.Logger
 }
 
+type OptionFunc func(*httpClient)
+
+func WithRetryCount(retryCount int) OptionFunc {
+	return func(h *httpClient) {
+		h.retryCount = retryCount
+	}
+}
+
+func WithInstrumentor(instrumentor observability.Instrumentor) OptionFunc {
+	return func(h *httpClient) {
+		h.instrumentor = instrumentor
+	}
+}
+
+func WithErrorReporter(errorReporter observability.ErrorReporter) OptionFunc {
+	return func(h *httpClient) {
+		h.errorReporter = errorReporter
+	}
+}
+
+func WithLogger(logger *zerolog.Logger) OptionFunc {
+	return func(h *httpClient) {
+		h.logger = logger
+	}
+}
+
 func NewHTTPClient(
-	retryCount int,
-	logger *zerolog.Logger,
 	clientFactory func() *http.Client,
-	instrumentor observability.Instrumentor,
-	errorReporter observability.ErrorReporter,
+	options ...OptionFunc,
 ) HTTPClient {
-	return &httpClient{retryCount, clientFactory, instrumentor, errorReporter, logger}
+	nopLogger := zerolog.Nop()
+	instrumentor := observability.NewInstrumentor()
+	errorReporter := observability.NewErrorReporter(&nopLogger)
+	client := &httpClient{
+		retryCount:    3,
+		clientFactory: clientFactory,
+		instrumentor:  instrumentor,
+		errorReporter: errorReporter,
+		logger:        &nopLogger,
+	}
+
+	for _, option := range options {
+		option(client)
+	}
+
+	return client
 }
 
 var retryErrorCodes = map[int]bool{
