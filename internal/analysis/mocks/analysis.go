@@ -51,16 +51,16 @@ func (mr *MockAnalysisOrchestratorMockRecorder) CreateWorkspace(ctx, orgId, requ
 }
 
 // RunAnalysis mocks base method.
-func (m *MockAnalysisOrchestrator) RunAnalysis() (*sarif.SarifResponse, error) {
+func (m *MockAnalysisOrchestrator) RunAnalysis(ctx context.Context, orgId, workspaceId string) (*sarif.SarifResponse, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "RunAnalysis")
+	ret := m.ctrl.Call(m, "RunAnalysis", ctx, orgId, workspaceId)
 	ret0, _ := ret[0].(*sarif.SarifResponse)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // RunAnalysis indicates an expected call of RunAnalysis.
-func (mr *MockAnalysisOrchestratorMockRecorder) RunAnalysis() *gomock.Call {
+func (mr *MockAnalysisOrchestratorMockRecorder) RunAnalysis(ctx, orgId, workspaceId interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RunAnalysis", reflect.TypeOf((*MockAnalysisOrchestrator)(nil).RunAnalysis))
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RunAnalysis", reflect.TypeOf((*MockAnalysisOrchestrator)(nil).RunAnalysis), ctx, orgId, workspaceId)
 }
