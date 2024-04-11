@@ -97,12 +97,13 @@ func TestAnalysis_CreateWorkspace_NotARepository(t *testing.T) {
 
 	logger := zerolog.Nop()
 
+	repoDir := t.TempDir()
 	analysisOrchestrator := analysis.NewAnalysisOrchestrator(&logger, mockHTTPClient, mockInstrumentor, mockErrorReporter, mockConfig)
 	_, err := analysisOrchestrator.CreateWorkspace(
 		context.Background(),
 		"4a72d1db-b465-4764-99e1-ecedad03b06a",
 		"b372d1db-b465-4764-99e1-ecedad03b06a",
-		"../",
+		repoDir,
 		"testBundleHash")
 	assert.ErrorContains(t, err, "open local repository")
 }

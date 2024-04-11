@@ -19,12 +19,11 @@ package deepcode_test
 import (
 	"context"
 	"fmt"
-	"net/http"
-	"testing"
-
 	"github.com/golang/mock/gomock"
 	"github.com/pact-foundation/pact-go/dsl"
 	"github.com/stretchr/testify/assert"
+	"net/http"
+	"testing"
 
 	confMocks "github.com/snyk/code-client-go/config/mocks"
 	codeClientHTTP "github.com/snyk/code-client-go/http"
@@ -222,9 +221,15 @@ func setupPact(t *testing.T) {
 
 	instrumentor := testutil.NewTestInstrumentor()
 	errorReporter := testutil.NewTestErrorReporter()
-	httpClient := codeClientHTTP.NewHTTPClient(newLogger(t), func() *http.Client {
-		return http.DefaultClient
-	}, instrumentor, errorReporter)
+	httpClient := codeClientHTTP.NewHTTPClient(
+		func() *http.Client {
+			return http.DefaultClient
+		},
+		codeClientHTTP.WithRetryCount(3),
+		codeClientHTTP.WithInstrumentor(instrumentor),
+		codeClientHTTP.WithErrorReporter(errorReporter),
+		codeClientHTTP.WithLogger(newLogger(t)),
+	)
 	client = deepcode.NewSnykCodeClient(newLogger(t), httpClient, instrumentor, errorReporter, config)
 }
 

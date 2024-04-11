@@ -34,19 +34,59 @@ type HTTPClient interface {
 }
 
 type httpClient struct {
+	retryCount    int
 	clientFactory func() *http.Client
 	instrumentor  observability.Instrumentor
 	errorReporter observability.ErrorReporter
 	logger        *zerolog.Logger
 }
 
+type OptionFunc func(*httpClient)
+
+func WithRetryCount(retryCount int) OptionFunc {
+	return func(h *httpClient) {
+		h.retryCount = retryCount
+	}
+}
+
+func WithInstrumentor(instrumentor observability.Instrumentor) OptionFunc {
+	return func(h *httpClient) {
+		h.instrumentor = instrumentor
+	}
+}
+
+func WithErrorReporter(errorReporter observability.ErrorReporter) OptionFunc {
+	return func(h *httpClient) {
+		h.errorReporter = errorReporter
+	}
+}
+
+func WithLogger(logger *zerolog.Logger) OptionFunc {
+	return func(h *httpClient) {
+		h.logger = logger
+	}
+}
+
 func NewHTTPClient(
-	logger *zerolog.Logger,
 	clientFactory func() *http.Client,
-	instrumentor observability.Instrumentor,
-	errorReporter observability.ErrorReporter,
+	options ...OptionFunc,
 ) HTTPClient {
-	return &httpClient{clientFactory, instrumentor, errorReporter, logger}
+	nopLogger := zerolog.Nop()
+	instrumentor := observability.NewInstrumentor()
+	errorReporter := observability.NewErrorReporter(&nopLogger)
+	client := &httpClient{
+		retryCount:    3,
+		clientFactory: clientFactory,
+		instrumentor:  instrumentor,
+		errorReporter: errorReporter,
+		logger:        &nopLogger,
+	}
+
+	for _, option := range options {
+		option(client)
+	}
+
+	return client
 }
 
 var retryErrorCodes = map[int]bool{
@@ -60,8 +100,7 @@ func (s *httpClient) Do(req *http.Request) (response *http.Response, err error) 
 	span := s.instrumentor.StartSpan(req.Context(), "http.Do")
 	defer s.instrumentor.Finish(span)
 
-	const retryCount = 3
-	for i := 0; i < retryCount; i++ {
+	for i := 0; i < s.retryCount; i++ {
 		requestId := span.GetTraceId()
 		req.Header.Set("snyk-request-id", requestId)
 
@@ -81,7 +120,7 @@ func (s *httpClient) Do(req *http.Request) (response *http.Response, err error) 
 
 		if retryErrorCodes[response.StatusCode] {
 			s.logger.Debug().Err(err).Str("method", req.Method).Int("attempts done", i+1).Msg("retrying")
-			if i < retryCount-1 {
+			if i < s.retryCount-1 {
 				time.Sleep(5 * time.Second)
 				continue
 			}

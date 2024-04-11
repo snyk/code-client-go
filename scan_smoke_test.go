@@ -51,13 +51,17 @@ func Test_SmokeScan_HTTPS(t *testing.T) {
 	instrumentor := testutil.NewTestInstrumentor()
 	errorReporter := testutil.NewTestErrorReporter()
 	config := testutil.NewTestConfig()
-	httpClient := codeClientHTTP.NewHTTPClient(&logger, func() *http.Client {
-		client := http.Client{
-			Timeout:   time.Duration(180) * time.Second,
-			Transport: TestAuthRoundTripper{http.DefaultTransport},
-		}
-		return &client
-	}, instrumentor, errorReporter)
+	httpClient := codeClientHTTP.NewHTTPClient(
+		func() *http.Client {
+			client := http.Client{
+				Timeout:   time.Duration(180) * time.Second,
+				Transport: TestAuthRoundTripper{http.DefaultTransport},
+			}
+			return &client
+		},
+		codeClientHTTP.WithRetryCount(3),
+		codeClientHTTP.WithLogger(&logger),
+	)
 
 	codeScanner := codeClient.NewCodeScanner(httpClient, config, instrumentor, errorReporter, &logger)
 	response, bundleHash, scanErr := codeScanner.UploadAndAnalyze(context.Background(), uuid.New().String(), cloneTargetDir, files, map[string]bool{})
@@ -82,13 +86,17 @@ func Test_SmokeScan_SSH(t *testing.T) {
 	instrumentor := testutil.NewTestInstrumentor()
 	errorReporter := testutil.NewTestErrorReporter()
 	config := testutil.NewTestConfig()
-	httpClient := codeClientHTTP.NewHTTPClient(&logger, func() *http.Client {
-		client := http.Client{
-			Timeout:   time.Duration(180) * time.Second,
-			Transport: TestAuthRoundTripper{http.DefaultTransport},
-		}
-		return &client
-	}, instrumentor, errorReporter)
+	httpClient := codeClientHTTP.NewHTTPClient(
+		func() *http.Client {
+			client := http.Client{
+				Timeout:   time.Duration(180) * time.Second,
+				Transport: TestAuthRoundTripper{http.DefaultTransport},
+			}
+			return &client
+		},
+		codeClientHTTP.WithRetryCount(3),
+		codeClientHTTP.WithLogger(&logger),
+	)
 
 	codeScanner := codeClient.NewCodeScanner(httpClient, config, instrumentor, errorReporter, &logger)
 	response, bundleHash, scanErr := codeScanner.UploadAndAnalyze(context.Background(), uuid.New().String(), cloneTargetDir, files, map[string]bool{})
@@ -97,7 +105,7 @@ func Test_SmokeScan_SSH(t *testing.T) {
 	require.NotNil(t, response)
 }
 
-func Test_SmokeScan_Folder(t *testing.T) {
+func Test_SmokeScan_SubFolder(t *testing.T) {
 	if os.Getenv("SMOKE_TESTS") != "true" {
 		t.Skip()
 	}
@@ -110,17 +118,23 @@ func Test_SmokeScan_Folder(t *testing.T) {
 	instrumentor := testutil.NewTestInstrumentor()
 	errorReporter := testutil.NewTestErrorReporter()
 	config := testutil.NewTestConfig()
-	httpClient := codeClientHTTP.NewHTTPClient(&logger, func() *http.Client {
-		client := http.Client{
-			Timeout:   time.Duration(180) * time.Second,
-			Transport: TestAuthRoundTripper{http.DefaultTransport},
-		}
-		return &client
-	}, instrumentor, errorReporter)
+	httpClient := codeClientHTTP.NewHTTPClient(
+		func() *http.Client {
+			client := http.Client{
+				Timeout:   time.Duration(180) * time.Second,
+				Transport: TestAuthRoundTripper{http.DefaultTransport},
+			}
+			return &client
+		},
+		codeClientHTTP.WithRetryCount(3),
+		codeClientHTTP.WithLogger(&logger),
+	)
 
 	codeScanner := codeClient.NewCodeScanner(httpClient, config, instrumentor, errorReporter, &logger)
-	_, _, scanErr := codeScanner.UploadAndAnalyze(context.Background(), uuid.New().String(), cloneTargetDir, files, map[string]bool{})
-	require.ErrorContains(t, scanErr, "workspace is not a repository, cannot scan")
+	response, bundleHash, scanErr := codeScanner.UploadAndAnalyze(context.Background(), uuid.New().String(), cloneTargetDir, files, map[string]bool{})
+	require.NoError(t, scanErr)
+	require.NotEmpty(t, bundleHash)
+	require.NotNil(t, response)
 }
 
 func setupCustomTestRepo(t *testing.T, url string, targetCommit string) (string, error) {
