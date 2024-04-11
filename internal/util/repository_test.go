@@ -17,6 +17,7 @@ package util_test
 
 import (
 	"net/url"
+	"path/filepath"
 	"testing"
 
 	"github.com/go-git/go-git/v5"
@@ -64,6 +65,17 @@ func Test_GetRepositoryUrl_repo_with_credentials(t *testing.T) {
 func Test_GetRepositoryUrl_repo_without_credentials(t *testing.T) {
 	// check out a repo and prepare its config to contain credentials in the URL
 	expectedRepoUrl := "https://github.com/snyk-fixtures/shallow-goof-locked.git"
+	repoDir, _ := clone(t, expectedRepoUrl)
+
+	// run method under test
+	actualUrl, err := util.GetRepositoryUrl(repoDir)
+	assert.NoError(t, err)
+	assert.Equal(t, expectedRepoUrl, actualUrl)
+}
+
+func Test_GetRepositoryUrl_repo_with_ssh(t *testing.T) {
+	// check out a repo and prepare its config to contain credentials in the URL
+	expectedRepoUrl := "https://github.com/snyk-fixtures/shallow-goof-locked.git"
 	repoDir, _ := clone(t, "git@github.com:snyk-fixtures/shallow-goof-locked.git")
 
 	// run method under test
@@ -77,4 +89,14 @@ func Test_GetRepositoryUrl_no_repo(t *testing.T) {
 	actualUrl, err := util.GetRepositoryUrl(repoDir)
 	assert.Error(t, err)
 	assert.Empty(t, actualUrl)
+}
+
+func Test_GetRepositoryUrl_repo_subfolder(t *testing.T) {
+	expectedRepoUrl := "https://github.com/snyk-fixtures/mono-repo.git"
+	repoDir, _ := clone(t, "git@github.com:snyk-fixtures/mono-repo.git")
+
+	// run method under test
+	actualUrl, err := util.GetRepositoryUrl(filepath.Join(repoDir, "multi-module"))
+	assert.NoError(t, err)
+	assert.Equal(t, expectedRepoUrl, actualUrl)
 }

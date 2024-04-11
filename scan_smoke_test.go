@@ -97,7 +97,7 @@ func Test_SmokeScan_SSH(t *testing.T) {
 	require.NotNil(t, response)
 }
 
-func Test_SmokeScan_Folder(t *testing.T) {
+func Test_SmokeScan_SubFolder(t *testing.T) {
 	if os.Getenv("SMOKE_TESTS") != "true" {
 		t.Skip()
 	}
@@ -119,8 +119,10 @@ func Test_SmokeScan_Folder(t *testing.T) {
 	}, instrumentor, errorReporter)
 
 	codeScanner := codeClient.NewCodeScanner(httpClient, config, instrumentor, errorReporter, &logger)
-	_, _, scanErr := codeScanner.UploadAndAnalyze(context.Background(), uuid.New().String(), cloneTargetDir, files, map[string]bool{})
-	require.ErrorContains(t, scanErr, "workspace is not a repository, cannot scan")
+	response, bundleHash, scanErr := codeScanner.UploadAndAnalyze(context.Background(), uuid.New().String(), cloneTargetDir, files, map[string]bool{})
+	require.NoError(t, scanErr)
+	require.NotEmpty(t, bundleHash)
+	require.NotNil(t, response)
 }
 
 func setupCustomTestRepo(t *testing.T, url string, targetCommit string) (string, error) {

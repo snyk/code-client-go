@@ -25,7 +25,9 @@ import (
 )
 
 func GetRepositoryUrl(path string) (string, error) {
-	repo, err := git.PlainOpen(path)
+	repo, err := git.PlainOpenWithOptions(path, &git.PlainOpenOptions{
+		DetectDotGit: true,
+	})
 	if err != nil {
 		return "", fmt.Errorf("open local repository: %w", err)
 	}
