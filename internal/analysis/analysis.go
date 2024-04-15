@@ -32,6 +32,7 @@ import (
 	externalRef3 "github.com/snyk/code-client-go/internal/workspace/2024-03-12/workspaces"
 	"github.com/snyk/code-client-go/observability"
 	"github.com/snyk/code-client-go/sarif"
+	"strings"
 )
 
 //go:embed fake.json
@@ -83,9 +84,10 @@ func (a *analysisOrchestrator) CreateWorkspace(ctx context.Context, orgId string
 		return "", fmt.Errorf("workspace is not a repository, cannot scan, %w", err)
 	}
 
-	a.logger.Info().Str("path", path).Str("repositoryUri", repositoryUri).Str("bundleHash", bundleHash).Msg("creating workspace")
+	host := a.host()
+	a.logger.Info().Str("host", host).Str("path", path).Str("repositoryUri", repositoryUri).Msg("creating workspace")
 
-	workspace, err := workspaceClient.NewClientWithResponses(fmt.Sprintf("%s/hidden", a.config.SnykApi()), workspaceClient.WithHTTPClient(a.httpClient))
+	workspace, err := workspaceClient.NewClientWithResponses(host, workspaceClient.WithHTTPClient(a.httpClient))
 	if err != nil {
 		a.errorReporter.CaptureError(err, observability.ErrorReporterOptions{ErrorDiagnosticPath: path})
 		return "", fmt.Errorf("failed to connect to the workspace API %w", err)
@@ -128,6 +130,7 @@ func (a *analysisOrchestrator) CreateWorkspace(ctx context.Context, orgId string
 		}),
 	})
 	if err != nil {
+		a.logger.Error().Err(err).Msg("could not create workspace")
 		return "", err
 	}
 
@@ -157,4 +160,9 @@ func (*analysisOrchestrator) RunAnalysis() (*sarif.SarifResponse, error) {
 		return nil, fmt.Errorf("failed to create SARIF response: %w", err)
 	}
 	return &response, nil
+}
+
+func (a *analysisOrchestrator) host() string {
+	apiUrl := strings.TrimRight(a.config.SnykApi(), "/")
+	return fmt.Sprintf("%s/hidden", apiUrl)
 }

@@ -104,16 +104,7 @@ func (s *httpClient) Do(req *http.Request) (response *http.Response, err error) 
 		requestId := span.GetTraceId()
 		req.Header.Set("snyk-request-id", requestId)
 
-		s.logger.Trace().Str("snyk-request-id", requestId).Msg("SEND TO REMOTE")
-
 		response, err = s.httpCall(req)
-
-		if response != nil {
-			s.logger.Trace().Str("response.Status", response.Status).Str("snyk-request-id", requestId).Msg("RECEIVED FROM REMOTE")
-		} else {
-			s.logger.Trace().Str("snyk-request-id", requestId).Msg("RECEIVED FROM REMOTE")
-		}
-
 		if err != nil {
 			return nil, err // no retries for errors
 		}
@@ -134,17 +125,30 @@ func (s *httpClient) Do(req *http.Request) (response *http.Response, err error) 
 
 func (s *httpClient) httpCall(req *http.Request) (*http.Response, error) {
 	log := s.logger.With().Str("method", "http.httpCall").Logger()
+	requestId := req.Header.Get("snyk-request-id")
 
 	// store the request body so that after retrying it can be read again
 	var copyReqBody io.ReadCloser
+	var reqBuf []byte
 	if req.Body != nil {
-		buf, _ := io.ReadAll(req.Body)
-		reqBody := io.NopCloser(bytes.NewBuffer(buf))
-		copyReqBody = io.NopCloser(bytes.NewBuffer(buf))
+		reqBuf, _ = io.ReadAll(req.Body)
+		reqBody := io.NopCloser(bytes.NewBuffer(reqBuf))
+		copyReqBody = io.NopCloser(bytes.NewBuffer(reqBuf))
 		req.Body = reqBody
+		s.logger.Debug().Str("url", req.URL.String()).Str("snyk-request-id", requestId).Str("requestBody", string(reqBuf)).Msg("SEND TO REMOTE")
 	}
 	response, err := s.clientFactory().Do(req)
 	req.Body = copyReqBody
+	if response != nil {
+		var copyResBody io.ReadCloser
+		var resBuf []byte
+		resBuf, _ = io.ReadAll(response.Body)
+		copyResBody = io.NopCloser(bytes.NewBuffer(resBuf))
+		response.Body = copyResBody
+		s.logger.Debug().Str("url", req.URL.String()).Str("response.Status", response.Status).Str("snyk-request-id", requestId).Str("responseBody", string(resBuf)).Msg("RECEIVED FROM REMOTE")
+	} else {
+		s.logger.Debug().Str("url", req.URL.String()).Str("snyk-request-id", requestId).Msg("RECEIVED FROM REMOTE")
+	}
 
 	if err != nil {
 		log.Error().Err(err).Msg("got http error")
