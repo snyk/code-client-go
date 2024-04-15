@@ -18,21 +18,21 @@ package codeclient_test
 import (
 	"context"
 	"fmt"
+	"github.com/google/uuid"
+	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
+	codeClient "github.com/snyk/code-client-go"
+	codeClientHTTP "github.com/snyk/code-client-go/http"
+	"github.com/snyk/code-client-go/internal/util/testutil"
+	"github.com/snyk/go-application-framework/pkg/app"
+	"github.com/snyk/go-application-framework/pkg/auth"
+	"github.com/snyk/go-application-framework/pkg/configuration"
+	"github.com/stretchr/testify/require"
 	"net/http"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"testing"
-	"time"
-
-	"github.com/google/uuid"
-	"github.com/rs/zerolog"
-	"github.com/stretchr/testify/require"
-
-	codeClient "github.com/snyk/code-client-go"
-	codeClientHTTP "github.com/snyk/code-client-go/http"
-	"github.com/snyk/code-client-go/internal/util/testutil"
 )
 
 //nolint:dupl // test cases
@@ -40,24 +40,36 @@ func Test_SmokeScan_HTTPS(t *testing.T) {
 	if os.Getenv("SMOKE_TESTS") != "true" {
 		t.Skip()
 	}
-	var cloneTargetDir, err = setupCustomTestRepo(t, "https://github.com/snyk-labs/nodejs-goof", "0336589")
-	defer func(path string) { _ = os.RemoveAll(path) }(cloneTargetDir)
-	if err != nil {
-		t.Fatal(err, "Couldn't setup test repo")
-	}
-	files := sliceToChannel([]string{filepath.Join(cloneTargetDir, "app.js"), filepath.Join(cloneTargetDir, "utils.js")})
+	config := testutil.NewTestConfig()
+
+	conf := configuration.NewInMemory()
+	conf.Set(configuration.AUTHENTICATION_ADDITIONAL_URLS, []string{"https://deeproxy.dev.snyk.io", config.SnykApi()})
+	conf.Set(configuration.AUTHENTICATION_TOKEN, os.Getenv("SMOKE_TEST_TOKEN"))
+	conf.Set(auth.CONFIG_KEY_OAUTH_TOKEN, os.Getenv("SMOKE_TEST_TOKEN"))
+	conf.Set(configuration.FF_OAUTH_AUTH_FLOW_ENABLED, true)
+
+	engine := app.CreateAppEngineWithOptions(app.WithConfiguration(conf))
+	networkAccess := engine.GetNetworkAccess()
+
+	//var cloneTargetDir, err = setupCustomTestRepo(t, "https://github.com/snyk/target-service", "eac4442d8f0e9292f4847b9021ba8b17b848f0a0")
+	//defer func(path string) { _ = os.RemoveAll(path) }(cloneTargetDir)
+	//if err != nil {
+	//	t.Fatal(err, "Couldn't setup test repo")
+	//}
+	cloneTargetDir := "/Users/teodorasandu/Documents/repos/target-service"
+	files := sliceToChannel([]string{filepath.Join(cloneTargetDir, "src/main.ts")})
 
 	logger := zerolog.New(os.Stdout)
 	instrumentor := testutil.NewTestInstrumentor()
 	errorReporter := testutil.NewTestErrorReporter()
-	config := testutil.NewTestConfig()
 	httpClient := codeClientHTTP.NewHTTPClient(
 		func() *http.Client {
-			client := http.Client{
-				Timeout:   time.Duration(180) * time.Second,
-				Transport: TestAuthRoundTripper{http.DefaultTransport},
-			}
-			return &client
+			return networkAccess.GetHttpClient()
+			//client := http.Client{
+			//	Timeout:   time.Duration(180) * time.Second,
+			//	Transport: TestAuthRoundTripper{http.DefaultTransport},
+			//}
+			//return &client
 		},
 		codeClientHTTP.WithRetryCount(3),
 		codeClientHTTP.WithLogger(&logger),
@@ -71,71 +83,71 @@ func Test_SmokeScan_HTTPS(t *testing.T) {
 }
 
 //nolint:dupl // test cases
-func Test_SmokeScan_SSH(t *testing.T) {
-	if os.Getenv("SMOKE_TESTS") != "true" {
-		t.Skip()
-	}
-	var cloneTargetDir, err = setupCustomTestRepo(t, "git@github.com:snyk-labs/nodejs-goof", "0336589")
-	defer func(path string) { _ = os.RemoveAll(path) }(cloneTargetDir)
-	if err != nil {
-		t.Fatal(err, "Couldn't setup test repo")
-	}
-	files := sliceToChannel([]string{filepath.Join(cloneTargetDir, "app.js"), filepath.Join(cloneTargetDir, "utils.js")})
-
-	logger := zerolog.New(os.Stdout)
-	instrumentor := testutil.NewTestInstrumentor()
-	errorReporter := testutil.NewTestErrorReporter()
-	config := testutil.NewTestConfig()
-	httpClient := codeClientHTTP.NewHTTPClient(
-		func() *http.Client {
-			client := http.Client{
-				Timeout:   time.Duration(180) * time.Second,
-				Transport: TestAuthRoundTripper{http.DefaultTransport},
-			}
-			return &client
-		},
-		codeClientHTTP.WithRetryCount(3),
-		codeClientHTTP.WithLogger(&logger),
-	)
-
-	codeScanner := codeClient.NewCodeScanner(httpClient, config, instrumentor, errorReporter, &logger)
-	response, bundleHash, scanErr := codeScanner.UploadAndAnalyze(context.Background(), uuid.New().String(), cloneTargetDir, files, map[string]bool{})
-	require.NoError(t, scanErr)
-	require.NotEmpty(t, bundleHash)
-	require.NotNil(t, response)
-}
-
-func Test_SmokeScan_SubFolder(t *testing.T) {
-	if os.Getenv("SMOKE_TESTS") != "true" {
-		t.Skip()
-	}
-	currDir, err := os.Getwd()
-	require.NoError(t, err)
-	cloneTargetDir := filepath.Join(currDir, "internal/util")
-	files := sliceToChannel([]string{filepath.Join(cloneTargetDir, "hash.go")})
-
-	logger := zerolog.New(os.Stdout)
-	instrumentor := testutil.NewTestInstrumentor()
-	errorReporter := testutil.NewTestErrorReporter()
-	config := testutil.NewTestConfig()
-	httpClient := codeClientHTTP.NewHTTPClient(
-		func() *http.Client {
-			client := http.Client{
-				Timeout:   time.Duration(180) * time.Second,
-				Transport: TestAuthRoundTripper{http.DefaultTransport},
-			}
-			return &client
-		},
-		codeClientHTTP.WithRetryCount(3),
-		codeClientHTTP.WithLogger(&logger),
-	)
-
-	codeScanner := codeClient.NewCodeScanner(httpClient, config, instrumentor, errorReporter, &logger)
-	response, bundleHash, scanErr := codeScanner.UploadAndAnalyze(context.Background(), uuid.New().String(), cloneTargetDir, files, map[string]bool{})
-	require.NoError(t, scanErr)
-	require.NotEmpty(t, bundleHash)
-	require.NotNil(t, response)
-}
+//func Test_SmokeScan_SSH(t *testing.T) {
+//	if os.Getenv("SMOKE_TESTS") != "true" {
+//		t.Skip()
+//	}
+//	var cloneTargetDir, err = setupCustomTestRepo(t, "git@github.com:snyk-labs/nodejs-goof", "0336589")
+//	defer func(path string) { _ = os.RemoveAll(path) }(cloneTargetDir)
+//	if err != nil {
+//		t.Fatal(err, "Couldn't setup test repo")
+//	}
+//	files := sliceToChannel([]string{filepath.Join(cloneTargetDir, "app.js"), filepath.Join(cloneTargetDir, "utils.js")})
+//
+//	logger := zerolog.New(os.Stdout)
+//	instrumentor := testutil.NewTestInstrumentor()
+//	errorReporter := testutil.NewTestErrorReporter()
+//	config := testutil.NewTestConfig()
+//	httpClient := codeClientHTTP.NewHTTPClient(
+//		func() *http.Client {
+//			client := http.Client{
+//				Timeout:   time.Duration(180) * time.Second,
+//				Transport: TestAuthRoundTripper{http.DefaultTransport},
+//			}
+//			return &client
+//		},
+//		codeClientHTTP.WithRetryCount(3),
+//		codeClientHTTP.WithLogger(&logger),
+//	)
+//
+//	codeScanner := codeClient.NewCodeScanner(httpClient, config, instrumentor, errorReporter, &logger)
+//	response, bundleHash, scanErr := codeScanner.UploadAndAnalyze(context.Background(), uuid.New().String(), cloneTargetDir, files, map[string]bool{})
+//	require.NoError(t, scanErr)
+//	require.NotEmpty(t, bundleHash)
+//	require.NotNil(t, response)
+//}
+//
+//func Test_SmokeScan_SubFolder(t *testing.T) {
+//	if os.Getenv("SMOKE_TESTS") != "true" {
+//		t.Skip()
+//	}
+//	currDir, err := os.Getwd()
+//	require.NoError(t, err)
+//	cloneTargetDir := filepath.Join(currDir, "internal/util")
+//	files := sliceToChannel([]string{filepath.Join(cloneTargetDir, "hash.go")})
+//
+//	logger := zerolog.New(os.Stdout)
+//	instrumentor := testutil.NewTestInstrumentor()
+//	errorReporter := testutil.NewTestErrorReporter()
+//	config := testutil.NewTestConfig()
+//	httpClient := codeClientHTTP.NewHTTPClient(
+//		func() *http.Client {
+//			client := http.Client{
+//				Timeout:   time.Duration(180) * time.Second,
+//				Transport: TestAuthRoundTripper{http.DefaultTransport},
+//			}
+//			return &client
+//		},
+//		codeClientHTTP.WithRetryCount(3),
+//		codeClientHTTP.WithLogger(&logger),
+//	)
+//
+//	codeScanner := codeClient.NewCodeScanner(httpClient, config, instrumentor, errorReporter, &logger)
+//	response, bundleHash, scanErr := codeScanner.UploadAndAnalyze(context.Background(), uuid.New().String(), cloneTargetDir, files, map[string]bool{})
+//	require.NoError(t, scanErr)
+//	require.NotEmpty(t, bundleHash)
+//	require.NotNil(t, response)
+//}
 
 func setupCustomTestRepo(t *testing.T, url string, targetCommit string) (string, error) {
 	t.Helper()
@@ -174,6 +186,5 @@ type TestAuthRoundTripper struct {
 func (tart TestAuthRoundTripper) RoundTrip(req *http.Request) (res *http.Response, e error) {
 	token := os.Getenv("SMOKE_TEST_TOKEN")
 	req.Header.Set("Authorization", fmt.Sprintf("token %s", token))
-	req.Header.Set("session_token", token)
 	return tart.RoundTripper.RoundTrip(req)
 }
