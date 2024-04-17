@@ -12,31 +12,31 @@ import (
 	deepcode "github.com/snyk/code-client-go/internal/deepcode"
 )
 
-// MockSnykCodeClient is a mock of SnykCodeClient interface.
-type MockSnykCodeClient struct {
+// MockDeepcode is a mock of DeepcodeClient interface.
+type MockDeepcode struct {
 	ctrl     *gomock.Controller
-	recorder *MockSnykCodeClientMockRecorder
+	recorder *MockDeepcodeMockRecorder
 }
 
-// MockSnykCodeClientMockRecorder is the mock recorder for MockSnykCodeClient.
-type MockSnykCodeClientMockRecorder struct {
-	mock *MockSnykCodeClient
+// MockDeepcodeMockRecorder is the mock recorder for MockDeepcode.
+type MockDeepcodeMockRecorder struct {
+	mock *MockDeepcode
 }
 
-// NewMockSnykCodeClient creates a new mock instance.
-func NewMockSnykCodeClient(ctrl *gomock.Controller) *MockSnykCodeClient {
-	mock := &MockSnykCodeClient{ctrl: ctrl}
-	mock.recorder = &MockSnykCodeClientMockRecorder{mock}
+// NewMockDeepcode creates a new mock instance.
+func NewMockDeepcode(ctrl *gomock.Controller) *MockDeepcode {
+	mock := &MockDeepcode{ctrl: ctrl}
+	mock.recorder = &MockDeepcodeMockRecorder{mock}
 	return mock
 }
 
 // EXPECT returns an object that allows the caller to indicate expected use.
-func (m *MockSnykCodeClient) EXPECT() *MockSnykCodeClientMockRecorder {
+func (m *MockDeepcode) EXPECT() *MockDeepcodeMockRecorder {
 	return m.recorder
 }
 
 // CreateBundle mocks base method.
-func (m *MockSnykCodeClient) CreateBundle(ctx context.Context, files map[string]string) (string, []string, error) {
+func (m *MockDeepcode) CreateBundle(ctx context.Context, files map[string]string) (string, []string, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "CreateBundle", ctx, files)
 	ret0, _ := ret[0].(string)
@@ -46,13 +46,13 @@ func (m *MockSnykCodeClient) CreateBundle(ctx context.Context, files map[string]
 }
 
 // CreateBundle indicates an expected call of CreateBundle.
-func (mr *MockSnykCodeClientMockRecorder) CreateBundle(ctx, files interface{}) *gomock.Call {
+func (mr *MockDeepcodeMockRecorder) CreateBundle(ctx, files interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CreateBundle", reflect.TypeOf((*MockSnykCodeClient)(nil).CreateBundle), ctx, files)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CreateBundle", reflect.TypeOf((*MockDeepcode)(nil).CreateBundle), ctx, files)
 }
 
 // ExtendBundle mocks base method.
-func (m *MockSnykCodeClient) ExtendBundle(ctx context.Context, bundleHash string, files map[string]deepcode.BundleFile, removedFiles []string) (string, []string, error) {
+func (m *MockDeepcode) ExtendBundle(ctx context.Context, bundleHash string, files map[string]deepcode.BundleFile, removedFiles []string) (string, []string, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "ExtendBundle", ctx, bundleHash, files, removedFiles)
 	ret0, _ := ret[0].(string)
@@ -62,13 +62,13 @@ func (m *MockSnykCodeClient) ExtendBundle(ctx context.Context, bundleHash string
 }
 
 // ExtendBundle indicates an expected call of ExtendBundle.
-func (mr *MockSnykCodeClientMockRecorder) ExtendBundle(ctx, bundleHash, files, removedFiles interface{}) *gomock.Call {
+func (mr *MockDeepcodeMockRecorder) ExtendBundle(ctx, bundleHash, files, removedFiles interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ExtendBundle", reflect.TypeOf((*MockSnykCodeClient)(nil).ExtendBundle), ctx, bundleHash, files, removedFiles)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ExtendBundle", reflect.TypeOf((*MockDeepcode)(nil).ExtendBundle), ctx, bundleHash, files, removedFiles)
 }
 
 // GetFilters mocks base method.
-func (m *MockSnykCodeClient) GetFilters(ctx context.Context) (deepcode.FiltersResponse, error) {
+func (m *MockDeepcode) GetFilters(ctx context.Context) (deepcode.FiltersResponse, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "GetFilters", ctx)
 	ret0, _ := ret[0].(deepcode.FiltersResponse)
@@ -77,7 +77,7 @@ func (m *MockSnykCodeClient) GetFilters(ctx context.Context) (deepcode.FiltersRe
 }
 
 // GetFilters indicates an expected call of GetFilters.
-func (mr *MockSnykCodeClientMockRecorder) GetFilters(ctx interface{}) *gomock.Call {
+func (mr *MockDeepcodeMockRecorder) GetFilters(ctx interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetFilters", reflect.TypeOf((*MockSnykCodeClient)(nil).GetFilters), ctx)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetFilters", reflect.TypeOf((*MockDeepcode)(nil).GetFilters), ctx)
 }

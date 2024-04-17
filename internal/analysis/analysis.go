@@ -52,11 +52,11 @@ type AnalysisOrchestrator interface {
 }
 
 func NewAnalysisOrchestrator(
+	config config.Config,
 	logger *zerolog.Logger,
 	httpClient codeClientHTTP.HTTPClient,
 	instrumentor observability.Instrumentor,
 	errorReporter observability.ErrorReporter,
-	config config.Config,
 ) *analysisOrchestrator {
 	return &analysisOrchestrator{
 		httpClient,
