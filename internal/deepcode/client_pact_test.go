@@ -43,7 +43,7 @@ const (
 
 // Common test data
 var pact dsl.Pact
-var client deepcode.SnykCodeClient
+var client deepcode.DeepcodeClient
 
 func TestSnykCodeClientPact(t *testing.T) {
 	setupPact(t)
@@ -230,7 +230,7 @@ func setupPact(t *testing.T) {
 		codeClientHTTP.WithErrorReporter(errorReporter),
 		codeClientHTTP.WithLogger(newLogger(t)),
 	)
-	client = deepcode.NewSnykCodeClient(newLogger(t), httpClient, instrumentor, errorReporter, config)
+	client = deepcode.NewDeepcodeClient(config, httpClient, newLogger(t), instrumentor, errorReporter)
 }
 
 func getPutPostHeaderMatcher() dsl.MapMatcher {

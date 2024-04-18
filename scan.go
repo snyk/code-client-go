@@ -33,8 +33,10 @@ import (
 )
 
 type codeScanner struct {
+	httpClient           codeClientHTTP.HTTPClient
 	bundleManager        bundle.BundleManager
 	analysisOrchestrator analysis.AnalysisOrchestrator
+	instrumentor         observability.Instrumentor
 	errorReporter        observability.ErrorReporter
 	logger               *zerolog.Logger
 	config               config.Config
@@ -50,24 +52,65 @@ type CodeScanner interface {
 	) (*sarif.SarifResponse, string, error)
 }
 
+type OptionFunc func(*codeScanner)
+
+func WithInstrumentor(instrumentor observability.Instrumentor) OptionFunc {
+	return func(c *codeScanner) {
+		c.instrumentor = instrumentor
+		c.initDeps(c.httpClient)
+	}
+}
+
+func WithErrorReporter(errorReporter observability.ErrorReporter) OptionFunc {
+	return func(c *codeScanner) {
+		c.errorReporter = errorReporter
+		c.initDeps(c.httpClient)
+	}
+}
+
+func WithLogger(logger *zerolog.Logger) OptionFunc {
+	return func(c *codeScanner) {
+		c.logger = logger
+		c.initDeps(c.httpClient)
+	}
+}
+
+func (c *codeScanner) initDeps(
+	httpClient codeClientHTTP.HTTPClient,
+) {
+	deepcodeClient := deepcode.NewDeepcodeClient(c.config, httpClient, c.logger, c.instrumentor, c.errorReporter)
+	bundleManager := bundle.NewBundleManager(deepcodeClient, c.logger, c.instrumentor, c.errorReporter)
+	c.bundleManager = bundleManager
+	analysisOrchestrator := analysis.NewAnalysisOrchestrator(c.config, c.logger, httpClient, c.instrumentor, c.errorReporter)
+	c.analysisOrchestrator = analysisOrchestrator
+}
+
 // NewCodeScanner creates a Code Scanner which can be used to trigger Snyk Code on a folder.
 func NewCodeScanner(
-	httpClient codeClientHTTP.HTTPClient,
 	config config.Config,
-	instrumentor observability.Instrumentor,
-	errorReporter observability.ErrorReporter,
-	logger *zerolog.Logger,
+	httpClient codeClientHTTP.HTTPClient,
+	options ...OptionFunc,
 ) *codeScanner {
-	snykCode := deepcode.NewSnykCodeClient(logger, httpClient, instrumentor, errorReporter, config)
-	bundleManager := bundle.NewBundleManager(logger, snykCode, instrumentor, errorReporter)
-	analysisOrchestrator := analysis.NewAnalysisOrchestrator(logger, httpClient, instrumentor, errorReporter, config)
-	return &codeScanner{
-		bundleManager:        bundleManager,
-		analysisOrchestrator: analysisOrchestrator,
-		errorReporter:        errorReporter,
-		logger:               logger,
-		config:               config,
+	nopLogger := zerolog.Nop()
+	instrumentor := observability.NewInstrumentor()
+	errorReporter := observability.NewErrorReporter(&nopLogger)
+
+	scanner := &codeScanner{
+		httpClient:    httpClient,
+		errorReporter: errorReporter,
+		logger:        &nopLogger,
+		instrumentor:  instrumentor,
+		config:        config,
 	}
+
+	// initialize other dependencies with the default
+	scanner.initDeps(httpClient)
+
+	for _, option := range options {
+		option(scanner)
+	}
+
+	return scanner
 }
 
 // WithBundleManager creates a new Code Scanner from the current one and replaces the bundle manager.

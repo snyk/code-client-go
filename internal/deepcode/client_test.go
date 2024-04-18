@@ -88,7 +88,7 @@ func TestSnykCodeBackendService_GetFilters(t *testing.T) {
 	mockInstrumentor.EXPECT().Finish(gomock.Any()).Times(1)
 	mockErrorReporter := mocks.NewMockErrorReporter(ctrl)
 
-	s := deepcode.NewSnykCodeClient(newLogger(t), mockHTTPClient, mockInstrumentor, mockErrorReporter, mockConfig)
+	s := deepcode.NewDeepcodeClient(mockConfig, mockHTTPClient, newLogger(t), mockInstrumentor, mockErrorReporter)
 	filters, err := s.GetFilters(context.Background())
 	assert.Nil(t, err)
 	assert.Equal(t, 1, len(filters.ConfigFiles))
@@ -123,7 +123,7 @@ func TestSnykCodeBackendService_GetFilters_Failure(t *testing.T) {
 	mockInstrumentor.EXPECT().Finish(gomock.Any()).Times(1)
 	mockErrorReporter := mocks.NewMockErrorReporter(ctrl)
 
-	s := deepcode.NewSnykCodeClient(newLogger(t), mockHTTPClient, mockInstrumentor, mockErrorReporter, mockConfig)
+	s := deepcode.NewDeepcodeClient(mockConfig, mockHTTPClient, newLogger(t), mockInstrumentor, mockErrorReporter)
 	_, err := s.GetFilters(context.Background())
 	assert.Error(t, err)
 }
@@ -157,7 +157,7 @@ func TestSnykCodeBackendService_CreateBundle(t *testing.T) {
 	mockInstrumentor.EXPECT().Finish(gomock.Any()).Times(1)
 	mockErrorReporter := mocks.NewMockErrorReporter(ctrl)
 
-	s := deepcode.NewSnykCodeClient(newLogger(t), mockHTTPClient, mockInstrumentor, mockErrorReporter, mockConfig)
+	s := deepcode.NewDeepcodeClient(mockConfig, mockHTTPClient, newLogger(t), mockInstrumentor, mockErrorReporter)
 
 	files := map[string]string{}
 	randomAddition := fmt.Sprintf("\n public void random() { System.out.println(\"%d\") }", time.Now().UnixMicro())
@@ -197,7 +197,7 @@ func TestSnykCodeBackendService_CreateBundle_Failure(t *testing.T) {
 	mockInstrumentor.EXPECT().Finish(gomock.Any()).Times(1)
 	mockErrorReporter := mocks.NewMockErrorReporter(ctrl)
 
-	s := deepcode.NewSnykCodeClient(newLogger(t), mockHTTPClient, mockInstrumentor, mockErrorReporter, mockConfig)
+	s := deepcode.NewDeepcodeClient(mockConfig, mockHTTPClient, newLogger(t), mockInstrumentor, mockErrorReporter)
 
 	files := map[string]string{}
 	randomAddition := fmt.Sprintf("\n public void random() { System.out.println(\"%d\") }", time.Now().UnixMicro())
@@ -247,7 +247,7 @@ func TestSnykCodeBackendService_ExtendBundle(t *testing.T) {
 	mockInstrumentor.EXPECT().Finish(gomock.Any()).Times(2)
 	mockErrorReporter := mocks.NewMockErrorReporter(ctrl)
 
-	s := deepcode.NewSnykCodeClient(newLogger(t), mockHTTPClient, mockInstrumentor, mockErrorReporter, mockConfig)
+	s := deepcode.NewDeepcodeClient(mockConfig, mockHTTPClient, newLogger(t), mockInstrumentor, mockErrorReporter)
 	var removedFiles []string
 	files := map[string]string{}
 	files[path1] = util.Hash([]byte(content))
@@ -300,7 +300,7 @@ func TestSnykCodeBackendService_ExtendBundle_Failure(t *testing.T) {
 	mockInstrumentor.EXPECT().Finish(gomock.Any()).Times(2)
 	mockErrorReporter := mocks.NewMockErrorReporter(ctrl)
 
-	s := deepcode.NewSnykCodeClient(newLogger(t), mockHTTPClient, mockInstrumentor, mockErrorReporter, mockConfig)
+	s := deepcode.NewDeepcodeClient(mockConfig, mockHTTPClient, newLogger(t), mockInstrumentor, mockErrorReporter)
 	var removedFiles []string
 	files := map[string]string{}
 	files[path1] = util.Hash([]byte(content))
@@ -323,7 +323,7 @@ func Test_Host(t *testing.T) {
 		mockConfig.EXPECT().Organization().AnyTimes().Return("00000000-0000-0000-0000-000000000023")
 		mockConfig.EXPECT().IsFedramp().Times(1).Return(true)
 
-		s := deepcode.NewSnykCodeClient(newLogger(t), mockHTTPClient, mockInstrumentor, mockErrorReporter, mockConfig)
+		s := deepcode.NewDeepcodeClient(mockConfig, mockHTTPClient, newLogger(t), mockInstrumentor, mockErrorReporter)
 
 		actual, err := s.Host()
 		assert.Nil(t, err)
@@ -333,7 +333,7 @@ func Test_Host(t *testing.T) {
 	t.Run("Does not change the URL if it's not FedRAMP", func(t *testing.T) {
 		mockConfig.EXPECT().Organization().AnyTimes().Return("")
 		mockConfig.EXPECT().IsFedramp().Times(1).Return(false)
-		s := deepcode.NewSnykCodeClient(newLogger(t), mockHTTPClient, mockInstrumentor, mockErrorReporter, mockConfig)
+		s := deepcode.NewDeepcodeClient(mockConfig, mockHTTPClient, newLogger(t), mockInstrumentor, mockErrorReporter)
 
 		actual, err := s.Host()
 		assert.Nil(t, err)

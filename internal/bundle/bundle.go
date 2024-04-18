@@ -34,7 +34,7 @@ type Bundle interface {
 }
 
 type deepCodeBundle struct {
-	SnykCode      deepcode.SnykCodeClient
+	SnykCode      deepcode.DeepcodeClient
 	instrumentor  observability.Instrumentor
 	errorReporter observability.ErrorReporter
 	logger        *zerolog.Logger
@@ -46,7 +46,7 @@ type deepCodeBundle struct {
 }
 
 func NewBundle(
-	snykCode deepcode.SnykCodeClient,
+	snykCode deepcode.DeepcodeClient,
 	instrumentor observability.Instrumentor,
 	errorReporter observability.ErrorReporter,
 	logger *zerolog.Logger,

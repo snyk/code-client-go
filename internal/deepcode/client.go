@@ -37,7 +37,7 @@ import (
 )
 
 //go:generate mockgen -destination=mocks/client.go -source=client.go -package mocks
-type SnykCodeClient interface {
+type DeepcodeClient interface {
 	GetFilters(ctx context.Context) (
 		filters FiltersResponse,
 		err error)
@@ -70,7 +70,7 @@ type BundleResponse struct {
 	MissingFiles []string `json:"missingFiles"`
 }
 
-type snykCodeClient struct {
+type deepcodeClient struct {
 	httpClient    codeClientHTTP.HTTPClient
 	instrumentor  observability.Instrumentor
 	errorReporter observability.ErrorReporter
@@ -78,14 +78,14 @@ type snykCodeClient struct {
 	config        config.Config
 }
 
-func NewSnykCodeClient(
-	logger *zerolog.Logger,
+func NewDeepcodeClient(
+	config config.Config,
 	httpClient codeClientHTTP.HTTPClient,
+	logger *zerolog.Logger,
 	instrumentor observability.Instrumentor,
 	errorReporter observability.ErrorReporter,
-	config config.Config,
-) *snykCodeClient {
-	return &snykCodeClient{
+) *deepcodeClient {
+	return &deepcodeClient{
 		httpClient,
 		instrumentor,
 		errorReporter,
@@ -94,7 +94,7 @@ func NewSnykCodeClient(
 	}
 }
 
-func (s *snykCodeClient) GetFilters(ctx context.Context) (
+func (s *deepcodeClient) GetFilters(ctx context.Context) (
 	filters FiltersResponse,
 	err error,
 ) {
@@ -118,7 +118,7 @@ func (s *snykCodeClient) GetFilters(ctx context.Context) (
 	return filters, nil
 }
 
-func (s *snykCodeClient) CreateBundle(
+func (s *deepcodeClient) CreateBundle(
 	ctx context.Context,
 	filesToFilehashes map[string]string,
 ) (string, []string, error) {
@@ -148,7 +148,7 @@ func (s *snykCodeClient) CreateBundle(
 	return bundle.BundleHash, bundle.MissingFiles, nil
 }
 
-func (s *snykCodeClient) ExtendBundle(
+func (s *deepcodeClient) ExtendBundle(
 	ctx context.Context,
 	bundleHash string,
 	files map[string]BundleFile,
@@ -180,7 +180,7 @@ func (s *snykCodeClient) ExtendBundle(
 }
 
 // This is only exported for tests.
-func (s *snykCodeClient) Host() (string, error) {
+func (s *deepcodeClient) Host() (string, error) {
 	var codeApiRegex = regexp.MustCompile(`^(deeproxy\.)?`)
 
 	snykCodeApiUrl := s.config.SnykCodeApi()
@@ -204,7 +204,7 @@ func (s *snykCodeClient) Host() (string, error) {
 	return u.String(), nil
 }
 
-func (s *snykCodeClient) Request(
+func (s *deepcodeClient) Request(
 	method string,
 	path string,
 	requestBody []byte,
@@ -256,7 +256,7 @@ func (s *snykCodeClient) Request(
 	return responseBody, nil
 }
 
-func (s *snykCodeClient) addHeaders(method string, req *http.Request) {
+func (s *deepcodeClient) addHeaders(method string, req *http.Request) {
 	// Setting a chosen org name for the request
 	org := s.config.Organization()
 	if org != "" {
@@ -272,7 +272,7 @@ func (s *snykCodeClient) addHeaders(method string, req *http.Request) {
 	}
 }
 
-func (s *snykCodeClient) encodeIfNeeded(method string, requestBody []byte) (*bytes.Buffer, error) {
+func (s *deepcodeClient) encodeIfNeeded(method string, requestBody []byte) (*bytes.Buffer, error) {
 	b := new(bytes.Buffer)
 	mustBeEncoded := s.mustBeEncoded(method)
 	if mustBeEncoded {
@@ -287,11 +287,11 @@ func (s *snykCodeClient) encodeIfNeeded(method string, requestBody []byte) (*byt
 	return b, nil
 }
 
-func (s *snykCodeClient) mustBeEncoded(method string) bool {
+func (s *deepcodeClient) mustBeEncoded(method string) bool {
 	return method == http.MethodPost || method == http.MethodPut
 }
 
-func (s *snykCodeClient) checkResponseCode(r *http.Response) error {
+func (s *deepcodeClient) checkResponseCode(r *http.Response) error {
 	if r.StatusCode >= 200 && r.StatusCode <= 299 {
 		return nil
 	}

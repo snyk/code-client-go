@@ -15,51 +15,55 @@ $ go get github.com/snyk/code-client-go
 
 Use the HTTP client to make HTTP requests with configured retriable codes and authorisation headers for Snyk Rest APIs.
 
-Implement the `github.com/snyk/code-client-go/http.Config` interface to configure the Snyk Code API client from applications.
+You can either configure the client using the functional options pattern provided or by implementing the interfaces.
 
-Provide a net/http.Client factory to customize the underlying HTTP protocol behavior (timeouts, etc).
+Provide a `net/http.Client` factory to customize the underlying HTTP protocol behavior (timeouts, etc).
 
 ```go
 import (
     "net/http"
 
     "github.com/rs/zerolog"
-    codehttp "github.com/snyk/code-client-go/http"
+    codeClientHTTP "github.com/snyk/code-client-go/http"
+    codeClientObservability  "github.com/snyk/code-client-go/observability"
 )
 
 logger := zerlog.NewLogger(...)
-config := newConfigForMyApp()
-httpClient := codehttp.NewHTTPClient(logger, config, func() *http.Client { return http.DefaultClient }, codeInstrumentor, codeErrorReporter)
+instrumentor := codeClientObservability.NewInstrumentor()
+errorReporter := codeClientObservability.NewErrorReporter()
+httpClient := codeClientHTTP.NewHTTPClient(
+    func() *http.Client {
+        return &http.Client{
+            Timeout: time.Duration(1) * time.Second,
+        }
+    },
+    codeClientHTTP.WithRetryCount(1),
+    codeClientHTTP.WithLogger(logger),
+    codeClientHTTP.WithInstrumentor(instrumentor),
+    codeClientHTTP.WithErrorReporter(errorReporter),
+)
 ```
 
-The HTTP client exposes a `DoCall` function.
+The HTTP client exposes a `Do` function.
 
 ### Configuration
 
-Implement the `http.Config` interface to configure the Snyk Code API client from applications.
+Implement the `config.Config` interface to configure the Snyk Code API client from applications.
 
 ### Code Scanner
 
 Use the Code Scanner to trigger a scan for a Snyk Code workspace using the Bundle Manager created above.
+
 The Code Scanner exposes a `UploadAndAnalyze` function, which can be used like this:
 
 ```go
-import (
-    "net/http"
-    
-    "github.com/rs/zerolog"
-    code "github.com/snyk/code-client-go"
-)
-
-logger := zerlog.NewLogger(...)
 config := newConfigForMyApp()
-
 codeScanner := code.NewCodeScanner(
     httpClient,
-	config,
-    codeInstrumentor, 
-	codeErrorReporter,
-    logger,
+    config,
+    codeClientHTTP.WithLogger(logger),
+    codeClientHTTP.WithInstrumentor(instrumentor),
+    codeClientHTTP.WithErrorReporter(errorReporter),
 )
 code.UploadAndAnalyze(context.Background(), requestId, "path/to/workspace", channelForWalkingFiles, changedFiles)
 ```

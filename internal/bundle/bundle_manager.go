@@ -31,7 +31,7 @@ import (
 
 // TODO: add progress tracker for percentage progress
 type bundleManager struct {
-	SnykCode             deepcode.SnykCodeClient
+	deepcodeClient       deepcode.DeepcodeClient
 	instrumentor         observability.Instrumentor
 	errorReporter        observability.ErrorReporter
 	logger               *zerolog.Logger
@@ -57,13 +57,13 @@ type BundleManager interface {
 }
 
 func NewBundleManager(
+	deepcodeClient deepcode.DeepcodeClient,
 	logger *zerolog.Logger,
-	SnykCode deepcode.SnykCodeClient,
 	instrumentor observability.Instrumentor,
 	errorReporter observability.ErrorReporter,
 ) *bundleManager {
 	return &bundleManager{
-		SnykCode:             SnykCode,
+		deepcodeClient:       deepcodeClient,
 		instrumentor:         instrumentor,
 		errorReporter:        errorReporter,
 		logger:               logger,
@@ -133,10 +133,10 @@ func (b *bundleManager) Create(ctx context.Context,
 	var bundleHash string
 	var missingFiles []string
 	if len(fileHashes) > 0 {
-		bundleHash, missingFiles, err = b.SnykCode.CreateBundle(span.Context(), fileHashes)
+		bundleHash, missingFiles, err = b.deepcodeClient.CreateBundle(span.Context(), fileHashes)
 	}
 	bundle = NewBundle(
-		b.SnykCode,
+		b.deepcodeClient,
 		b.instrumentor,
 		b.errorReporter,
 		b.logger,
@@ -213,7 +213,7 @@ func (b *bundleManager) groupInBatches(
 
 func (b *bundleManager) IsSupported(ctx context.Context, file string) (bool, error) {
 	if b.supportedExtensions.Size() == 0 && b.supportedConfigFiles.Size() == 0 {
-		filters, err := b.SnykCode.GetFilters(ctx)
+		filters, err := b.deepcodeClient.GetFilters(ctx)
 		if err != nil {
 			b.logger.Error().Err(err).Msg("could not get filters")
 			return false, err

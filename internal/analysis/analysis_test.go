@@ -70,7 +70,7 @@ func TestAnalysis_CreateWorkspace(t *testing.T) {
 
 	logger := zerolog.Nop()
 
-	analysisOrchestrator := analysis.NewAnalysisOrchestrator(&logger, mockHTTPClient, mockInstrumentor, mockErrorReporter, mockConfig)
+	analysisOrchestrator := analysis.NewAnalysisOrchestrator(mockConfig, &logger, mockHTTPClient, mockInstrumentor, mockErrorReporter)
 	_, err := analysisOrchestrator.CreateWorkspace(
 		context.Background(),
 		"4a72d1db-b465-4764-99e1-ecedad03b06a",
@@ -99,7 +99,7 @@ func TestAnalysis_CreateWorkspace_NotARepository(t *testing.T) {
 	logger := zerolog.Nop()
 
 	repoDir := t.TempDir()
-	analysisOrchestrator := analysis.NewAnalysisOrchestrator(&logger, mockHTTPClient, mockInstrumentor, mockErrorReporter, mockConfig)
+	analysisOrchestrator := analysis.NewAnalysisOrchestrator(mockConfig, &logger, mockHTTPClient, mockInstrumentor, mockErrorReporter)
 	_, err := analysisOrchestrator.CreateWorkspace(
 		context.Background(),
 		"4a72d1db-b465-4764-99e1-ecedad03b06a",
@@ -143,7 +143,7 @@ func TestAnalysis_CreateWorkspace_Failure(t *testing.T) {
 
 	logger := zerolog.Nop()
 
-	analysisOrchestrator := analysis.NewAnalysisOrchestrator(&logger, mockHTTPClient, mockInstrumentor, mockErrorReporter, mockConfig)
+	analysisOrchestrator := analysis.NewAnalysisOrchestrator(mockConfig, &logger, mockHTTPClient, mockInstrumentor, mockErrorReporter)
 	_, err := analysisOrchestrator.CreateWorkspace(
 		context.Background(),
 		"4a72d1db-b465-4764-99e1-ecedad03b06a",
@@ -240,7 +240,7 @@ func TestAnalysis_RunAnalysis(t *testing.T) {
 
 	logger := zerolog.Nop()
 
-	analysisOrchestrator := analysis.NewAnalysisOrchestrator(&logger, mockHTTPClient, mockInstrumentor, mockErrorReporter, mockConfig)
+	analysisOrchestrator := analysis.NewAnalysisOrchestrator(mockConfig, &logger, mockHTTPClient, mockInstrumentor, mockErrorReporter)
 	actual, err := analysisOrchestrator.RunAnalysis()
 	require.NoError(t, err)
 	assert.Equal(t, "COMPLETE", actual.Status)

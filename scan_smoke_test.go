@@ -35,7 +35,6 @@ import (
 	"github.com/snyk/code-client-go/internal/util/testutil"
 )
 
-//nolint:dupl // test cases
 func Test_SmokeScan_HTTPS(t *testing.T) {
 	if os.Getenv("SMOKE_TESTS") != "true" {
 		t.Skip()
@@ -63,14 +62,16 @@ func Test_SmokeScan_HTTPS(t *testing.T) {
 		codeClientHTTP.WithLogger(&logger),
 	)
 
-	codeScanner := codeClient.NewCodeScanner(httpClient, config, instrumentor, errorReporter, &logger)
+	codeScanner := codeClient.NewCodeScanner(
+		config,
+		httpClient,
+		codeClient.WithLogger(&logger), codeClient.WithInstrumentor(instrumentor), codeClient.WithErrorReporter(errorReporter))
 	response, bundleHash, scanErr := codeScanner.UploadAndAnalyze(context.Background(), uuid.New().String(), cloneTargetDir, files, map[string]bool{})
 	require.NoError(t, scanErr)
 	require.NotEmpty(t, bundleHash)
 	require.NotNil(t, response)
 }
 
-//nolint:dupl // test cases
 func Test_SmokeScan_SSH(t *testing.T) {
 	if os.Getenv("SMOKE_TESTS") != "true" {
 		t.Skip()
@@ -98,7 +99,13 @@ func Test_SmokeScan_SSH(t *testing.T) {
 		codeClientHTTP.WithLogger(&logger),
 	)
 
-	codeScanner := codeClient.NewCodeScanner(httpClient, config, instrumentor, errorReporter, &logger)
+	codeScanner := codeClient.NewCodeScanner(
+		config,
+		httpClient,
+		codeClient.WithInstrumentor(instrumentor),
+		codeClient.WithErrorReporter(errorReporter),
+		codeClient.WithLogger(&logger),
+	)
 	response, bundleHash, scanErr := codeScanner.UploadAndAnalyze(context.Background(), uuid.New().String(), cloneTargetDir, files, map[string]bool{})
 	require.NoError(t, scanErr)
 	require.NotEmpty(t, bundleHash)
@@ -130,7 +137,13 @@ func Test_SmokeScan_SubFolder(t *testing.T) {
 		codeClientHTTP.WithLogger(&logger),
 	)
 
-	codeScanner := codeClient.NewCodeScanner(httpClient, config, instrumentor, errorReporter, &logger)
+	codeScanner := codeClient.NewCodeScanner(
+		config,
+		httpClient,
+		codeClient.WithInstrumentor(instrumentor),
+		codeClient.WithErrorReporter(errorReporter),
+		codeClient.WithLogger(&logger),
+	)
 	response, bundleHash, scanErr := codeScanner.UploadAndAnalyze(context.Background(), uuid.New().String(), cloneTargetDir, files, map[string]bool{})
 	require.NoError(t, scanErr)
 	require.NotEmpty(t, bundleHash)

@@ -33,12 +33,14 @@ type HTTPClient interface {
 	Do(req *http.Request) (*http.Response, error)
 }
 
+type HTTPClientFactory func() *http.Client
+
 type httpClient struct {
-	retryCount    int
-	clientFactory func() *http.Client
-	instrumentor  observability.Instrumentor
-	errorReporter observability.ErrorReporter
-	logger        *zerolog.Logger
+	retryCount        int
+	httpClientFactory HTTPClientFactory
+	instrumentor      observability.Instrumentor
+	errorReporter     observability.ErrorReporter
+	logger            *zerolog.Logger
 }
 
 type OptionFunc func(*httpClient)
@@ -68,18 +70,18 @@ func WithLogger(logger *zerolog.Logger) OptionFunc {
 }
 
 func NewHTTPClient(
-	clientFactory func() *http.Client,
+	httpClientFactory HTTPClientFactory,
 	options ...OptionFunc,
 ) HTTPClient {
 	nopLogger := zerolog.Nop()
 	instrumentor := observability.NewInstrumentor()
 	errorReporter := observability.NewErrorReporter(&nopLogger)
 	client := &httpClient{
-		retryCount:    3,
-		clientFactory: clientFactory,
-		instrumentor:  instrumentor,
-		errorReporter: errorReporter,
-		logger:        &nopLogger,
+		retryCount:        3,
+		httpClientFactory: httpClientFactory,
+		instrumentor:      instrumentor,
+		errorReporter:     errorReporter,
+		logger:            &nopLogger,
 	}
 
 	for _, option := range options {
@@ -137,7 +139,7 @@ func (s *httpClient) httpCall(req *http.Request) (*http.Response, error) {
 		req.Body = reqBody
 		s.logger.Debug().Str("url", req.URL.String()).Str("snyk-request-id", requestId).Str("requestBody", string(reqBuf)).Msg("SEND TO REMOTE")
 	}
-	response, err := s.clientFactory().Do(req)
+	response, err := s.httpClientFactory().Do(req)
 	req.Body = copyReqBody
 	if response != nil {
 		var copyResBody io.ReadCloser
