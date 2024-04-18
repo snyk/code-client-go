@@ -14,13 +14,23 @@
         "path": "/orgs/e7ea34c9-de0f-422c-bf2c-4654c2e2da90/workspaces",
         "query": "version=2024-03-12%7Eexperimental",
         "headers": {
-          "Snyk-Request-Id": "fc763eba-0905-41c5-a27f-3934ab26786c"
+          "Authorization": "Bearer fc763eba-0905-41c5-a27f-3934ab26786c",
+          "Snyk-Request-Id": "fc763eba-0905-41c5-a27f-3934ab26786c",
+          "User-Agent": "go-http-client/1.1"
         },
         "body": "AA==",
         "matchingRules": {
+          "$.headers.Authorization": {
+            "match": "regex",
+            "regex": "^Bearer [0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}"
+          },
           "$.headers.Snyk-Request-Id": {
             "match": "regex",
             "regex": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}"
+          },
+          "$.headers.User-Agent": {
+            "match": "regex",
+            "regex": ".*"
           },
           "$.body": {
             "match": "type"
@@ -30,7 +40,7 @@
       "response": {
         "status": 200,
         "headers": {
-          "Content-Type": "application/json"
+          "Content-Type": "application/vnd.api+json; charset=utf-8"
         },
         "body": {
           "data": {

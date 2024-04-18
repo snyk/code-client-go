@@ -38,9 +38,10 @@ const (
 	pactDir      = "./pacts"
 	pactProvider = "WorkspaceApi"
 
-	orgUUID     = "e7ea34c9-de0f-422c-bf2c-4654c2e2da90"
-	requestId   = "b6ea34c9-de0f-422c-bf2c-4654c2e2da90"
-	uuidMatcher = "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}"
+	orgUUID             = "e7ea34c9-de0f-422c-bf2c-4654c2e2da90"
+	requestId           = "b6ea34c9-de0f-422c-bf2c-4654c2e2da90"
+	uuidMatcher         = "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}"
+	sessionTokenMatcher = "^Bearer [0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}"
 )
 
 // Common test data
@@ -68,9 +69,9 @@ func TestWorkspaceClientPact(t *testing.T) {
 			Headers: getHeaderMatcher(),
 			Body:    getBodyMatcher(),
 		}).WillRespondWith(dsl.Response{
-			Status: 200,
+			Status: 201,
 			Headers: dsl.MapMatcher{
-				"Content-Type": dsl.String("application/json"),
+				"Content-Type": dsl.String("application/vnd.api+json; charset=utf-8"),
 			},
 			Body: dsl.Match(externalRef3.WorkspacePostResponse{}),
 		})
@@ -79,6 +80,9 @@ func TestWorkspaceClientPact(t *testing.T) {
 			_, err := client.CreateWorkspaceWithApplicationVndAPIPlusJSONBodyWithResponse(context.Background(), uuid.MustParse(orgUUID), &v20240312.CreateWorkspaceParams{
 				Version:       "2024-03-12~experimental",
 				SnykRequestId: uuid.MustParse(requestId),
+				UserAgent:     "code-client-go",
+				Authorization: "Bearer f730e51f-1234-467d-8728-15e7aaea9b1a",
+				ContentType:   "application/vnd.api+json",
 			}, v20240312.CreateWorkspaceApplicationVndAPIPlusJSONRequestBody{
 				Data: struct {
 					Attributes struct {
@@ -152,6 +156,9 @@ func setupPact(t *testing.T) {
 func getHeaderMatcher() dsl.MapMatcher {
 	return dsl.MapMatcher{
 		"Snyk-Request-Id": getSnykRequestIdMatcher(),
+		"Authorization":   dsl.Regex("Bearer fc763eba-0905-41c5-a27f-3934ab26786c", sessionTokenMatcher),
+		"User-Agent":      dsl.Regex("go-http-client/1.1", ".*"),
+		"Content-Type":    dsl.String("application/vnd.api+json"),
 	}
 }
 

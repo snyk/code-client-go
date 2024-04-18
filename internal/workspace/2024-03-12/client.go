@@ -41,6 +41,9 @@ type CreateWorkspaceParams struct {
 
 	// ContentType Content type header
 	ContentType CreateWorkspaceParamsContentType `json:"content-type"`
+
+	// ContentType Content type header
+	Authorization CreateWorkspaceParamsContentType `json:"authorization"`
 }
 
 // CreateWorkspaceParamsContentType defines parameters for CreateWorkspace.
@@ -242,6 +245,15 @@ func NewCreateWorkspaceRequestWithBody(server string, orgId externalRef2.OrgId, 
 		}
 
 		req.Header.Set("content-type", headerParam2)
+
+		var headerParam3 string
+
+		headerParam3, err = runtime.StyleParamWithLocation("simple", false, "authorization", runtime.ParamLocationHeader, params.Authorization)
+		if err != nil {
+			return nil, err
+		}
+
+		req.Header.Set("authorization", headerParam3)
 
 	}
 
