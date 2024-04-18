@@ -18,6 +18,7 @@ package analysis_test
 import (
 	"bytes"
 	"context"
+	"fmt"
 	"github.com/stretchr/testify/mock"
 	"io"
 	"net/http"
@@ -104,7 +105,8 @@ func TestAnalysis_CreateWorkspace_NotARepository(t *testing.T) {
 		"4a72d1db-b465-4764-99e1-ecedad03b06a",
 		"b372d1db-b465-4764-99e1-ecedad03b06a",
 		repoDir,
-		"testBundleHash")
+		"testBundleHash",
+	)
 	assert.ErrorContains(t, err, "open local repository")
 }
 
@@ -149,6 +151,75 @@ func TestAnalysis_CreateWorkspace_Failure(t *testing.T) {
 		"../../",
 		"testBundleHash")
 	assert.ErrorContains(t, err, "error detail")
+}
+
+func TestAnalysis_CreateWorkspace_KnownErrors(t *testing.T) {
+	type testCase struct {
+		name           string
+		expectedStatus int
+		expectedError  string
+	}
+
+	testCases := []testCase{
+		{
+			name:           "StatusBadRequest",
+			expectedStatus: http.StatusBadRequest,
+			expectedError:  "400",
+		},
+		{
+			name:           "StatusUnauthorized",
+			expectedStatus: http.StatusUnauthorized,
+			expectedError:  "401",
+		},
+		{
+			name:           "StatusForbidden",
+			expectedStatus: http.StatusForbidden,
+			expectedError:  "403",
+		},
+		{
+			name:           "StatusInternalServerError",
+			expectedStatus: http.StatusInternalServerError,
+			expectedError:  "500",
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			ctrl := gomock.NewController(t)
+			mockSpan := mocks.NewMockSpan(ctrl)
+			mockSpan.EXPECT().GetTraceId().AnyTimes()
+			mockSpan.EXPECT().Context().AnyTimes()
+			mockConfig := confMocks.NewMockConfig(ctrl)
+			mockConfig.EXPECT().Organization().AnyTimes().Return("")
+			mockConfig.EXPECT().SnykApi().AnyTimes().Return("http://localhost")
+
+			mockHTTPClient := httpmocks.NewMockHTTPClient(ctrl)
+			mockHTTPClient.EXPECT().Do(gomock.Any()).Times(1).Return(&http.Response{
+				StatusCode: tc.expectedStatus,
+				Header: http.Header{
+					"Content-Type": []string{"application/vnd.api+json"},
+				},
+				Body: io.NopCloser(bytes.NewReader([]byte(fmt.Sprintf(`{"jsonapi":{"version":"1.0"},"errors":[{"id":"05ebb47a-631a-485a-8db6-5ed0b3943eb0","detail":"%s"}]}`, tc.expectedError)))),
+			}, nil)
+
+			mockInstrumentor := mocks.NewMockInstrumentor(ctrl)
+			mockInstrumentor.EXPECT().StartSpan(gomock.Any(), gomock.Any()).Return(mockSpan).AnyTimes()
+			mockInstrumentor.EXPECT().Finish(gomock.Any()).AnyTimes()
+			mockErrorReporter := mocks.NewMockErrorReporter(ctrl)
+
+			logger := zerolog.Nop()
+
+			analysisOrchestrator := analysis.NewAnalysisOrchestrator(&logger, mockHTTPClient, mockInstrumentor, mockErrorReporter, mockConfig)
+			_, err := analysisOrchestrator.CreateWorkspace(
+				context.Background(),
+				"4a72d1db-b465-4764-99e1-ecedad03b06a",
+				"b372d1db-b465-4764-99e1-ecedad03b06a",
+				"../../",
+				"testBundleHash",
+			)
+			assert.ErrorContains(t, err, tc.expectedError)
+		})
+	}
 }
 
 func TestAnalysis_RunAnalysis(t *testing.T) {
