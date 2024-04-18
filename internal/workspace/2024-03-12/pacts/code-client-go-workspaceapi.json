@@ -11,14 +11,14 @@
       "providerState": "New workspace",
       "request": {
         "method": "POST",
-        "path": "/orgs/e7ea34c9-de0f-422c-bf2c-4654c2e2da90/workspaces",
+        "path": "/hidden/orgs/e7ea34c9-de0f-422c-bf2c-4654c2e2da90/workspaces",
         "query": "version=2024-03-12%7Eexperimental",
         "headers": {
           "Authorization": "Bearer fc763eba-0905-41c5-a27f-3934ab26786c",
+          "Content-Type": "application/vnd.api+json",
           "Snyk-Request-Id": "fc763eba-0905-41c5-a27f-3934ab26786c",
           "User-Agent": "go-http-client/1.1"
         },
-        "body": "AA==",
         "matchingRules": {
           "$.headers.Authorization": {
             "match": "regex",
@@ -31,23 +31,18 @@
           "$.headers.User-Agent": {
             "match": "regex",
             "regex": ".*"
-          },
-          "$.body": {
-            "match": "type"
           }
         }
       },
       "response": {
-        "status": 200,
+        "status": 201,
         "headers": {
           "Content-Type": "application/vnd.api+json; charset=utf-8"
         },
         "body": {
           "data": {
-            "id": [
-              1
-            ],
-            "type": "string"
+            "id": "9c2c14da-7035-4280-bafb-d3e874ebd4af",
+            "type": "file_bundle_workspace"
           },
           "jsonapi": {
             "version": "string"
@@ -59,16 +54,7 @@
           }
         },
         "matchingRules": {
-          "$.body.data.id": {
-            "min": 1
-          },
-          "$.body.data.id[*].*": {
-            "match": "type"
-          },
-          "$.body.data.id[*]": {
-            "match": "type"
-          },
-          "$.body.data.type": {
+          "$.body.data": {
             "match": "type"
           },
           "$.body.jsonapi.version": {

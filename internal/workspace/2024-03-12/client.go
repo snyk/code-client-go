@@ -182,7 +182,7 @@ func NewCreateWorkspaceRequestWithBody(server string, orgId externalRef2.OrgId, 
 		return nil, err
 	}
 
-	operationPath := fmt.Sprintf("/orgs/%s/workspaces", pathParam0)
+	operationPath := fmt.Sprintf("/hidden/orgs/%s/workspaces", pathParam0)
 	if operationPath[0] == '/' {
 		operationPath = "." + operationPath
 	}
