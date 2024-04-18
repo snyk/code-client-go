@@ -66,6 +66,7 @@ func WithErrorReporter(errorReporter observability.ErrorReporter) OptionFunc {
 func WithLogger(logger *zerolog.Logger) OptionFunc {
 	return func(h *httpClient) {
 		h.logger = logger
+		h.errorReporter = observability.NewErrorReporter(logger)
 	}
 }
 
@@ -98,36 +99,40 @@ var retryErrorCodes = map[int]bool{
 	http.StatusInternalServerError: true,
 }
 
-func (s *httpClient) Do(req *http.Request) (response *http.Response, err error) {
+func (s *httpClient) Do(req *http.Request) (*http.Response, error) {
 	span := s.instrumentor.StartSpan(req.Context(), "http.Do")
 	defer s.instrumentor.Finish(span)
 
-	for i := 0; i < s.retryCount; i++ {
+	retryCount := s.retryCount
+	for {
 		requestId := span.GetTraceId()
 		req.Header.Set("snyk-request-id", requestId)
 
-		response, err = s.httpCall(req)
+		response, err := s.httpCall(req)
 		if err != nil {
 			return nil, err // no retries for errors
 		}
 
-		if retryErrorCodes[response.StatusCode] {
-			s.logger.Debug().Err(err).Str("method", req.Method).Int("attempts done", i+1).Msg("retrying")
-			if i < s.retryCount-1 {
-				time.Sleep(5 * time.Second)
-				continue
-			}
+		if retryCount > 0 && retryErrorCodes[response.StatusCode] {
+			s.logger.Debug().Err(err).Int("attempts left", retryCount).Msg("retrying")
+			retryCount--
+			time.Sleep(5 * time.Second)
+			continue
 		}
 
-		// no error, we can break the retry loop
-		break
+		// should return
+		return response, err
 	}
-	return response, err
 }
 
 func (s *httpClient) httpCall(req *http.Request) (*http.Response, error) {
-	log := s.logger.With().Str("method", "http.httpCall").Logger()
 	requestId := req.Header.Get("snyk-request-id")
+	log := s.logger.With().
+		Str("method", "http.httpCall").
+		Str("reqMethod", req.Method).
+		Str("url", req.URL.String()).
+		Str("snyk-request-id", requestId).
+		Logger()
 
 	// store the request body so that after retrying it can be read again
 	var copyReqBody io.ReadCloser
@@ -137,7 +142,7 @@ func (s *httpClient) httpCall(req *http.Request) (*http.Response, error) {
 		reqBody := io.NopCloser(bytes.NewBuffer(reqBuf))
 		copyReqBody = io.NopCloser(bytes.NewBuffer(reqBuf))
 		req.Body = reqBody
-		s.logger.Debug().Str("url", req.URL.String()).Str("snyk-request-id", requestId).Str("requestBody", string(reqBuf)).Msg("SEND TO REMOTE")
+		s.logger.Debug().Msg("SEND TO REMOTE")
 	}
 	response, err := s.httpClientFactory().Do(req)
 	req.Body = copyReqBody
@@ -147,9 +152,9 @@ func (s *httpClient) httpCall(req *http.Request) (*http.Response, error) {
 		resBuf, _ = io.ReadAll(response.Body)
 		copyResBody = io.NopCloser(bytes.NewBuffer(resBuf))
 		response.Body = copyResBody
-		s.logger.Debug().Str("url", req.URL.String()).Str("response.Status", response.Status).Str("snyk-request-id", requestId).Str("responseBody", string(resBuf)).Msg("RECEIVED FROM REMOTE")
+		s.logger.Debug().Str("response.Status", response.Status).Msg("RECEIVED FROM REMOTE")
 	} else {
-		s.logger.Debug().Str("url", req.URL.String()).Str("snyk-request-id", requestId).Msg("RECEIVED FROM REMOTE")
+		s.logger.Debug().Msg("RECEIVED FROM REMOTE")
 	}
 
 	if err != nil {
