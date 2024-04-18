@@ -19,6 +19,16 @@
           "Snyk-Request-Id": "fc763eba-0905-41c5-a27f-3934ab26786c",
           "User-Agent": "go-http-client/1.1"
         },
+        "body": {
+          "data": {
+            "attributes": {
+              "bundle_id": "sampleYnVuZGxlSWQK",
+              "repository_uri": "https://url.invalid/code-client-go.git",
+              "workspace_type": "file_bundle_workspace"
+            },
+            "type": "workspace"
+          }
+        },
         "matchingRules": {
           "$.headers.Authorization": {
             "match": "regex",
@@ -31,6 +41,9 @@
           "$.headers.User-Agent": {
             "match": "regex",
             "regex": ".*"
+          },
+          "$.body": {
+            "match": "type"
           }
         }
       },

@@ -74,7 +74,7 @@ func TestWorkspaceClientPact(t *testing.T) {
 				"version": dsl.String("2024-03-12~experimental"),
 			},
 			Headers: getHeaderMatcher(),
-			// Body:    getBodyMatcher(), // todo: not working, requires fixing
+			Body:    getBodyMatcher(),
 		}).WillRespondWith(dsl.Response{
 			Status: 201,
 			Headers: dsl.MapMatcher{
@@ -182,5 +182,28 @@ func getSnykRequestIdMatcher() dsl.Matcher {
 }
 
 func getBodyMatcher() dsl.Matcher {
-	return dsl.Like(make([]byte, 1))
+	return dsl.Like(v20240312.CreateWorkspaceApplicationVndAPIPlusJSONRequestBody{
+		Data: struct {
+			Attributes struct {
+				BundleId      string                                                       `json:"bundle_id"`
+				RepositoryUri string                                                       `json:"repository_uri"`
+				WorkspaceType externalRef3.WorkspacePostRequestDataAttributesWorkspaceType `json:"workspace_type"`
+			} `json:"attributes"`
+			Type externalRef3.WorkspacePostRequestDataType `json:"type"`
+		}(struct {
+			Attributes struct {
+				BundleId      string                                                       `json:"bundle_id"`
+				RepositoryUri string                                                       `json:"repository_uri"`
+				WorkspaceType externalRef3.WorkspacePostRequestDataAttributesWorkspaceType `json:"workspace_type"`
+			}
+			Type externalRef3.WorkspacePostRequestDataType
+		}{Attributes: struct {
+			BundleId      string                                                       `json:"bundle_id"`
+			RepositoryUri string                                                       `json:"repository_uri"`
+			WorkspaceType externalRef3.WorkspacePostRequestDataAttributesWorkspaceType `json:"workspace_type"`
+		}(struct {
+			BundleId      string
+			RepositoryUri string
+			WorkspaceType externalRef3.WorkspacePostRequestDataAttributesWorkspaceType
+		}{BundleId: "sampleYnVuZGxlSWQK", RepositoryUri: "https://url.invalid/code-client-go.git", WorkspaceType: "file_bundle_workspace"}), Type: "workspace"})})
 }
