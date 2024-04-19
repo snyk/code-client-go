@@ -16,13 +16,26 @@ jobs:
       - checkout
       - run:
           name: Install tools
-          command: make tools
+          command: | 
+            sudo apt-get update && sudo apt-get install -y python3 python3-pip
+            sudo apt-get install --reinstall ca-certificates
+            python3 -m pip install yq
+            python3 -m pip install pycurl
+            make tools
       - run: make format
+      - run:
+          command: |
+            CURL_CA_BUNDLE=/etc/ssl/certs/ca-certificates.crt make download-apis
+      - run: make generate
       - run:
           name: "Ensure go.mod is tidy"
           command: |
             go mod tidy
             git diff --exit-code go.mod go.sum
+      - run:
+          name: Check if there are any changes
+          command: |
+            git status --porcelain=v1 | tee /dev/stderr | wc -l | grep -qE '^ *0 *$$'
       - run: make lint
   unit_test:
     executor: default
@@ -73,6 +86,7 @@ workflows:
           context: code-client-go
       - lint-and-format:
           name: Lint & Format
+          context: code-client-go
       - unit_test:
           name: Unit tests
           requires:
