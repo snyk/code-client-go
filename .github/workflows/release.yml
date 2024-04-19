@@ -5,8 +5,35 @@ on:
       - 'main'
 
 jobs:
+  unit-tests:
+    name: unit tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Set up Go
+        uses: actions/setup-go@v3
+        with:
+          go-version-file: './go.mod'
+
+      - name: Set up Pact CLI tools
+        shell: bash
+        run: |
+          cd ~
+          curl -fsSL https://raw.githubusercontent.com/pact-foundation/pact-ruby-standalone/master/install.sh | bash
+
+      - name: Lint
+        run: |
+          make lint
+
+      - name: Test
+        run: |
+          make test
+
   build:
     runs-on: ubuntu-latest
+    needs:
+      - unit-tests
     steps:
       - uses: actions/checkout@v3
         with:
