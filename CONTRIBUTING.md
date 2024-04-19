@@ -43,7 +43,12 @@ In order to update the clients you need access to some private Snyk repositories
 export GITHUB_PAT=<GITHUB_PAT>
 ```
 
-Also make sure to have `python3` installed.
+Also make sure to have `python3` installed and dependencies:
+```sh
+brew install python
+python3 -m pip install yq --break-system-packages
+python3 -m pip install pycurl --break-system-packages
+```
 
 Then run `make download-apis` to download the latest code. If you want to download a new version, you can also do that.
 
