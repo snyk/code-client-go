@@ -28,7 +28,6 @@ import (
 	"github.com/stretchr/testify/require"
 
 	codeClientHTTP "github.com/snyk/code-client-go/http"
-	"github.com/snyk/code-client-go/observability"
 	"github.com/snyk/code-client-go/observability/mocks"
 )
 
@@ -56,38 +55,6 @@ func (d *dummyTransport) RoundTrip(req *http.Request) (*http.Response, error) {
 	}, nil
 }
 
-func TestSnykCodeBackendService_DoCall_shouldRetry(t *testing.T) {
-	d := &dummyTransport{responseCode: 502, status: "502 Bad Gateway"}
-	dummyClientFactory := func() *http.Client {
-		return &http.Client{
-			Transport: d,
-		}
-	}
-
-	ctrl := gomock.NewController(t)
-	mockSpan := mocks.NewMockSpan(ctrl)
-	mockSpan.EXPECT().GetTraceId().AnyTimes()
-	mockInstrumentor := mocks.NewMockInstrumentor(ctrl)
-	mockInstrumentor.EXPECT().StartSpan(gomock.Any(), gomock.Any()).Return(mockSpan).Times(1)
-	mockInstrumentor.EXPECT().Finish(gomock.Any()).Times(1)
-	mockErrorReporter := mocks.NewMockErrorReporter(ctrl)
-
-	req, err := http.NewRequest(http.MethodGet, "https://httpstat.us/500", nil)
-	require.NoError(t, err)
-
-	s := codeClientHTTP.NewHTTPClient(
-		dummyClientFactory,
-		codeClientHTTP.WithRetryCount(3),
-		codeClientHTTP.WithInstrumentor(mockInstrumentor),
-		codeClientHTTP.WithErrorReporter(mockErrorReporter),
-		codeClientHTTP.WithLogger(newLogger(t)),
-	)
-	res, err := s.Do(req)
-	assert.NoError(t, err)
-	assert.NotNil(t, res)
-	assert.Equal(t, 3, d.calls)
-}
-
 func TestSnykCodeBackendService_DoCall_shouldRetryWithARequestBody(t *testing.T) {
 	d := &dummyTransport{responseCode: 502, status: "502 Bad Gateway"}
 	dummyClientFactory := func() *http.Client {
@@ -104,7 +71,7 @@ func TestSnykCodeBackendService_DoCall_shouldRetryWithARequestBody(t *testing.T)
 	mockInstrumentor.EXPECT().Finish(gomock.Any()).Times(1)
 	mockErrorReporter := mocks.NewMockErrorReporter(ctrl)
 
-	req, err := http.NewRequest(http.MethodGet, "https://httpstat.us/500", io.NopCloser(strings.NewReader("body")))
+	req, err := http.NewRequest(http.MethodGet, "https://127.0.0.1", io.NopCloser(strings.NewReader("body")))
 	require.NoError(t, err)
 
 	s := codeClientHTTP.NewHTTPClient(
@@ -117,12 +84,15 @@ func TestSnykCodeBackendService_DoCall_shouldRetryWithARequestBody(t *testing.T)
 	res, err := s.Do(req)
 	assert.NoError(t, err)
 	assert.NotNil(t, res)
-	assert.Equal(t, 3, d.calls)
+	assert.Equal(t, 4, d.calls)
 }
 
-func TestSnykCodeBackendService_doCall_rejected(t *testing.T) {
+func TestSnykCodeBackendService_DoCall_shouldSucceed(t *testing.T) {
+	d := &dummyTransport{responseCode: 200}
 	dummyClientFactory := func() *http.Client {
-		return &http.Client{}
+		return &http.Client{
+			Transport: d,
+		}
 	}
 
 	ctrl := gomock.NewController(t)
@@ -132,9 +102,8 @@ func TestSnykCodeBackendService_doCall_rejected(t *testing.T) {
 	mockInstrumentor.EXPECT().StartSpan(gomock.Any(), gomock.Any()).Return(mockSpan).Times(1)
 	mockInstrumentor.EXPECT().Finish(gomock.Any()).Times(1)
 	mockErrorReporter := mocks.NewMockErrorReporter(ctrl)
-	mockErrorReporter.EXPECT().CaptureError(gomock.Any(), observability.ErrorReporterOptions{ErrorDiagnosticPath: ""})
 
-	req, err := http.NewRequest(http.MethodGet, "https://127.0.0.1", nil)
+	req, err := http.NewRequest(http.MethodGet, "https://httpstat.us/200", nil)
 	require.NoError(t, err)
 
 	s := codeClientHTTP.NewHTTPClient(
@@ -144,8 +113,41 @@ func TestSnykCodeBackendService_doCall_rejected(t *testing.T) {
 		codeClientHTTP.WithErrorReporter(mockErrorReporter),
 		codeClientHTTP.WithLogger(newLogger(t)),
 	)
-	_, err = s.Do(req)
-	assert.Error(t, err)
+	res, err := s.Do(req)
+	assert.NoError(t, err)
+	assert.NotNil(t, res)
+	assert.Equal(t, 1, d.calls)
+}
+
+func TestSnykCodeBackendService_DoCall_shouldFail(t *testing.T) {
+	d := &dummyTransport{responseCode: 400, status: "400 Bad Request"}
+	dummyClientFactory := func() *http.Client {
+		return &http.Client{
+			Transport: d,
+		}
+	}
+
+	ctrl := gomock.NewController(t)
+	mockSpan := mocks.NewMockSpan(ctrl)
+	mockSpan.EXPECT().GetTraceId().AnyTimes()
+	mockInstrumentor := mocks.NewMockInstrumentor(ctrl)
+	mockInstrumentor.EXPECT().StartSpan(gomock.Any(), gomock.Any()).Return(mockSpan).Times(1)
+	mockInstrumentor.EXPECT().Finish(gomock.Any()).Times(1)
+	mockErrorReporter := mocks.NewMockErrorReporter(ctrl)
+
+	req, err := http.NewRequest(http.MethodGet, "https://127.0.0.1", nil)
+	require.NoError(t, err)
+
+	s := codeClientHTTP.NewHTTPClient(
+		dummyClientFactory,
+		codeClientHTTP.WithRetryCount(1),
+		codeClientHTTP.WithInstrumentor(mockInstrumentor),
+		codeClientHTTP.WithErrorReporter(mockErrorReporter),
+		codeClientHTTP.WithLogger(newLogger(t)),
+	)
+	response, err := s.Do(req)
+	assert.Equal(t, "400 Bad Request", response.Status)
+	assert.NoError(t, err)
 }
 
 func newLogger(t *testing.T) *zerolog.Logger {
