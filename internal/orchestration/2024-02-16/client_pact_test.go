@@ -1,4 +1,4 @@
-//go:build CONTRACT
+//go:build contract
 
 /*
  * © 2022-2024 Snyk Limited
@@ -258,7 +258,7 @@ func setupPact(t *testing.T) {
 		func() *http.Client {
 			return http.DefaultClient
 		},
-		codeClientHTTP.WithRetryCount(3),
+		codeClientHTTP.WithRetryCount(1),
 		codeClientHTTP.WithInstrumentor(instrumentor),
 		codeClientHTTP.WithErrorReporter(errorReporter),
 		codeClientHTTP.WithLogger(&logger),

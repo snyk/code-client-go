@@ -44,24 +44,40 @@ clean:
 	@rm -rf $(TOOLS_BIN)
 
 .PHONY: test
-test: 
+test:
 	@echo "Testing..."
-	@go test -cover ./...
+	@go test -cover . ./...
 
 .PHONY: testv
-testv: 
+testv:
 	@echo "Testing verbosely..."
-	@go test -v
-
-.PHONY: contract-test
-contract-test: $(TOOLS_BIN)
-	@echo "Contract testing..."
-	@go test -tags=CONTRACT ./...
+	@go test -v . ./...
 
 .PHONY: smoke-test
 smoke-test:
 	@echo "Smoke testing..."
-	@go test -tags=SMOKE
+	@go test -tags=smoke
+
+.PHONY: contract-test
+contract-test: $(TOOLS_BIN)
+	@echo "Contract testing..."
+	@go test -tags=contract ./...
+
+.PHONY: publish-contract
+publish-contract:
+	./scripts/publish-contract.sh
+
+.PHONY: verify-contract
+verify-contract:
+	./scripts/verify-contract.sh
+
+.PHONY: is-contract-compatible
+is-contract-compatible:
+	./scripts/is-contract-compatible.sh
+
+.PHONY: deploy-contract
+deploy-contract:
+	./scripts/deploy-contract.sh
 
 .PHONY: generate
 generate:
@@ -106,5 +122,8 @@ help:
 	@echo "$(LOG_PREFIX) download-apis"
 	@echo "$(LOG_PREFIX) download-workspace-api"
 	@echo "$(LOG_PREFIX) download-orchestration-api"
+	@echo "$(LOG_PREFIX) contract-test
+	@echo "$(LOG_PREFIX) smoke-test
+	@echo "$(LOG_PREFIX) publish-contract
 	@echo "$(LOG_PREFIX) GOOS                       Specify Operating System to compile for (see golang GOOS, default=$(GOOS))"
 	@echo "$(LOG_PREFIX) GOARCH                     Specify Architecture to compile for (see golang GOARCH, default=$(GOARCH))"

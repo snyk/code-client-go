@@ -1,4 +1,4 @@
-//go:build CONTRACT
+// go:build contract
 
 /*
  * © 2022-2024 Snyk Limited
@@ -21,6 +21,8 @@ package v20240514_test
 import (
 	"context"
 	"fmt"
+	v202405142 "github.com/snyk/code-client-go/internal/workspace/2024-05-14/common"
+	externalRef1 "github.com/snyk/code-client-go/internal/workspace/2024-05-14/links"
 	"net/http"
 	"testing"
 
@@ -42,9 +44,11 @@ const (
 	pactDir      = "./pacts"
 	pactProvider = "WorkspaceApi"
 
-	orgUUID   = "e7ea34c9-de0f-422c-bf2c-4654c2e2da90"
-	requestId = "b6ea34c9-de0f-422c-bf2c-4654c2e2da90"
-	uuidRegex = "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}"
+	orgUUID             = "e7ea34c9-de0f-422c-bf2c-4654c2e2da90"
+	requestId           = "b6ea34c9-de0f-422c-bf2c-4654c2e2da90"
+	fakeApiToken        = "a330e51f-1234-467d-8728-15e7aaea9b1a"
+	uuidRegex           = "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}"
+	sessionTokenMatcher = "^Bearer [0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}"
 )
 
 // Common test data
@@ -53,6 +57,11 @@ var (
 	httpClient v20240216.HttpRequestDoer
 )
 
+type Data struct {
+	Id   string `json:"id"`
+	Type string `json:"type"`
+}
+
 func TestWorkspaceClientPact(t *testing.T) {
 	setupPact(t)
 
@@ -60,29 +69,39 @@ func TestWorkspaceClientPact(t *testing.T) {
 	t.Run("Create workspace", func(t *testing.T) {
 		pact.AddInteraction().Given("New workspace").UponReceiving("Create workspace").WithCompleteRequest(consumer.Request{
 			Method: "POST",
-			Path:   matchers.String(fmt.Sprintf("/orgs/%s/workspaces", orgUUID)),
+			Path:   matchers.String(fmt.Sprintf("/hidden/orgs/%s/workspaces", orgUUID)),
 			Query: matchers.MapMatcher{
 				"version": matchers.String("2024-05-14~experimental"),
 			},
 			Headers: getHeaderMatcher(),
 			Body:    getBodyMatcher(),
 		}).WithCompleteResponse(consumer.Response{
-			Status: 200,
+			Status: 201,
 			Headers: matchers.MapMatcher{
-				"Content-Type": matchers.String("application/vnd.api+json"),
+				"Content-Type": matchers.String("application/vnd.api+json; charset=utf-8"),
+			}, Body: map[string]interface{}{
+				"data": matchers.Like(Data{
+					Id:   "9c2c14da-7035-4280-bafb-d3e874ebd4af",
+					Type: "file_bundle_workspace",
+				}),
+				"jsonapi": matchers.MatchV2(&v202405142.JsonApi{}),
+				"links":   matchers.MatchV2(&externalRef1.LinkSelf{}),
 			},
-			Body: matchers.MatchV2(workspaces.WorkspacePostResponse{}),
+			//  dsl.Match(&externalRef3.WorkspacePostResponse{}), // not working due to uuid deserialisation https://github.com/pact-foundation/pact-go/issues/179
 		})
 
 		test := func(config consumer.MockServerConfig) error {
-			client, err := v20240514.NewClientWithResponses(fmt.Sprintf("http://localhost:%d", config.Port), v20240514.WithHTTPClient(httpClient))
-			require.NoError(t, err)
+			client, err := v20240514.NewClientWithResponses(fmt.Sprintf("http://localhost:%d/hidden", config.Port), v20240514.WithHTTPClient(httpClient))
+			if err != nil {
+				return err
+			}
 			_, err = client.CreateWorkspaceWithApplicationVndAPIPlusJSONBodyWithResponse(
 				context.Background(),
 				uuid.MustParse(orgUUID),
 				&v20240514.CreateWorkspaceParams{
 					Version:       "2024-05-14~experimental",
 					SnykRequestId: uuid.MustParse(requestId),
+					UserAgent:     "code-client-go",
 					ContentType:   "application/vnd.api+json",
 				},
 				v20240514.CreateWorkspaceApplicationVndAPIPlusJSONRequestBody{
@@ -116,10 +135,7 @@ func TestWorkspaceClientPact(t *testing.T) {
 		}
 
 		err := pact.ExecuteTest(t, test)
-
-		if err != nil {
-			t.Fatalf("Error on verify: %v", err)
-		}
+		require.NoError(t, err)
 	})
 }
 
@@ -153,6 +169,7 @@ func getHeaderMatcher() matchers.MapMatcher {
 	return matchers.MapMatcher{
 		"Snyk-Request-Id": getSnykRequestIdMatcher(),
 		"Content-Type":    matchers.S("application/vnd.api+json"),
+		"User-Agent":      matchers.Regex("go-http-client/1.1", ".*"),
 	}
 }
 
@@ -161,5 +178,31 @@ func getSnykRequestIdMatcher() matchers.Matcher {
 }
 
 func getBodyMatcher() matchers.Matcher {
-	return matchers.MatchV2(v20240514.CreateWorkspaceApplicationVndAPIPlusJSONRequestBody{})
+	return matchers.Like(v20240514.CreateWorkspaceApplicationVndAPIPlusJSONRequestBody{
+		Data: struct {
+			Attributes struct {
+				BundleId      string                                                     `json:"bundle_id"`
+				RepositoryUri string                                                     `json:"repository_uri"`
+				RootFolderId  string                                                     `json:"root_folder_id"`
+				WorkspaceType workspaces.WorkspacePostRequestDataAttributesWorkspaceType `json:"workspace_type"`
+			} `json:"attributes"`
+			Type workspaces.WorkspacePostRequestDataType `json:"type"`
+		}{Attributes: struct {
+			BundleId      string                                                     `json:"bundle_id"`
+			RepositoryUri string                                                     `json:"repository_uri"`
+			RootFolderId  string                                                     `json:"root_folder_id"`
+			WorkspaceType workspaces.WorkspacePostRequestDataAttributesWorkspaceType `json:"workspace_type"`
+		}(struct {
+			BundleId      string
+			RepositoryUri string
+			RootFolderId  string
+			WorkspaceType workspaces.WorkspacePostRequestDataAttributesWorkspaceType
+		}{
+			BundleId:      "sampleYnVuZGxlSWQK",
+			RepositoryUri: "https://url.invalid/code-client-go.git",
+			WorkspaceType: "file_bundle_workspace",
+		}),
+			Type: "workspace",
+		},
+	})
 }

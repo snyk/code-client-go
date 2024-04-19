@@ -32,9 +32,6 @@ jobs:
     steps:
       - checkout
       - run:
-          name: Install tools
-          command: make tools
-      - run:
           name: Run unit tests
           command: make test
   smoke_test:
@@ -71,6 +68,27 @@ jobs:
       - prodsec/security_scans:
           mode: auto
           iac-scan: disabled
+  contract_test:
+    docker:
+      - image: cimg/go:1.21.1-node # the base image with a node variant for the provider
+    steps:
+      - checkout
+      - run:
+          name: Install tools
+          command: make tools
+      - run:
+          name: Run contract tests
+          command: make contract-test
+      - run:
+          name: Publish contract
+          command: make publish-contract
+      - run:
+          name: Verify contract # clones the provider, which requires node
+          command: make verify-contract
+      - run:
+          name: Check if contract is compatible
+          command: make is-contract-compatible
+
 # Orchestrate our job run sequence
 workflows:
   version: 2
@@ -94,11 +112,13 @@ workflows:
       - smoke_test:
           name: Smoke tests
           context:
-            - code-client-go-smoke-tests-token
+            - code-client-go-smoke-tests-token # SMOKE_TEST_TOKEN
           requires:
             - Unit tests
       - contract_test:
           name: Contract tests
+          context:
+            - code-client-go-contract-tests # PACT_BROKER_URL, PACT_BROKER_TOKEN
           requires:
             - Unit tests
       - build:
