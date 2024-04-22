@@ -40,18 +40,27 @@ import (
 	"time"
 )
 
-type analysisOrchestrator struct {
-	httpClient    codeClientHTTP.HTTPClient
-	instrumentor  observability.Instrumentor
-	errorReporter observability.ErrorReporter
-	logger        *zerolog.Logger
-	config        config.Config
-}
-
 //go:generate mockgen -destination=mocks/analysis.go -source=analysis.go -package mocks
 type AnalysisOrchestrator interface {
 	CreateWorkspace(ctx context.Context, orgId string, requestId string, path string, bundleHash string) (string, error)
 	RunAnalysis(ctx context.Context, orgId string, workspaceId string) (*sarif.SarifResponse, error)
+}
+
+type analysisOrchestrator struct {
+	httpClient       codeClientHTTP.HTTPClient
+	instrumentor     observability.Instrumentor
+	errorReporter    observability.ErrorReporter
+	logger           *zerolog.Logger
+	config           config.Config
+	timeoutInSeconds time.Duration
+}
+
+type OptionFunc func(*analysisOrchestrator)
+
+func WithTimeoutInSeconds(timeoutInSeconds time.Duration) func(*analysisOrchestrator) {
+	return func(a *analysisOrchestrator) {
+		a.timeoutInSeconds = timeoutInSeconds * time.Second
+	}
 }
 
 func NewAnalysisOrchestrator(
@@ -60,14 +69,21 @@ func NewAnalysisOrchestrator(
 	httpClient codeClientHTTP.HTTPClient,
 	instrumentor observability.Instrumentor,
 	errorReporter observability.ErrorReporter,
+	options ...OptionFunc,
 ) AnalysisOrchestrator {
-	return &analysisOrchestrator{
-		httpClient,
-		instrumentor,
-		errorReporter,
-		logger,
-		config,
+	a := &analysisOrchestrator{
+		httpClient:       httpClient,
+		instrumentor:     instrumentor,
+		errorReporter:    errorReporter,
+		logger:           logger,
+		config:           config,
+		timeoutInSeconds: 120 * time.Second,
 	}
+	for _, option := range options {
+		option(a)
+	}
+
+	return a
 }
 
 func (a *analysisOrchestrator) CreateWorkspace(ctx context.Context, orgId string, requestId string, path string, bundleHash string) (string, error) {
@@ -163,10 +179,10 @@ func (a *analysisOrchestrator) RunAnalysis(ctx context.Context, orgId string, wo
 	logger.Debug().Msg("API: Creating the scan")
 	org := uuid.MustParse(orgId)
 
-	host := fmt.Sprintf("%s/rest", a.config.SnykApi())
-	a.logger.Debug().Str("host", host).Str("workspaceId", workspaceId).Msg("starting scan")
+	a.logger.Debug().Str("host", a.hostRest()).Str("workspaceId", workspaceId).Msg("starting scan")
 
-	client, err := orchestrationClient.NewClientWithResponses(host, orchestrationClient.WithHTTPClient(a.httpClient))
+	client, err := orchestrationClient.NewClientWithResponses(a.hostRest(), orchestrationClient.WithHTTPClient(a.httpClient))
+
 	if err != nil {
 		return nil, fmt.Errorf("failed to create orchestrationClient: %w", err)
 	}
@@ -213,31 +229,17 @@ func (a *analysisOrchestrator) RunAnalysis(ctx context.Context, orgId string, wo
 	}
 
 	if createScanResponse.ApplicationvndApiJSON201 == nil {
-		var msg string
-		switch createScanResponse.StatusCode() {
-		case 400:
-			msg = createScanResponse.ApplicationvndApiJSON400.Errors[0].Detail
-		case 401:
-			msg = createScanResponse.ApplicationvndApiJSON401.Errors[0].Detail
-		case 403:
-			msg = createScanResponse.ApplicationvndApiJSON403.Errors[0].Detail
-		case 404:
-			msg = createScanResponse.ApplicationvndApiJSON404.Errors[0].Detail
-		case 429:
-			msg = createScanResponse.ApplicationvndApiJSON429.Errors[0].Detail
-		case 500:
-			msg = createScanResponse.ApplicationvndApiJSON500.Errors[0].Detail
-		}
+		msg := a.getStatusCode(createScanResponse)
 		return nil, errors.New(msg)
 	}
 
 	scanJobId := createScanResponse.ApplicationvndApiJSON201.Data.Id
-	a.logger.Debug().Str("host", host).Str("scanJobId", scanJobId.String()).Msg("triggered scan")
+	a.logger.Debug().Str("host", a.hostRest()).Str("workspaceId", workspaceId).Msg("starting scan")
 
 	// Actual polling loop.
 	pollingTicker := time.NewTicker(1 * time.Second)
 	defer pollingTicker.Stop()
-	timeoutTimer := time.NewTimer(2 * time.Minute)
+	timeoutTimer := time.NewTimer(a.timeoutInSeconds)
 	defer timeoutTimer.Stop()
 	for {
 		select {
@@ -297,11 +299,39 @@ func (a *analysisOrchestrator) poller(logger zerolog.Logger, client *orchestrati
 		case 500:
 			msg = httpResponse.ApplicationvndApiJSON500.Errors[0].Detail
 		}
-		return httpResponse, true, errors.New(msg)
+		return nil, true, errors.New(msg)
 	}
+}
+
+//func (a *analysisOrchestrator) setTimeoutTimeInSeconds(timout time.Duration) time.Duration {
+//	return timout * time.Second
+//}
+
+func (a *analysisOrchestrator) getStatusCode(createScanResponse *orchestrationClient.CreateScanWorkspaceJobForUserResponse) string {
+	var msg string
+	switch createScanResponse.StatusCode() {
+	case 400:
+		msg = createScanResponse.ApplicationvndApiJSON400.Errors[0].Detail
+	case 401:
+		msg = createScanResponse.ApplicationvndApiJSON401.Errors[0].Detail
+	case 403:
+		msg = createScanResponse.ApplicationvndApiJSON403.Errors[0].Detail
+	case 404:
+		msg = createScanResponse.ApplicationvndApiJSON404.Errors[0].Detail
+	case 429:
+		msg = createScanResponse.ApplicationvndApiJSON429.Errors[0].Detail
+	case 500:
+		msg = createScanResponse.ApplicationvndApiJSON500.Errors[0].Detail
+	}
+	return msg
 }
 
 func (a *analysisOrchestrator) host() string {
 	apiUrl := strings.TrimRight(a.config.SnykApi(), "/")
 	return fmt.Sprintf("%s/hidden", apiUrl)
+}
+
+func (a *analysisOrchestrator) hostRest() string {
+	apiUrl := strings.TrimRight(a.config.SnykApi(), "/")
+	return fmt.Sprintf("%s/rest", apiUrl)
 }

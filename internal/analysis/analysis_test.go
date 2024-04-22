@@ -227,13 +227,23 @@ func TestAnalysis_RunAnalysis(t *testing.T) {
 	}, nil)
 
 	analysisOrchestrator := analysis.NewAnalysisOrchestrator(mockConfig, &logger, mockHTTPClient, mockInstrumentor, mockErrorReporter)
+	analysis.WithTimeoutInSeconds(120)
 	actual, err := analysisOrchestrator.RunAnalysis(context.Background(), "b6fc8954-5918-45ce-bc89-54591815ce1b", "c172d1db-b465-4764-99e1-ecedad03b06a")
 
 	require.NoError(t, err)
 	assert.Equal(t, "COMPLETE", actual.Status)
 }
 
-func TestAnalysis_RunAnalysis_Error(t *testing.T) {
+func TestAnalysis_RunAnalysis_TriggerFunctionError(t *testing.T) {
+	mockConfig, mockHTTPClient, mockInstrumentor, mockErrorReporter, logger := setup(t)
+	mockHTTPClient.EXPECT().Do(gomock.Any()).Times(1).Return(nil, errors.New("error"))
+
+	analysisOrchestrator := analysis.NewAnalysisOrchestrator(mockConfig, &logger, mockHTTPClient, mockInstrumentor, mockErrorReporter)
+	_, err := analysisOrchestrator.RunAnalysis(context.Background(), "b6fc8954-5918-45ce-bc89-54591815ce1b", "c172d1db-b465-4764-99e1-ecedad03b06a")
+	assert.ErrorContains(t, err, "error")
+}
+
+func TestAnalysis_RunAnalysis_PollingFunctionError(t *testing.T) {
 	mockConfig, mockHTTPClient, mockInstrumentor, mockErrorReporter, logger := setup(t)
 	mockHTTPClient.EXPECT().Do(gomock.Any()).Times(1).Return(&http.Response{
 
@@ -251,7 +261,60 @@ func TestAnalysis_RunAnalysis_Error(t *testing.T) {
 	assert.ErrorContains(t, err, "error")
 }
 
-func TestAnalysis_RunAnalysis_ErrorCodes(t *testing.T) {
+func TestAnalysis_RunAnalysis_TriggerFunctionErrorCodes(t *testing.T) {
+	type testCase struct {
+		name           string
+		expectedStatus int
+		expectedError  string
+	}
+
+	testCases := []testCase{
+		{
+			name:           "StatusBadRequest",
+			expectedStatus: http.StatusBadRequest,
+			expectedError:  "400",
+		},
+		{
+			name:           "StatusUnauthorized",
+			expectedStatus: http.StatusUnauthorized,
+			expectedError:  "401",
+		},
+		{
+			name:           "StatusForbidden",
+			expectedStatus: http.StatusForbidden,
+			expectedError:  "403",
+		},
+		{
+			name:           "StatusNotFound",
+			expectedStatus: http.StatusNotFound,
+			expectedError:  "404",
+		},
+		{
+			name:           "StatusTooManyRequests",
+			expectedStatus: http.StatusTooManyRequests,
+			expectedError:  "429",
+		},
+		{
+			name:           "StatusInternalServerError",
+			expectedStatus: http.StatusInternalServerError,
+			expectedError:  "500",
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			mockConfig, mockHTTPClient, mockInstrumentor, mockErrorReporter, logger := setup(t)
+
+			mockHTTPClient.EXPECT().Do(gomock.Any()).Times(1).Return(nil, errors.New(strconv.Itoa(tc.expectedStatus)))
+
+			analysisOrchestrator := analysis.NewAnalysisOrchestrator(mockConfig, &logger, mockHTTPClient, mockInstrumentor, mockErrorReporter)
+			_, err := analysisOrchestrator.RunAnalysis(context.Background(), "b6fc8954-5918-45ce-bc89-54591815ce1b", "c172d1db-b465-4764-99e1-ecedad03b06a")
+			assert.ErrorContains(t, err, tc.expectedError)
+		})
+	}
+}
+
+func TestAnalysis_RunAnalysis_PollingFunctionErrorCodes(t *testing.T) {
 	type testCase struct {
 		name           string
 		expectedStatus int
@@ -323,9 +386,16 @@ func TestAnalysis_RunAnalysis_Timeout(t *testing.T) {
 		Body: io.NopCloser(bytes.NewReader([]byte(`{"data":{"id": "a6fb2742-b67f-4dc3-bb27-42b67f1dc344"}}`))),
 	}, nil)
 
-	mockHTTPClient.EXPECT().Do(gomock.Any()).MinTimes(1).Return(nil, errors.New("timeout requesting the ScanJobResult"))
+	mockHTTPClient.EXPECT().Do(gomock.Any()).MinTimes(2).Return(&http.Response{
+		StatusCode: http.StatusOK,
+		Header: http.Header{
+			"Content-Type": []string{"application/vnd.api+json"},
+		},
+		Body: io.NopCloser(bytes.NewReader([]byte(`{"data":{"id": "a6fb2742-b67f-4dc3-bb27-42b67f1dc344"}}`))),
+	}, errors.New("timeout requesting the ScanJobResult"))
 
 	analysisOrchestrator := analysis.NewAnalysisOrchestrator(mockConfig, &logger, mockHTTPClient, mockInstrumentor, mockErrorReporter)
+	analysis.WithTimeoutInSeconds(10)
 	_, err := analysisOrchestrator.RunAnalysis(context.Background(), "b6fc8954-5918-45ce-bc89-54591815ce1b", "c172d1db-b465-4764-99e1-ecedad03b06a")
 	assert.ErrorContains(t, err, "timeout requesting the ScanJobResult")
 }
