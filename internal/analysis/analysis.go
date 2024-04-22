@@ -172,7 +172,10 @@ func (a *analysisOrchestrator) RunAnalysis(ctx context.Context, orgId string, wo
 	}
 
 	flow := scans.Flow{}
-	flow.UnmarshalJSON([]byte(`{"name": "cli_test"}`))
+	err = flow.UnmarshalJSON([]byte(`{"name": "cli_test"}`))
+	if err != nil {
+		return nil, fmt.Errorf("failed to create scan request: %w", err)
+	}
 	createScanResponse, err := client.CreateScanWorkspaceJobForUserWithApplicationVndAPIPlusJSONBodyWithResponse(
 		context.Background(),
 		org,
