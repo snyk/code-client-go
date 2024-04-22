@@ -59,7 +59,7 @@ type OptionFunc func(*analysisOrchestrator)
 
 func WithTimeoutInSeconds(timeoutInSeconds time.Duration) func(*analysisOrchestrator) {
 	return func(a *analysisOrchestrator) {
-		a.timeoutInSeconds = timeoutInSeconds * time.Second
+		a.timeoutInSeconds = timeoutInSeconds
 	}
 }
 
@@ -102,7 +102,7 @@ func (a *analysisOrchestrator) CreateWorkspace(ctx context.Context, orgId string
 		return "", fmt.Errorf("workspace is not a repository, cannot scan, %w", err)
 	}
 
-	host := a.host()
+	host := a.host(true)
 	a.logger.Info().Str("host", host).Str("path", path).Str("repositoryUri", repositoryUri).Msg("creating workspace")
 
 	workspace, err := workspaceClient.NewClientWithResponses(host, workspaceClient.WithHTTPClient(a.httpClient))
@@ -179,9 +179,10 @@ func (a *analysisOrchestrator) RunAnalysis(ctx context.Context, orgId string, wo
 	logger.Debug().Msg("API: Creating the scan")
 	org := uuid.MustParse(orgId)
 
-	a.logger.Debug().Str("host", a.hostRest()).Str("workspaceId", workspaceId).Msg("starting scan")
+	host := a.host(false)
+	a.logger.Debug().Str("host", host).Str("workspaceId", workspaceId).Msg("starting scan")
 
-	client, err := orchestrationClient.NewClientWithResponses(a.hostRest(), orchestrationClient.WithHTTPClient(a.httpClient))
+	client, err := orchestrationClient.NewClientWithResponses(host, orchestrationClient.WithHTTPClient(a.httpClient))
 
 	if err != nil {
 		return nil, fmt.Errorf("failed to create orchestrationClient: %w", err)
@@ -193,7 +194,7 @@ func (a *analysisOrchestrator) RunAnalysis(ctx context.Context, orgId string, wo
 		return nil, fmt.Errorf("failed to create scan request: %w", err)
 	}
 	createScanResponse, err := client.CreateScanWorkspaceJobForUserWithApplicationVndAPIPlusJSONBodyWithResponse(
-		context.Background(),
+		ctx,
 		org,
 		&orchestrationClient.CreateScanWorkspaceJobForUserParams{Version: "2024-02-16~experimental"},
 		orchestrationClient.CreateScanWorkspaceJobForUserApplicationVndAPIPlusJSONRequestBody{Data: struct {
@@ -234,7 +235,7 @@ func (a *analysisOrchestrator) RunAnalysis(ctx context.Context, orgId string, wo
 	}
 
 	scanJobId := createScanResponse.ApplicationvndApiJSON201.Data.Id
-	a.logger.Debug().Str("host", a.hostRest()).Str("workspaceId", workspaceId).Msg("starting scan")
+	a.logger.Debug().Str("host", host).Str("workspaceId", workspaceId).Msg("starting scan")
 
 	// Actual polling loop.
 	pollingTicker := time.NewTicker(1 * time.Second)
@@ -247,9 +248,8 @@ func (a *analysisOrchestrator) RunAnalysis(ctx context.Context, orgId string, wo
 			msg := "timeout requesting the ScanJobResult"
 			logger.Error().Str("scanJobId", scanJobId.String()).Msg(msg)
 			return nil, errors.New(msg)
-
 		case <-pollingTicker.C:
-			_, complete, err := a.poller(logger, client, org, scanJobId, method) // todo add processing of the response with the findings
+			_, complete, err := a.poller(ctx, logger, client, org, scanJobId, method) // todo add processing of the response with the findings
 			if err != nil {
 				return nil, err
 			}
@@ -265,10 +265,10 @@ func (a *analysisOrchestrator) RunAnalysis(ctx context.Context, orgId string, wo
 	}
 }
 
-func (a *analysisOrchestrator) poller(logger zerolog.Logger, client *orchestrationClient.ClientWithResponses, org uuid.UUID, scanJobId openapi_types.UUID, method string) (response *orchestrationClient.GetScanWorkspaceJobForUserResponse, complete bool, err error) {
+func (a *analysisOrchestrator) poller(ctx context.Context, logger zerolog.Logger, client *orchestrationClient.ClientWithResponses, org uuid.UUID, scanJobId openapi_types.UUID, method string) (response *orchestrationClient.GetScanWorkspaceJobForUserResponse, complete bool, err error) {
 	logger.Debug().Msg("polling for ScanJobResult")
 	httpResponse, err := client.GetScanWorkspaceJobForUserWithResponse(
-		context.Background(),
+		ctx,
 		org,
 		scanJobId,
 		&orchestrationClient.GetScanWorkspaceJobForUserParams{Version: "2024-02-16~experimental"},
@@ -278,34 +278,30 @@ func (a *analysisOrchestrator) poller(logger zerolog.Logger, client *orchestrati
 		return httpResponse, true, err
 	}
 
-	scanJobStatus := httpResponse.ApplicationvndApiJSON200.Data.Attributes.Status
-	if scanJobStatus == scans.ScanJobResultsAttributesStatusDone {
-		return httpResponse, true, nil
-	} else {
-		var msg string
-		switch httpResponse.StatusCode() {
-		case 200: //Analysis still in progress.
+	var msg string
+	switch httpResponse.StatusCode() {
+	case 200:
+		scanJobStatus := httpResponse.ApplicationvndApiJSON200.Data.Attributes.Status
+		if scanJobStatus == scans.ScanJobResultsAttributesStatusInProgress {
 			return httpResponse, false, nil
-		case 400:
-			msg = httpResponse.ApplicationvndApiJSON400.Errors[0].Detail
-		case 401:
-			msg = httpResponse.ApplicationvndApiJSON401.Errors[0].Detail
-		case 403:
-			msg = httpResponse.ApplicationvndApiJSON403.Errors[0].Detail
-		case 404:
-			msg = httpResponse.ApplicationvndApiJSON404.Errors[0].Detail
-		case 429:
-			msg = httpResponse.ApplicationvndApiJSON429.Errors[0].Detail
-		case 500:
-			msg = httpResponse.ApplicationvndApiJSON500.Errors[0].Detail
+		} else {
+			return httpResponse, true, nil
 		}
-		return nil, true, errors.New(msg)
+	case 400:
+		msg = httpResponse.ApplicationvndApiJSON400.Errors[0].Detail
+	case 401:
+		msg = httpResponse.ApplicationvndApiJSON401.Errors[0].Detail
+	case 403:
+		msg = httpResponse.ApplicationvndApiJSON403.Errors[0].Detail
+	case 404:
+		msg = httpResponse.ApplicationvndApiJSON404.Errors[0].Detail
+	case 429:
+		msg = httpResponse.ApplicationvndApiJSON429.Errors[0].Detail
+	case 500:
+		msg = httpResponse.ApplicationvndApiJSON500.Errors[0].Detail
 	}
+	return nil, true, errors.New(msg)
 }
-
-//func (a *analysisOrchestrator) setTimeoutTimeInSeconds(timout time.Duration) time.Duration {
-//	return timout * time.Second
-//}
 
 func (a *analysisOrchestrator) getStatusCode(createScanResponse *orchestrationClient.CreateScanWorkspaceJobForUserResponse) string {
 	var msg string
@@ -326,12 +322,11 @@ func (a *analysisOrchestrator) getStatusCode(createScanResponse *orchestrationCl
 	return msg
 }
 
-func (a *analysisOrchestrator) host() string {
+func (a *analysisOrchestrator) host(isHidden bool) string {
 	apiUrl := strings.TrimRight(a.config.SnykApi(), "/")
-	return fmt.Sprintf("%s/hidden", apiUrl)
-}
-
-func (a *analysisOrchestrator) hostRest() string {
-	apiUrl := strings.TrimRight(a.config.SnykApi(), "/")
-	return fmt.Sprintf("%s/rest", apiUrl)
+	path := "rest"
+	if isHidden {
+		path = "hidden"
+	}
+	return fmt.Sprintf("%s/%s", apiUrl, path)
 }
