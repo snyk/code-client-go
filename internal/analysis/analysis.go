@@ -232,7 +232,7 @@ func (a *analysisOrchestrator) RunAnalysis(ctx context.Context, orgId string, wo
 	}
 
 	scanJobId := createScanResponse.ApplicationvndApiJSON201.Data.Id
-	a.logger.Debug().Str("host", host).Str("scanJobId", scanJobId.String()).Msg("starting scan")
+	a.logger.Debug().Str("host", host).Str("scanJobId", scanJobId.String()).Msg("triggered scan")
 
 	// Actual polling loop.
 	pollingTicker := time.NewTicker(1 * time.Second)
