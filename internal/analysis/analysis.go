@@ -209,7 +209,7 @@ func (a *analysisOrchestrator) RunAnalysis(ctx context.Context, orgId string, wo
 		})})
 
 	if err != nil {
-		return nil, fmt.Errorf("failed to get an create scan: %w", err)
+		return nil, fmt.Errorf("failed to trigger scan: %w", err)
 	}
 
 	if createScanResponse.ApplicationvndApiJSON201 == nil {
