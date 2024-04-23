@@ -41,6 +41,7 @@ require (
 	github.com/mattn/go-colorable v0.1.13 // indirect
 	github.com/mattn/go-isatty v0.0.20 // indirect
 	github.com/mohae/deepcopy v0.0.0-20170929034955-c48cc78d4826 // indirect
+	github.com/owenrumney/go-sarif v1.1.1 // indirect
 	github.com/perimeterx/marshmallow v1.1.5 // indirect
 	github.com/pjbgf/sha1cd v0.3.0 // indirect
 	github.com/pmezard/go-difflib v1.0.1-0.20181226105442-5d4384ee4fb2 // indirect
@@ -48,6 +49,7 @@ require (
 	github.com/skeema/knownhosts v1.2.1 // indirect
 	github.com/stretchr/objx v0.5.2 // indirect
 	github.com/xanzy/ssh-agent v0.3.3 // indirect
+	github.com/zclconf/go-cty v1.10.0 // indirect
 	golang.org/x/crypto v0.21.0 // indirect
 	golang.org/x/mod v0.16.0 // indirect
 	golang.org/x/sys v0.18.0 // indirect

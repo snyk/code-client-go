@@ -70,6 +70,10 @@ func Test_SmokeScan_HTTPS(t *testing.T) {
 	require.NoError(t, scanErr)
 	require.NotEmpty(t, bundleHash)
 	require.NotNil(t, response)
+	require.Greater(t, len(response.Runs), 0)
+	require.Greater(t, len(response.Runs[0].Results), 0)
+	require.Greater(t, len(response.Runs[0].Results[0].Locations), 0)
+	require.NotNil(t, response.Runs[0].Results[0].Locations[0].PhysicalLocation.ArtifactLocation.URI)
 }
 
 func Test_SmokeScan_SSH(t *testing.T) {

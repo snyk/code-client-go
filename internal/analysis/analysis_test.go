@@ -253,7 +253,7 @@ func TestAnalysis_RunAnalysis(t *testing.T) {
 	actual, err := analysisOrchestrator.RunAnalysis(context.Background(), "b6fc8954-5918-45ce-bc89-54591815ce1b", "c172d1db-b465-4764-99e1-ecedad03b06a")
 
 	require.NoError(t, err)
-	assert.Equal(t, "COMPLETE", actual.Status)
+	assert.Equal(t, actual.Version, "1")
 }
 
 func TestAnalysis_RunAnalysis_TriggerFunctionError(t *testing.T) {
@@ -495,7 +495,6 @@ func TestAnalysis_RunAnalysis_GetFindingsError(t *testing.T) {
 	analysisOrchestrator := analysis.NewAnalysisOrchestrator(mockConfig, &logger, mockHTTPClient, mockInstrumentor, mockErrorReporter)
 	_, err := analysisOrchestrator.RunAnalysis(context.Background(), "b6fc8954-5918-45ce-bc89-54591815ce1b", "c172d1db-b465-4764-99e1-ecedad03b06a")
 	require.ErrorContains(t, err, "error")
-
 }
 func TestAnalysis_RunAnalysis_GetFindingsNotSuccessful(t *testing.T) {
 	mockConfig, mockHTTPClient, mockInstrumentor, mockErrorReporter, logger := setup(t)

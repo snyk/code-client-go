@@ -20,7 +20,6 @@ package analysis
 import (
 	"context"
 	_ "embed"
-	"encoding/json"
 	"fmt"
 	"io"
 	"net/http"
@@ -29,6 +28,7 @@ import (
 
 	"github.com/google/uuid"
 	openapi_types "github.com/oapi-codegen/runtime/types"
+	"github.com/owenrumney/go-sarif/sarif"
 	"github.com/pkg/errors"
 	"github.com/rs/zerolog"
 	"github.com/snyk/code-client-go/config"
@@ -40,13 +40,12 @@ import (
 	workspaceClient "github.com/snyk/code-client-go/internal/workspace/2024-03-12"
 	workspaces "github.com/snyk/code-client-go/internal/workspace/2024-03-12/workspaces"
 	"github.com/snyk/code-client-go/observability"
-	"github.com/snyk/code-client-go/sarif"
 )
 
 //go:generate mockgen -destination=mocks/analysis.go -source=analysis.go -package mocks
 type AnalysisOrchestrator interface {
 	CreateWorkspace(ctx context.Context, orgId string, requestId string, path string, bundleHash string) (string, error)
-	RunAnalysis(ctx context.Context, orgId string, workspaceId string) (*sarif.SarifResponse, error)
+	RunAnalysis(ctx context.Context, orgId string, workspaceId string) (*sarif.Report, error)
 }
 
 type analysisOrchestrator struct {
@@ -173,7 +172,7 @@ func (a *analysisOrchestrator) CreateWorkspace(ctx context.Context, orgId string
 	return workspaceResponse.ApplicationvndApiJSON201.Data.Id.String(), nil
 }
 
-func (a *analysisOrchestrator) RunAnalysis(ctx context.Context, orgId string, workspaceId string) (*sarif.SarifResponse, error) {
+func (a *analysisOrchestrator) RunAnalysis(ctx context.Context, orgId string, workspaceId string) (*sarif.Report, error) {
 	method := "analysis.RunAnalysis"
 	logger := a.logger.With().Str("method", method).Logger()
 	logger.Debug().Msg("API: Creating the scan")
@@ -260,7 +259,7 @@ func (a *analysisOrchestrator) RunAnalysis(ctx context.Context, orgId string, wo
 	return response, nil
 }
 
-func (a *analysisOrchestrator) pollScanForFindings(ctx context.Context, client *orchestrationClient.ClientWithResponses, org uuid.UUID, scanJobId openapi_types.UUID) (*sarif.SarifResponse, error) {
+func (a *analysisOrchestrator) pollScanForFindings(ctx context.Context, client *orchestrationClient.ClientWithResponses, org uuid.UUID, scanJobId openapi_types.UUID) (*sarif.Report, error) {
 	method := "analysis.pollScanForFindings"
 	logger := a.logger.With().Str("method", method).Logger()
 
@@ -340,7 +339,7 @@ func (a *analysisOrchestrator) retrieveFindingsURL(ctx context.Context, client *
 	return "", true, errors.New(msg)
 }
 
-func (a *analysisOrchestrator) retrieveFindings(findingsUrl string) (*sarif.SarifResponse, error) {
+func (a *analysisOrchestrator) retrieveFindings(findingsUrl string) (*sarif.Report, error) {
 	method := "analysis.retrieveFindings"
 	logger := a.logger.With().Str("method", method).Logger()
 	logger.Debug().Str("findings_url", findingsUrl).Msg("retrieving findings from URL")
@@ -366,13 +365,13 @@ func (a *analysisOrchestrator) retrieveFindings(findingsUrl string) (*sarif.Sari
 		return nil, errors.New("failed to retrieve findings from findings URL")
 	}
 
-	var sarifResponse sarif.SarifResponse
-	err = json.Unmarshal(bodyBytes, &sarifResponse)
+	logger.Trace().Str("findings", string(bodyBytes)).Msg("RECEIVED FINDINGS")
+	sarifResponse, err := sarif.FromString(string(bodyBytes))
 	if err != nil {
 		return nil, err
 	}
 
-	return &sarifResponse, nil
+	return sarifResponse, nil
 }
 
 func (a *analysisOrchestrator) host(isHidden bool) string {

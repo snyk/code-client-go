@@ -19,6 +19,7 @@ package codeclient
 
 import (
 	"context"
+	"github.com/owenrumney/go-sarif/sarif"
 
 	"github.com/pkg/errors"
 	"github.com/rs/zerolog"
@@ -29,7 +30,6 @@ import (
 	"github.com/snyk/code-client-go/internal/bundle"
 	"github.com/snyk/code-client-go/internal/deepcode"
 	"github.com/snyk/code-client-go/observability"
-	"github.com/snyk/code-client-go/sarif"
 )
 
 type codeScanner struct {
@@ -49,7 +49,7 @@ type CodeScanner interface {
 		path string,
 		files <-chan string,
 		changedFiles map[string]bool,
-	) (*sarif.SarifResponse, string, error)
+	) (*sarif.Report, string, error)
 }
 
 type OptionFunc func(*codeScanner)
@@ -144,7 +144,7 @@ func (c *codeScanner) UploadAndAnalyze(
 	path string,
 	files <-chan string,
 	changedFiles map[string]bool,
-) (*sarif.SarifResponse, string, error) {
+) (*sarif.Report, string, error) {
 	if ctx.Err() != nil {
 		c.logger.Info().Msg("Canceling Code scan - Code scanner received cancellation signal")
 		return nil, "", nil

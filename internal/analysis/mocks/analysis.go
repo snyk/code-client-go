@@ -9,7 +9,7 @@ import (
 	reflect "reflect"
 
 	gomock "github.com/golang/mock/gomock"
-	sarif "github.com/snyk/code-client-go/sarif"
+	sarif "github.com/owenrumney/go-sarif/sarif"
 )
 
 // MockAnalysisOrchestrator is a mock of AnalysisOrchestrator interface.
@@ -51,10 +51,10 @@ func (mr *MockAnalysisOrchestratorMockRecorder) CreateWorkspace(ctx, orgId, requ
 }
 
 // RunAnalysis mocks base method.
-func (m *MockAnalysisOrchestrator) RunAnalysis(ctx context.Context, orgId, workspaceId string) (*sarif.SarifResponse, error) {
+func (m *MockAnalysisOrchestrator) RunAnalysis(ctx context.Context, orgId, workspaceId string) (*sarif.Report, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "RunAnalysis", ctx, orgId, workspaceId)
-	ret0, _ := ret[0].(*sarif.SarifResponse)
+	ret0, _ := ret[0].(*sarif.Report)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
