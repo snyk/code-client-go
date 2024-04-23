@@ -54,17 +54,17 @@ type ArtifactLocation struct {
 }
 
 type PhysicalLocation struct {
-	ArtifactLocation ArtifactLocation `json:"ArtifactLocation"`
+	ArtifactLocation ArtifactLocation `json:"artifactLocation"`
 	Region           region           `json:"region"`
 }
 
 type Location struct {
 	ID               int              `json:"id"`
-	PhysicalLocation PhysicalLocation `json:"PhysicalLocation"`
+	PhysicalLocation PhysicalLocation `json:"physicalLocation"`
 }
 
 type ThreadFlowLocation struct {
-	Location Location `json:"Location"`
+	Location Location `json:"location"`
 }
 
 type ThreadFlow struct {
@@ -101,7 +101,7 @@ type Result struct {
 	Level        string           `json:"level"`
 	Message      ResultMessage    `json:"message"`
 	Locations    []Location       `json:"locations"`
-	Fingerprints Fingerprints     `json:"Fingerprints"`
+	Fingerprints Fingerprints     `json:"fingerprints"`
 	CodeFlows    []CodeFlow       `json:"codeFlows"`
 	Properties   ResultProperties `json:"properties"`
 	Suppressions []Suppression    `json:"suppressions"`
@@ -122,16 +122,7 @@ type Help struct {
 }
 
 type RuleProperties struct {
-	Tags             []string `json:"tags"`
-	ShortDescription struct {
-		Text string `json:"text"`
-	} `json:"ShortDescription"`
-
-	Help struct {
-		Markdown string `json:"markdown"`
-		Text     string `json:"text"`
-	} `json:"Help"`
-
+	Tags                      []string           `json:"tags"`
 	Categories                []string           `json:"categories"`
 	ExampleCommitFixes        []ExampleCommitFix `json:"exampleCommitFixes"`
 	ExampleCommitDescriptions []string           `json:"exampleCommitDescriptions"`
@@ -151,9 +142,9 @@ type ShortDescription struct {
 type Rule struct {
 	ID                   string               `json:"id"`
 	Name                 string               `json:"name"`
-	ShortDescription     ShortDescription     `json:"ShortDescription"`
-	DefaultConfiguration DefaultConfiguration `json:"DefaultConfiguration"`
-	Help                 Help                 `json:"Help"`
+	ShortDescription     ShortDescription     `json:"shortDescription"`
+	DefaultConfiguration DefaultConfiguration `json:"defaultConfiguration"`
+	Help                 Help                 `json:"help"`
 	Properties           RuleProperties       `json:"properties"`
 }
 
@@ -165,7 +156,7 @@ type Driver struct {
 }
 
 type Tool struct {
-	Driver Driver `json:"Driver"`
+	Driver Driver `json:"driver"`
 }
 
 type RunProperties struct {
@@ -173,13 +164,14 @@ type RunProperties struct {
 		Files       int    `json:"files"`
 		IsSupported bool   `json:"isSupported"`
 		Lang        string `json:"lang"`
+		Type        string `json:"type"`
 	} `json:"coverage"`
 }
 
 type Run struct {
-	Tool       Tool          `json:"Tool"`
+	Tool       Tool          `json:"tool"`
 	Results    []Result      `json:"results"`
-	Properties RunProperties `json:"RuleProperties"`
+	Properties RunProperties `json:"properties"`
 }
 
 type Suppression struct {
