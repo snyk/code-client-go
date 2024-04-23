@@ -1,0 +1,163 @@
+{
+  "consumer": {
+    "name": "code-client-go"
+  },
+  "provider": {
+    "name": "OrchestrationApi"
+  },
+  "interactions": [
+    {
+      "description": "Trigger scan",
+      "providerState": "New scan",
+      "request": {
+        "method": "POST",
+        "path": "/orgs/e7ea34c9-de0f-422c-bf2c-4654c2e2da90/scans",
+        "query": "version=2024-02-16%7Eexperimental",
+        "body": {
+          "data": {
+            "attributes": {
+              "flow": {
+                "name": "cli_test"
+              },
+              "workspace_url": "http://workspace-service/workspaces/fc763eba-0905-41c5-a27f-3934ab26786c"
+            },
+            "type": "cli"
+          }
+        },
+        "matchingRules": {
+          "$.body": {
+            "match": "type"
+          },
+          "$.body.data": {
+            "match": "type"
+          },
+          "$.body.data.attributes": {
+            "match": "type"
+          },
+          "$.body.data.attributes.workspace_url": {
+            "match": "regex",
+            "regex": "^.+[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}"
+          }
+        }
+      },
+      "response": {
+        "status": 201,
+        "headers": {
+          "Content-Type": "application/vnd.api+json"
+        },
+        "body": {
+          "data": {
+            "attributes": {
+              "created_at": "2000-02-01T12:30:00Z",
+              "status": "success"
+            },
+            "type": "workspace"
+          }
+        },
+        "matchingRules": {
+          "$.body": {
+            "match": "type"
+          },
+          "$.body.data": {
+            "match": "type"
+          },
+          "$.body.data.attributes": {
+            "match": "type"
+          },
+          "$.body.data.attributes.created_at": {
+            "match": "regex",
+            "regex": "^([\\+-]?\\d{4}(?!\\d{2}\\b))((-?)((0[1-9]|1[0-2])(\\3([12]\\d|0[1-9]|3[01]))?|W([0-4]\\d|5[0-2])(-?[1-7])?|(00[1-9]|0[1-9]\\d|[12]\\d{2}|3([0-5]\\d|6[1-6])))([T\\s]((([01]\\d|2[0-3])((:?)[0-5]\\d)?|24\\:?00)([\\.,]\\d+(?!:))?)?(\\17[0-5]\\d([\\.,]\\d+)?)?([zZ]|([\\+-])([01]\\d|2[0-3]):?([0-5]\\d)?)?)?)?$"
+          }
+        }
+      }
+    },
+    {
+      "description": "Retrieve scan",
+      "providerState": "Scan ID",
+      "request": {
+        "method": "GET",
+        "path": "/orgs/e7ea34c9-de0f-422c-bf2c-4654c2e2da90/scans/11fee158-b307-419e-995a-88abb45fdf6f",
+        "query": "version=2024-02-16%7Eexperimental"
+      },
+      "response": {
+        "status": 201,
+        "headers": {
+          "Content-Type": "application/json"
+        },
+        "body": {
+          "data": {
+            "attributes": {
+              "components": [
+                {
+                  "created_at": {
+                  },
+                  "findings_url": "string",
+                  "id": "string",
+                  "name": "string",
+                  "type": "string"
+                }
+              ],
+              "created_at": {
+              },
+              "status": "string"
+            },
+            "id": [
+              1
+            ],
+            "type": "string"
+          },
+          "jsonapi": {
+            "version": "string"
+          },
+          "links": {
+            "self": {
+            }
+          }
+        },
+        "matchingRules": {
+          "$.body.data.attributes.components": {
+            "min": 1
+          },
+          "$.body.data.attributes.components[*].*": {
+            "match": "type"
+          },
+          "$.body.data.attributes.components[*].findings_url": {
+            "match": "type"
+          },
+          "$.body.data.attributes.components[*].id": {
+            "match": "type"
+          },
+          "$.body.data.attributes.components[*].name": {
+            "match": "type"
+          },
+          "$.body.data.attributes.components[*].type": {
+            "match": "type"
+          },
+          "$.body.data.attributes.status": {
+            "match": "type"
+          },
+          "$.body.data.id": {
+            "min": 1
+          },
+          "$.body.data.id[*].*": {
+            "match": "type"
+          },
+          "$.body.data.id[*]": {
+            "match": "type"
+          },
+          "$.body.data.type": {
+            "match": "type"
+          },
+          "$.body.jsonapi.version": {
+            "match": "type"
+          }
+        }
+      }
+    }
+  ],
+  "metadata": {
+    "pactSpecification": {
+      "version": "2.0.0"
+    }
+  }
+}
