@@ -362,13 +362,17 @@ func (a *analysisOrchestrator) retrieveFindings(findingsUrl string) (*sarif.Sari
 		return nil, err
 	}
 
-	var sarif sarif.SarifResponse
-	err = json.Unmarshal(bodyBytes, &sarif)
+	if rsp.StatusCode != http.StatusOK {
+		return nil, errors.New("failed to retrieve findings from findings URL")
+	}
+
+	var sarifResponse sarif.SarifResponse
+	err = json.Unmarshal(bodyBytes, &sarifResponse)
 	if err != nil {
 		return nil, err
 	}
 
-	return &sarif, nil
+	return &sarifResponse, nil
 }
 
 func (a *analysisOrchestrator) host(isHidden bool) string {
