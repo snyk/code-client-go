@@ -30,7 +30,7 @@ import (
 	codeClientHTTP "github.com/snyk/code-client-go/http"
 	"github.com/snyk/code-client-go/internal/util/testutil"
 	v20240312 "github.com/snyk/code-client-go/internal/workspace/2024-03-12"
-	externalRef3 "github.com/snyk/code-client-go/internal/workspace/2024-03-12/workspaces"
+	workspaces "github.com/snyk/code-client-go/internal/workspace/2024-03-12/workspaces"
 )
 
 const (
@@ -70,40 +70,44 @@ func TestWorkspaceClientPact(t *testing.T) {
 		}).WillRespondWith(dsl.Response{
 			Status: 200,
 			Headers: dsl.MapMatcher{
-				"Content-Type": dsl.String("application/json"),
+				"Content-Type": dsl.String("application/vnd.api+json"),
 			},
-			Body: dsl.Match(externalRef3.WorkspacePostResponse{}),
+			Body: dsl.Match(workspaces.WorkspacePostResponse{}),
 		})
 
 		test := func() error {
-			_, err := client.CreateWorkspaceWithApplicationVndAPIPlusJSONBodyWithResponse(context.Background(), uuid.MustParse(orgUUID), &v20240312.CreateWorkspaceParams{
-				Version:       "2024-03-12~experimental",
-				SnykRequestId: uuid.MustParse(requestId),
-			}, v20240312.CreateWorkspaceApplicationVndAPIPlusJSONRequestBody{
-				Data: struct {
-					Attributes struct {
-						BundleId      string                                                       `json:"bundle_id"`
-						RepositoryUri string                                                       `json:"repository_uri"`
-						WorkspaceType externalRef3.WorkspacePostRequestDataAttributesWorkspaceType `json:"workspace_type"`
-					} `json:"attributes"`
-					Type externalRef3.WorkspacePostRequestDataType `json:"type"`
-				}(struct {
-					Attributes struct {
-						BundleId      string                                                       `json:"bundle_id"`
-						RepositoryUri string                                                       `json:"repository_uri"`
-						WorkspaceType externalRef3.WorkspacePostRequestDataAttributesWorkspaceType `json:"workspace_type"`
-					}
-					Type externalRef3.WorkspacePostRequestDataType
-				}{Attributes: struct {
-					BundleId      string                                                       `json:"bundle_id"`
-					RepositoryUri string                                                       `json:"repository_uri"`
-					WorkspaceType externalRef3.WorkspacePostRequestDataAttributesWorkspaceType `json:"workspace_type"`
-				}(struct {
-					BundleId      string
-					RepositoryUri string
-					WorkspaceType externalRef3.WorkspacePostRequestDataAttributesWorkspaceType
-				}{BundleId: "YnVuZGxlSWQK", RepositoryUri: "https://github.com/snyk/code-client-go.git", WorkspaceType: "file_bundle_workspace"}), Type: "workspace"}),
-			})
+			_, err := client.CreateWorkspaceWithApplicationVndAPIPlusJSONBodyWithResponse(
+				context.Background(),
+				uuid.MustParse(orgUUID),
+				&v20240312.CreateWorkspaceParams{
+					Version:       "2024-03-12~experimental",
+					SnykRequestId: uuid.MustParse(requestId),
+				},
+				v20240312.CreateWorkspaceApplicationVndAPIPlusJSONRequestBody{
+					Data: struct {
+						Attributes struct {
+							BundleId      string                                                     `json:"bundle_id"`
+							RepositoryUri string                                                     `json:"repository_uri"`
+							WorkspaceType workspaces.WorkspacePostRequestDataAttributesWorkspaceType `json:"workspace_type"`
+						} `json:"attributes"`
+						Type workspaces.WorkspacePostRequestDataType `json:"type"`
+					}(struct {
+						Attributes struct {
+							BundleId      string                                                     `json:"bundle_id"`
+							RepositoryUri string                                                     `json:"repository_uri"`
+							WorkspaceType workspaces.WorkspacePostRequestDataAttributesWorkspaceType `json:"workspace_type"`
+						}
+						Type workspaces.WorkspacePostRequestDataType
+					}{Attributes: struct {
+						BundleId      string                                                     `json:"bundle_id"`
+						RepositoryUri string                                                     `json:"repository_uri"`
+						WorkspaceType workspaces.WorkspacePostRequestDataAttributesWorkspaceType `json:"workspace_type"`
+					}(struct {
+						BundleId      string
+						RepositoryUri string
+						WorkspaceType workspaces.WorkspacePostRequestDataAttributesWorkspaceType
+					}{BundleId: "YnVuZGxlSWQK", RepositoryUri: "https://github.com/snyk/code-client-go.git", WorkspaceType: "file_bundle_workspace"}), Type: "workspace"}),
+				})
 			if err != nil {
 				return err
 			}

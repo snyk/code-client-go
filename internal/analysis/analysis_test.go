@@ -18,22 +18,19 @@ package analysis_test
 import (
 	"bytes"
 	"context"
-	"time"
-
 	_ "embed"
 	"fmt"
-
-	"github.com/stretchr/testify/mock"
 	"io"
 	"net/http"
 	"strconv"
 	"testing"
-
-	"github.com/pkg/errors"
+	"time"
 
 	"github.com/golang/mock/gomock"
+	"github.com/pkg/errors"
 	"github.com/rs/zerolog"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 
 	confMocks "github.com/snyk/code-client-go/config/mocks"
@@ -180,7 +177,11 @@ func TestAnalysis_CreateWorkspace_KnownErrors(t *testing.T) {
 			mockConfig.EXPECT().SnykApi().AnyTimes().Return("http://localhost")
 
 			mockHTTPClient := httpmocks.NewMockHTTPClient(ctrl)
-			mockHTTPClient.EXPECT().Do(gomock.Any()).Times(1).Return(&http.Response{
+			mockHTTPClient.EXPECT().Do(mock.MatchedBy(func(i interface{}) bool {
+				req := i.(*http.Request)
+				return req.URL.String() == "http://localhost/hidden/orgs/4a72d1db-b465-4764-99e1-ecedad03b06a/workspaces?version=2024-03-12~experimental" &&
+					req.Method == "POST"
+			})).Times(1).Return(&http.Response{
 				StatusCode: tc.expectedStatus,
 				Header: http.Header{
 					"Content-Type": []string{"application/vnd.api+json"},
@@ -208,10 +209,17 @@ func TestAnalysis_CreateWorkspace_KnownErrors(t *testing.T) {
 	}
 }
 
+//go:embed fake.json
+var fakeResponse []byte
+
 func TestAnalysis_RunAnalysis(t *testing.T) {
 	mockConfig, mockHTTPClient, mockInstrumentor, mockErrorReporter, logger := setup(t)
 
-	mockHTTPClient.EXPECT().Do(gomock.Any()).Times(1).Return(&http.Response{
+	mockHTTPClient.EXPECT().Do(mock.MatchedBy(func(i interface{}) bool {
+		req := i.(*http.Request)
+		return req.URL.String() == "http://localhost/rest/orgs/b6fc8954-5918-45ce-bc89-54591815ce1b/scans?version=2024-02-16~experimental" &&
+			req.Method == "POST"
+	})).Times(1).Return(&http.Response{
 		StatusCode: http.StatusCreated,
 		Header: http.Header{
 			"Content-Type": []string{"application/vnd.api+json"},
@@ -219,12 +227,25 @@ func TestAnalysis_RunAnalysis(t *testing.T) {
 		Body: io.NopCloser(bytes.NewReader([]byte(`{"data":{"id": "a6fb2742-b67f-4dc3-bb27-42b67f1dc344"}}`))),
 	}, nil)
 
-	mockHTTPClient.EXPECT().Do(gomock.Any()).Times(1).Return(&http.Response{
+	mockHTTPClient.EXPECT().Do(mock.MatchedBy(func(i interface{}) bool {
+		req := i.(*http.Request)
+		return req.URL.String() == "http://localhost/rest/orgs/b6fc8954-5918-45ce-bc89-54591815ce1b/scans/a6fb2742-b67f-4dc3-bb27-42b67f1dc344?version=2024-02-16~experimental" &&
+			req.Method == "GET"
+	})).Times(1).Return(&http.Response{
 		StatusCode: http.StatusOK,
 		Header: http.Header{
 			"Content-Type": []string{"application/vnd.api+json"},
 		},
-		Body: io.NopCloser(bytes.NewReader([]byte(`{"data":{"attributes": {"status": "done"}, "id": "a6fb2742-b67f-4dc3-bb27-42b67f1dc344"}}`))),
+		Body: io.NopCloser(bytes.NewReader([]byte(`{"data":{"attributes": {"status": "done", "components":[{"findings_url": "http://findings_url"}]}, "id": "a6fb2742-b67f-4dc3-bb27-42b67f1dc344"}}`))),
+	}, nil)
+
+	mockHTTPClient.EXPECT().Do(mock.MatchedBy(func(i interface{}) bool {
+		req := i.(*http.Request)
+		return req.URL.String() == "http://findings_url" &&
+			req.Method == "GET"
+	})).Times(1).Return(&http.Response{
+		StatusCode: http.StatusOK,
+		Body:       io.NopCloser(bytes.NewReader(fakeResponse)),
 	}, nil)
 
 	analysisOrchestrator := analysis.NewAnalysisOrchestrator(mockConfig, &logger, mockHTTPClient, mockInstrumentor, mockErrorReporter)
@@ -237,24 +258,11 @@ func TestAnalysis_RunAnalysis(t *testing.T) {
 
 func TestAnalysis_RunAnalysis_TriggerFunctionError(t *testing.T) {
 	mockConfig, mockHTTPClient, mockInstrumentor, mockErrorReporter, logger := setup(t)
-	mockHTTPClient.EXPECT().Do(gomock.Any()).Times(1).Return(nil, errors.New("error"))
-
-	analysisOrchestrator := analysis.NewAnalysisOrchestrator(mockConfig, &logger, mockHTTPClient, mockInstrumentor, mockErrorReporter)
-	_, err := analysisOrchestrator.RunAnalysis(context.Background(), "b6fc8954-5918-45ce-bc89-54591815ce1b", "c172d1db-b465-4764-99e1-ecedad03b06a")
-	assert.ErrorContains(t, err, "error")
-}
-
-func TestAnalysis_RunAnalysis_PollingFunctionError(t *testing.T) {
-	mockConfig, mockHTTPClient, mockInstrumentor, mockErrorReporter, logger := setup(t)
-	mockHTTPClient.EXPECT().Do(gomock.Any()).Times(1).Return(&http.Response{
-		StatusCode: http.StatusCreated,
-		Header: http.Header{
-			"Content-Type": []string{"application/vnd.api+json"},
-		},
-		Body: io.NopCloser(bytes.NewReader([]byte(`{"data":{"id": "a6fb2742-b67f-4dc3-bb27-42b67f1dc344"}}`))),
-	}, nil)
-
-	mockHTTPClient.EXPECT().Do(gomock.Any()).Times(1).Return(nil, errors.New("error"))
+	mockHTTPClient.EXPECT().Do(mock.MatchedBy(func(i interface{}) bool {
+		req := i.(*http.Request)
+		return req.URL.String() == "http://localhost/rest/orgs/b6fc8954-5918-45ce-bc89-54591815ce1b/scans?version=2024-02-16~experimental" &&
+			req.Method == "POST"
+	})).Times(1).Return(nil, errors.New("error"))
 
 	analysisOrchestrator := analysis.NewAnalysisOrchestrator(mockConfig, &logger, mockHTTPClient, mockInstrumentor, mockErrorReporter)
 	_, err := analysisOrchestrator.RunAnalysis(context.Background(), "b6fc8954-5918-45ce-bc89-54591815ce1b", "c172d1db-b465-4764-99e1-ecedad03b06a")
@@ -305,13 +313,42 @@ func TestAnalysis_RunAnalysis_TriggerFunctionErrorCodes(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			mockConfig, mockHTTPClient, mockInstrumentor, mockErrorReporter, logger := setup(t)
 
-			mockHTTPClient.EXPECT().Do(gomock.Any()).Times(1).Return(nil, errors.New(strconv.Itoa(tc.expectedStatus)))
+			mockHTTPClient.EXPECT().Do(mock.MatchedBy(func(i interface{}) bool {
+				req := i.(*http.Request)
+				return req.URL.String() == "http://localhost/rest/orgs/b6fc8954-5918-45ce-bc89-54591815ce1b/scans?version=2024-02-16~experimental" &&
+					req.Method == "POST"
+			})).Times(1).Return(nil, errors.New(strconv.Itoa(tc.expectedStatus)))
 
 			analysisOrchestrator := analysis.NewAnalysisOrchestrator(mockConfig, &logger, mockHTTPClient, mockInstrumentor, mockErrorReporter)
 			_, err := analysisOrchestrator.RunAnalysis(context.Background(), "b6fc8954-5918-45ce-bc89-54591815ce1b", "c172d1db-b465-4764-99e1-ecedad03b06a")
 			assert.ErrorContains(t, err, tc.expectedError)
 		})
 	}
+}
+
+func TestAnalysis_RunAnalysis_PollingFunctionError(t *testing.T) {
+	mockConfig, mockHTTPClient, mockInstrumentor, mockErrorReporter, logger := setup(t)
+	mockHTTPClient.EXPECT().Do(mock.MatchedBy(func(i interface{}) bool {
+		req := i.(*http.Request)
+		return req.URL.String() == "http://localhost/rest/orgs/b6fc8954-5918-45ce-bc89-54591815ce1b/scans?version=2024-02-16~experimental" &&
+			req.Method == "POST"
+	})).Times(1).Return(&http.Response{
+		StatusCode: http.StatusCreated,
+		Header: http.Header{
+			"Content-Type": []string{"application/vnd.api+json"},
+		},
+		Body: io.NopCloser(bytes.NewReader([]byte(`{"data":{"id": "a6fb2742-b67f-4dc3-bb27-42b67f1dc344"}}`))),
+	}, nil)
+
+	mockHTTPClient.EXPECT().Do(mock.MatchedBy(func(i interface{}) bool {
+		req := i.(*http.Request)
+		return req.URL.String() == "http://localhost/rest/orgs/b6fc8954-5918-45ce-bc89-54591815ce1b/scans/a6fb2742-b67f-4dc3-bb27-42b67f1dc344?version=2024-02-16~experimental" &&
+			req.Method == "GET"
+	})).Times(1).Return(nil, errors.New("error"))
+
+	analysisOrchestrator := analysis.NewAnalysisOrchestrator(mockConfig, &logger, mockHTTPClient, mockInstrumentor, mockErrorReporter)
+	_, err := analysisOrchestrator.RunAnalysis(context.Background(), "b6fc8954-5918-45ce-bc89-54591815ce1b", "c172d1db-b465-4764-99e1-ecedad03b06a")
+	assert.ErrorContains(t, err, "error")
 }
 
 func TestAnalysis_RunAnalysis_PollingFunctionErrorCodes(t *testing.T) {
@@ -358,7 +395,11 @@ func TestAnalysis_RunAnalysis_PollingFunctionErrorCodes(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			mockConfig, mockHTTPClient, mockInstrumentor, mockErrorReporter, logger := setup(t)
 
-			mockHTTPClient.EXPECT().Do(gomock.Any()).Times(1).Return(&http.Response{
+			mockHTTPClient.EXPECT().Do(mock.MatchedBy(func(i interface{}) bool {
+				req := i.(*http.Request)
+				return req.URL.String() == "http://localhost/rest/orgs/b6fc8954-5918-45ce-bc89-54591815ce1b/scans?version=2024-02-16~experimental" &&
+					req.Method == "POST"
+			})).Times(1).Return(&http.Response{
 				StatusCode: http.StatusCreated,
 				Header: http.Header{
 					"Content-Type": []string{"application/vnd.api+json"},
@@ -366,7 +407,11 @@ func TestAnalysis_RunAnalysis_PollingFunctionErrorCodes(t *testing.T) {
 				Body: io.NopCloser(bytes.NewReader([]byte(`{"data":{"id": "a6fb2742-b67f-4dc3-bb27-42b67f1dc344"}}`))),
 			}, nil)
 
-			mockHTTPClient.EXPECT().Do(gomock.Any()).Times(1).Return(nil, errors.New(strconv.Itoa(tc.expectedStatus)))
+			mockHTTPClient.EXPECT().Do(mock.MatchedBy(func(i interface{}) bool {
+				req := i.(*http.Request)
+				return req.URL.String() == "http://localhost/rest/orgs/b6fc8954-5918-45ce-bc89-54591815ce1b/scans/a6fb2742-b67f-4dc3-bb27-42b67f1dc344?version=2024-02-16~experimental" &&
+					req.Method == "GET"
+			})).Times(1).Return(nil, errors.New(strconv.Itoa(tc.expectedStatus)))
 
 			analysisOrchestrator := analysis.NewAnalysisOrchestrator(mockConfig, &logger, mockHTTPClient, mockInstrumentor, mockErrorReporter)
 			_, err := analysisOrchestrator.RunAnalysis(context.Background(), "b6fc8954-5918-45ce-bc89-54591815ce1b", "c172d1db-b465-4764-99e1-ecedad03b06a")
@@ -375,7 +420,7 @@ func TestAnalysis_RunAnalysis_PollingFunctionErrorCodes(t *testing.T) {
 	}
 }
 
-func TestAnalysis_RunAnalysis_Timeout(t *testing.T) {
+func TestAnalysis_RunAnalysis_PollingFunctionTimeout(t *testing.T) {
 	mockConfig, mockHTTPClient, mockInstrumentor, mockErrorReporter, logger := setup(t)
 
 	mockHTTPClient.EXPECT().Do(mock.MatchedBy(func(i interface{}) bool {
@@ -412,4 +457,83 @@ func TestAnalysis_RunAnalysis_Timeout(t *testing.T) {
 	)
 	_, err := analysisOrchestrator.RunAnalysis(context.Background(), "b6fc8954-5918-45ce-bc89-54591815ce1b", "c172d1db-b465-4764-99e1-ecedad03b06a")
 	assert.ErrorContains(t, err, "timeout requesting the ScanJobResult")
+}
+
+func TestAnalysis_RunAnalysis_GetFindingsError(t *testing.T) {
+	mockConfig, mockHTTPClient, mockInstrumentor, mockErrorReporter, logger := setup(t)
+
+	mockHTTPClient.EXPECT().Do(mock.MatchedBy(func(i interface{}) bool {
+		req := i.(*http.Request)
+		return req.URL.String() == "http://localhost/rest/orgs/b6fc8954-5918-45ce-bc89-54591815ce1b/scans?version=2024-02-16~experimental" &&
+			req.Method == "POST"
+	})).Times(1).Return(&http.Response{
+		StatusCode: http.StatusCreated,
+		Header: http.Header{
+			"Content-Type": []string{"application/vnd.api+json"},
+		},
+		Body: io.NopCloser(bytes.NewReader([]byte(`{"data":{"id": "a6fb2742-b67f-4dc3-bb27-42b67f1dc344"}}`))),
+	}, nil)
+
+	mockHTTPClient.EXPECT().Do(mock.MatchedBy(func(i interface{}) bool {
+		req := i.(*http.Request)
+		return req.URL.String() == "http://localhost/rest/orgs/b6fc8954-5918-45ce-bc89-54591815ce1b/scans/a6fb2742-b67f-4dc3-bb27-42b67f1dc344?version=2024-02-16~experimental" &&
+			req.Method == "GET"
+	})).Times(1).Return(&http.Response{
+		StatusCode: http.StatusOK,
+		Header: http.Header{
+			"Content-Type": []string{"application/vnd.api+json"},
+		},
+		Body: io.NopCloser(bytes.NewReader([]byte(`{"data":{"attributes": {"status": "done", "components":[{"findings_url": "http://findings_url"}]}, "id": "a6fb2742-b67f-4dc3-bb27-42b67f1dc344"}}`))),
+	}, nil)
+
+	mockHTTPClient.EXPECT().Do(mock.MatchedBy(func(i interface{}) bool {
+		req := i.(*http.Request)
+		return req.URL.String() == "http://findings_url" &&
+			req.Method == "GET"
+	})).Times(1).Return(nil, errors.New("error"))
+
+	analysisOrchestrator := analysis.NewAnalysisOrchestrator(mockConfig, &logger, mockHTTPClient, mockInstrumentor, mockErrorReporter)
+	_, err := analysisOrchestrator.RunAnalysis(context.Background(), "b6fc8954-5918-45ce-bc89-54591815ce1b", "c172d1db-b465-4764-99e1-ecedad03b06a")
+	require.ErrorContains(t, err, "error")
+
+}
+func TestAnalysis_RunAnalysis_GetFindingsNotSuccessful(t *testing.T) {
+	mockConfig, mockHTTPClient, mockInstrumentor, mockErrorReporter, logger := setup(t)
+
+	mockHTTPClient.EXPECT().Do(mock.MatchedBy(func(i interface{}) bool {
+		req := i.(*http.Request)
+		return req.URL.String() == "http://localhost/rest/orgs/b6fc8954-5918-45ce-bc89-54591815ce1b/scans?version=2024-02-16~experimental" &&
+			req.Method == "POST"
+	})).Times(1).Return(&http.Response{
+		StatusCode: http.StatusCreated,
+		Header: http.Header{
+			"Content-Type": []string{"application/vnd.api+json"},
+		},
+		Body: io.NopCloser(bytes.NewReader([]byte(`{"data":{"id": "a6fb2742-b67f-4dc3-bb27-42b67f1dc344"}}`))),
+	}, nil)
+
+	mockHTTPClient.EXPECT().Do(mock.MatchedBy(func(i interface{}) bool {
+		req := i.(*http.Request)
+		return req.URL.String() == "http://localhost/rest/orgs/b6fc8954-5918-45ce-bc89-54591815ce1b/scans/a6fb2742-b67f-4dc3-bb27-42b67f1dc344?version=2024-02-16~experimental" &&
+			req.Method == "GET"
+	})).Times(1).Return(&http.Response{
+		StatusCode: http.StatusOK,
+		Header: http.Header{
+			"Content-Type": []string{"application/vnd.api+json"},
+		},
+		Body: io.NopCloser(bytes.NewReader([]byte(`{"data":{"attributes": {"status": "done", "components":[{"findings_url": "http://findings_url"}]}, "id": "a6fb2742-b67f-4dc3-bb27-42b67f1dc344"}}`))),
+	}, nil)
+
+	mockHTTPClient.EXPECT().Do(mock.MatchedBy(func(i interface{}) bool {
+		req := i.(*http.Request)
+		return req.URL.String() == "http://findings_url" &&
+			req.Method == "GET"
+	})).Times(1).Return(&http.Response{
+		StatusCode: http.StatusInternalServerError,
+		Body:       io.NopCloser(bytes.NewReader([]byte{})),
+	}, nil)
+
+	analysisOrchestrator := analysis.NewAnalysisOrchestrator(mockConfig, &logger, mockHTTPClient, mockInstrumentor, mockErrorReporter)
+	_, err := analysisOrchestrator.RunAnalysis(context.Background(), "b6fc8954-5918-45ce-bc89-54591815ce1b", "c172d1db-b465-4764-99e1-ecedad03b06a")
+	require.ErrorContains(t, err, "failed to retrieve findings from findings URL")
 }
