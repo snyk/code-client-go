@@ -203,7 +203,7 @@ func (c *codeScanner) UploadAndAnalyze(
 
 	c.logger.Info().Str("workspaceId", workspaceId).Msg("finished wrapping the bundle in a workspace")
 
-	response, err := c.analysisOrchestrator.RunAnalysis()
+	response, err := c.analysisOrchestrator.RunAnalysis(ctx, c.config.Organization(), workspaceId)
 	if ctx.Err() != nil {
 		c.logger.Info().Msg("Canceling Code scan - Code scanner received cancellation signal")
 		return nil, bundleHash, nil

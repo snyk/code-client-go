@@ -46,7 +46,7 @@ func Test_SmokeScan_HTTPS(t *testing.T) {
 	}
 	files := sliceToChannel([]string{filepath.Join(cloneTargetDir, "app.js"), filepath.Join(cloneTargetDir, "utils.js")})
 
-	logger := zerolog.New(os.Stdout)
+	logger := zerolog.New(os.Stdout).Level(zerolog.TraceLevel)
 	instrumentor := testutil.NewTestInstrumentor()
 	errorReporter := testutil.NewTestErrorReporter()
 	config := testutil.NewTestConfig()
