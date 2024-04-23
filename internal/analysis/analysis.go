@@ -22,11 +22,17 @@ import (
 	_ "embed"
 	"encoding/json"
 	"fmt"
+	"io"
+	"net/http"
+	"strings"
+	"time"
+
 	"github.com/google/uuid"
 	openapi_types "github.com/oapi-codegen/runtime/types"
 	"github.com/pkg/errors"
 	"github.com/rs/zerolog"
 	"github.com/snyk/code-client-go/config"
+
 	codeClientHTTP "github.com/snyk/code-client-go/http"
 	orchestrationClient "github.com/snyk/code-client-go/internal/orchestration/2024-02-16"
 	scans "github.com/snyk/code-client-go/internal/orchestration/2024-02-16/scans"
@@ -35,9 +41,6 @@ import (
 	workspaces "github.com/snyk/code-client-go/internal/workspace/2024-03-12/workspaces"
 	"github.com/snyk/code-client-go/observability"
 	"github.com/snyk/code-client-go/sarif"
-
-	"strings"
-	"time"
 )
 
 //go:generate mockgen -destination=mocks/analysis.go -source=analysis.go -package mocks
@@ -170,9 +173,6 @@ func (a *analysisOrchestrator) CreateWorkspace(ctx context.Context, orgId string
 	return workspaceResponse.ApplicationvndApiJSON201.Data.Id.String(), nil
 }
 
-//go:embed fake.json
-var fakeResponse []byte
-
 func (a *analysisOrchestrator) RunAnalysis(ctx context.Context, orgId string, workspaceId string) (*sarif.SarifResponse, error) {
 	method := "analysis.RunAnalysis"
 	logger := a.logger.With().Str("method", method).Logger()
@@ -229,15 +229,41 @@ func (a *analysisOrchestrator) RunAnalysis(ctx context.Context, orgId string, wo
 		return nil, fmt.Errorf("failed to trigger scan: %w", err)
 	}
 
-	if createScanResponse.ApplicationvndApiJSON201 == nil {
-		msg := a.getStatusCode(createScanResponse)
+	var scanJobId openapi_types.UUID
+	var msg string
+	switch createScanResponse.StatusCode() {
+	case 201:
+		scanJobId = createScanResponse.ApplicationvndApiJSON201.Data.Id
+		a.logger.Debug().Str("host", host).Str("workspaceId", workspaceId).Msg("starting scan")
+	case 400:
+		msg = createScanResponse.ApplicationvndApiJSON400.Errors[0].Detail
+	case 401:
+		msg = createScanResponse.ApplicationvndApiJSON401.Errors[0].Detail
+	case 403:
+		msg = createScanResponse.ApplicationvndApiJSON403.Errors[0].Detail
+	case 404:
+		msg = createScanResponse.ApplicationvndApiJSON404.Errors[0].Detail
+	case 429:
+		msg = createScanResponse.ApplicationvndApiJSON429.Errors[0].Detail
+	case 500:
+		msg = createScanResponse.ApplicationvndApiJSON500.Errors[0].Detail
+	}
+	if msg != "" {
 		return nil, errors.New(msg)
 	}
 
-	scanJobId := createScanResponse.ApplicationvndApiJSON201.Data.Id
-	a.logger.Debug().Str("host", host).Str("workspaceId", workspaceId).Msg("starting scan")
+	response, err := a.pollScanForFindings(ctx, client, org, scanJobId)
+	if err != nil {
+		return nil, err
+	}
 
-	// Actual polling loop.
+	return response, nil
+}
+
+func (a *analysisOrchestrator) pollScanForFindings(ctx context.Context, client *orchestrationClient.ClientWithResponses, org uuid.UUID, scanJobId openapi_types.UUID) (*sarif.SarifResponse, error) {
+	method := "analysis.pollScanForFindings"
+	logger := a.logger.With().Str("method", method).Logger()
+
 	pollingTicker := time.NewTicker(1 * time.Second)
 	defer pollingTicker.Stop()
 	timeoutTimer := time.NewTimer(a.timeoutInSeconds)
@@ -249,7 +275,7 @@ func (a *analysisOrchestrator) RunAnalysis(ctx context.Context, orgId string, wo
 			logger.Error().Str("scanJobId", scanJobId.String()).Msg(msg)
 			return nil, errors.New(msg)
 		case <-pollingTicker.C:
-			_, complete, err := a.poller(ctx, logger, client, org, scanJobId, method) // todo add processing of the response with the findings
+			findingsUrl, complete, err := a.retrieveFindingsURL(ctx, client, org, scanJobId)
 			if err != nil {
 				return nil, err
 			}
@@ -257,16 +283,21 @@ func (a *analysisOrchestrator) RunAnalysis(ctx context.Context, orgId string, wo
 				continue
 			}
 
-			var response sarif.SarifResponse
-			_ = json.Unmarshal(fakeResponse, &response)
+			findings, err := a.retrieveFindings(findingsUrl)
+			if err != nil {
+				return nil, err
+			}
 
-			return &response, nil
+			return findings, nil
 		}
 	}
 }
 
-func (a *analysisOrchestrator) poller(ctx context.Context, logger zerolog.Logger, client *orchestrationClient.ClientWithResponses, org uuid.UUID, scanJobId openapi_types.UUID, method string) (response *orchestrationClient.GetScanWorkspaceJobForUserResponse, complete bool, err error) {
-	logger.Debug().Msg("polling for ScanJobResult")
+func (a *analysisOrchestrator) retrieveFindingsURL(ctx context.Context, client *orchestrationClient.ClientWithResponses, org uuid.UUID, scanJobId openapi_types.UUID) (string, bool, error) {
+	method := "analysis.retrieveFindingsURL"
+	logger := a.logger.With().Str("method", method).Logger()
+	logger.Debug().Msg("retrieving findings URL")
+
 	httpResponse, err := client.GetScanWorkspaceJobForUserWithResponse(
 		ctx,
 		org,
@@ -274,8 +305,8 @@ func (a *analysisOrchestrator) poller(ctx context.Context, logger zerolog.Logger
 		&orchestrationClient.GetScanWorkspaceJobForUserParams{Version: "2024-02-16~experimental"},
 	)
 	if err != nil {
-		logger.Err(err).Str("method", method).Str("scanJobId", scanJobId.String()).Msg("error requesting the ScanJobResult")
-		return httpResponse, true, err
+		logger.Err(err).Str("scanJobId", scanJobId.String()).Msg("error requesting the ScanJobResult")
+		return "", true, err
 	}
 
 	var msg string
@@ -283,9 +314,15 @@ func (a *analysisOrchestrator) poller(ctx context.Context, logger zerolog.Logger
 	case 200:
 		scanJobStatus := httpResponse.ApplicationvndApiJSON200.Data.Attributes.Status
 		if scanJobStatus == scans.ScanJobResultsAttributesStatusInProgress {
-			return httpResponse, false, nil
+			return "", false, nil
 		} else {
-			return httpResponse, true, nil
+			findingsUrl := ""
+			fmt.Println(httpResponse.ApplicationvndApiJSON200)
+
+			if len(httpResponse.ApplicationvndApiJSON200.Data.Attributes.Components) > 0 && httpResponse.ApplicationvndApiJSON200.Data.Attributes.Components[0].FindingsUrl != nil {
+				findingsUrl = *httpResponse.ApplicationvndApiJSON200.Data.Attributes.Components[0].FindingsUrl
+			}
+			return findingsUrl, true, nil
 		}
 	case 400:
 		msg = httpResponse.ApplicationvndApiJSON400.Errors[0].Detail
@@ -300,26 +337,38 @@ func (a *analysisOrchestrator) poller(ctx context.Context, logger zerolog.Logger
 	case 500:
 		msg = httpResponse.ApplicationvndApiJSON500.Errors[0].Detail
 	}
-	return nil, true, errors.New(msg)
+	return "", true, errors.New(msg)
 }
 
-func (a *analysisOrchestrator) getStatusCode(createScanResponse *orchestrationClient.CreateScanWorkspaceJobForUserResponse) string {
-	var msg string
-	switch createScanResponse.StatusCode() {
-	case 400:
-		msg = createScanResponse.ApplicationvndApiJSON400.Errors[0].Detail
-	case 401:
-		msg = createScanResponse.ApplicationvndApiJSON401.Errors[0].Detail
-	case 403:
-		msg = createScanResponse.ApplicationvndApiJSON403.Errors[0].Detail
-	case 404:
-		msg = createScanResponse.ApplicationvndApiJSON404.Errors[0].Detail
-	case 429:
-		msg = createScanResponse.ApplicationvndApiJSON429.Errors[0].Detail
-	case 500:
-		msg = createScanResponse.ApplicationvndApiJSON500.Errors[0].Detail
+func (a *analysisOrchestrator) retrieveFindings(findingsUrl string) (*sarif.SarifResponse, error) {
+	method := "analysis.retrieveFindings"
+	logger := a.logger.With().Str("method", method).Logger()
+	logger.Debug().Str("findings_url", findingsUrl).Msg("retrieving findings from URL")
+
+	if findingsUrl == "" {
+		return nil, errors.New("do not have a findings URL")
 	}
-	return msg
+	req, err := http.NewRequest(http.MethodGet, findingsUrl, nil)
+	if err != nil {
+		return nil, err
+	}
+	rsp, err := a.httpClient.Do(req)
+	if err != nil {
+		return nil, err
+	}
+	defer func() { _ = rsp.Body.Close() }()
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	if err != nil {
+		return nil, err
+	}
+
+	var sarif sarif.SarifResponse
+	err = json.Unmarshal(bodyBytes, &sarif)
+	if err != nil {
+		return nil, err
+	}
+
+	return &sarif, nil
 }
 
 func (a *analysisOrchestrator) host(isHidden bool) string {
