@@ -366,13 +366,18 @@ func (a *analysisOrchestrator) retrieveFindings(findingsUrl string) (*sarif.Sari
 		return nil, errors.New("failed to retrieve findings from findings URL")
 	}
 
-	var sarifResponse sarif.SarifResponse
-	err = json.Unmarshal(bodyBytes, &sarifResponse)
+	var sarifDocument sarif.SarifDocument
+	err = json.Unmarshal(bodyBytes, &sarifDocument)
 	if err != nil {
 		return nil, err
 	}
 
-	return &sarifResponse, nil
+	return &sarif.SarifResponse{
+		Type:     "sarif",
+		Progress: 1,
+		Status:   "COMPLETE",
+		Sarif:    sarifDocument,
+	}, nil
 }
 
 func (a *analysisOrchestrator) host(isHidden bool) string {
