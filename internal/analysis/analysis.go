@@ -317,7 +317,6 @@ func (a *analysisOrchestrator) retrieveFindingsURL(ctx context.Context, client *
 			return "", false, nil
 		} else {
 			findingsUrl := ""
-			fmt.Println(httpResponse.ApplicationvndApiJSON200)
 
 			if len(httpResponse.ApplicationvndApiJSON200.Data.Attributes.Components) > 0 && httpResponse.ApplicationvndApiJSON200.Data.Attributes.Components[0].FindingsUrl != nil {
 				findingsUrl = *httpResponse.ApplicationvndApiJSON200.Data.Attributes.Components[0].FindingsUrl
