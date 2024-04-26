@@ -283,7 +283,7 @@ func (a *analysisOrchestrator) pollScanForFindings(ctx context.Context, client *
 				continue
 			}
 
-			findings, err := a.retrieveFindings(findingsUrl)
+			findings, err := a.retrieveFindings(ctx, scanJobId, findingsUrl)
 			if err != nil {
 				return nil, err
 			}
@@ -339,15 +339,17 @@ func (a *analysisOrchestrator) retrieveFindingsURL(ctx context.Context, client *
 	return "", true, errors.New(msg)
 }
 
-func (a *analysisOrchestrator) retrieveFindings(findingsUrl string) (*sarif.SarifResponse, error) {
+func (a *analysisOrchestrator) retrieveFindings(ctx context.Context, scanJobId uuid.UUID, findingsUrl string) (*sarif.SarifResponse, error) {
 	method := "analysis.retrieveFindings"
 	logger := a.logger.With().Str("method", method).Logger()
-	logger.Debug().Str("findings_url", findingsUrl).Msg("retrieving findings from URL")
+	logger.Debug().Str("scanJobId", scanJobId.String()).Msg("retrieving findings from URL for scan job")
 
 	if findingsUrl == "" {
 		return nil, errors.New("do not have a findings URL")
 	}
 	req, err := http.NewRequest(http.MethodGet, findingsUrl, nil)
+	req = req.WithContext(ctx)
+
 	if err != nil {
 		return nil, err
 	}
