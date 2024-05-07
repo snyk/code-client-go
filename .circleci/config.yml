@@ -16,22 +16,12 @@ jobs:
       - checkout
       - run:
           name: Install tools
-          command: | 
-            sudo apt-get update && sudo apt-get install -y python3 python3-pip
-            sudo apt-get install --reinstall ca-certificates
-            python3 -m pip install yq
-            python3 -m pip install pycurl
-            make tools
+          command: make tools
       - run: make format
-      - run:
-          command: |
-            CURL_CA_BUNDLE=/etc/ssl/certs/ca-certificates.crt make download-apis
       - run: make generate
       - run:
-          name: "Ensure go.mod is tidy"
-          command: |
-            go mod tidy
-            git diff --exit-code go.mod go.sum
+          name: Run go mod tidy"
+          command: go mod tidy
       - run:
           name: Check if there are any changes
           command: |
@@ -57,6 +47,16 @@ jobs:
       - run:
           name: Run smoke tests
           command: make smoke-test
+  contract_test:
+    executor: default
+    steps:
+      - checkout
+      - run:
+          name: Install tools
+          command: make tools
+      - run:
+          name: Run smoke tests
+          command: make contract-test
   build:
     executor: default
     steps:
@@ -97,9 +97,14 @@ workflows:
             - code-client-go-smoke-tests-token
           requires:
             - Unit tests
+      - contract_test:
+          name: Contract tests
+          requires:
+            - Unit tests
       - build:
           name: Build
           requires:
             - Smoke tests
+            - Contract tests
             - Security Scans
             - Scan repository for secrets

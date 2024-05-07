@@ -16,12 +16,6 @@ jobs:
         with:
           go-version-file: './go.mod'
 
-      - name: Set up Pact CLI tools
-        shell: bash
-        run: |
-          cd ~
-          curl -fsSL https://raw.githubusercontent.com/pact-foundation/pact-ruby-standalone/master/install.sh | bash
-
       - name: Lint
         run: |
           make lint

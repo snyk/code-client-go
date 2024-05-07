@@ -30,8 +30,6 @@ def saveGitHubFile(gitHubFile, localFile):
 	curl = pycurl.Curl()
 	curl.setopt(curl.URL, f"https://{gitHubPat}@raw.githubusercontent.com/snyk/{gitHubFile}")
 	curl.setopt(curl.WRITEDATA, buffer)
-	if "CURL_CA_BUNDLE" in os.environ:
-		curl.setopt(pycurl.CAINFO, os.environ["CURL_CA_BUNDLE"])
 
 	curl.perform()
 	status_code = curl.getinfo(curl.RESPONSE_CODE)
