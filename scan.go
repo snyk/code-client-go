@@ -141,7 +141,7 @@ func (c *codeScanner) WithAnalysisOrchestrator(analysisOrchestrator analysis.Ana
 func (c *codeScanner) UploadAndAnalyze(
 	ctx context.Context,
 	requestId string,
-	path string,
+	target analysis.ScanTarget,
 	files <-chan string,
 	changedFiles map[string]bool,
 ) (*sarif.SarifResponse, string, error) {
@@ -154,14 +154,14 @@ func (c *codeScanner) UploadAndAnalyze(
 		c.logger.Info().Msg("Canceling Code scan - Code scanner received cancellation signal")
 		return nil, "", nil
 	}
-	b, err := c.bundleManager.Create(ctx, requestId, path, files, changedFiles)
+	b, err := c.bundleManager.Create(ctx, requestId, target.GetPath(), files, changedFiles)
 	if err != nil {
 		if bundle.IsNoFilesError(err) {
 			return nil, "", nil
 		}
 		if ctx.Err() == nil { // Only report errors that are not intentional cancellations
 			msg := "error creating bundle..."
-			c.errorReporter.CaptureError(errors.Wrap(err, msg), observability.ErrorReporterOptions{ErrorDiagnosticPath: path})
+			c.errorReporter.CaptureError(errors.Wrap(err, msg), observability.ErrorReporterOptions{ErrorDiagnosticPath: target.GetPath()})
 			return nil, "", err
 		} else {
 			c.logger.Info().Msg("Canceling Code scan - Code scanner received cancellation signal")
@@ -176,7 +176,7 @@ func (c *codeScanner) UploadAndAnalyze(
 	if err != nil {
 		if ctx.Err() != nil { // Only handle errors that are not intentional cancellations
 			msg := "error uploading files..."
-			c.errorReporter.CaptureError(errors.Wrap(err, msg), observability.ErrorReporterOptions{ErrorDiagnosticPath: path})
+			c.errorReporter.CaptureError(errors.Wrap(err, msg), observability.ErrorReporterOptions{ErrorDiagnosticPath: target.GetPath()})
 			return nil, bundleHash, err
 		} else {
 			c.logger.Info().Msg("Canceling Code scan - Code scanner received cancellation signal")
@@ -189,11 +189,11 @@ func (c *codeScanner) UploadAndAnalyze(
 		return nil, bundleHash, nil
 	}
 
-	workspaceId, err := c.analysisOrchestrator.CreateWorkspace(ctx, c.config.Organization(), requestId, path, bundleHash)
+	workspaceId, err := c.analysisOrchestrator.CreateWorkspace(ctx, c.config.Organization(), requestId, target, bundleHash)
 	if err != nil {
 		if ctx.Err() == nil { // Only handle errors that are not intentional cancellations
 			msg := "error creating workspace for bundle..."
-			c.errorReporter.CaptureError(errors.Wrap(err, msg), observability.ErrorReporterOptions{ErrorDiagnosticPath: path})
+			c.errorReporter.CaptureError(errors.Wrap(err, msg), observability.ErrorReporterOptions{ErrorDiagnosticPath: target.GetPath()})
 			return nil, bundleHash, err
 		} else {
 			c.logger.Info().Msg("Canceling Code scan - Code scanner received cancellation signal")

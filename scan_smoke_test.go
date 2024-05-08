@@ -18,7 +18,6 @@ package codeclient_test
 import (
 	"context"
 	"fmt"
-	"github.com/rs/zerolog/log"
 	"net/http"
 	"os"
 	"os/exec"
@@ -26,12 +25,16 @@ import (
 	"testing"
 	"time"
 
+	"github.com/rs/zerolog/log"
+	"github.com/stretchr/testify/assert"
+
 	"github.com/google/uuid"
 	"github.com/rs/zerolog"
 	"github.com/stretchr/testify/require"
 
 	codeClient "github.com/snyk/code-client-go"
 	codeClientHTTP "github.com/snyk/code-client-go/http"
+	"github.com/snyk/code-client-go/internal/analysis"
 	"github.com/snyk/code-client-go/internal/util/testutil"
 )
 
@@ -40,6 +43,9 @@ func Test_SmokeScan_HTTPS(t *testing.T) {
 		t.Skip()
 	}
 	var cloneTargetDir, err = setupCustomTestRepo(t, "https://github.com/snyk-labs/nodejs-goof", "0336589")
+	target, err := analysis.NewRepositoryTarget(cloneTargetDir, "")
+	assert.NoError(t, err)
+
 	defer func(path string) { _ = os.RemoveAll(path) }(cloneTargetDir)
 	if err != nil {
 		t.Fatal(err, "Couldn't setup test repo")
@@ -66,7 +72,7 @@ func Test_SmokeScan_HTTPS(t *testing.T) {
 		config,
 		httpClient,
 		codeClient.WithLogger(&logger), codeClient.WithInstrumentor(instrumentor), codeClient.WithErrorReporter(errorReporter))
-	response, bundleHash, scanErr := codeScanner.UploadAndAnalyze(context.Background(), uuid.New().String(), cloneTargetDir, files, map[string]bool{})
+	response, bundleHash, scanErr := codeScanner.UploadAndAnalyze(context.Background(), uuid.New().String(), target, files, map[string]bool{})
 	require.NoError(t, scanErr)
 	require.NotEmpty(t, bundleHash)
 	require.NotNil(t, response)
@@ -81,6 +87,9 @@ func Test_SmokeScan_SSH(t *testing.T) {
 		t.Skip()
 	}
 	var cloneTargetDir, err = setupCustomTestRepo(t, "git@github.com:snyk-labs/nodejs-goof", "0336589")
+	target, err := analysis.NewRepositoryTarget(cloneTargetDir, "")
+	assert.NoError(t, err)
+
 	defer func(path string) { _ = os.RemoveAll(path) }(cloneTargetDir)
 	if err != nil {
 		t.Fatal(err, "Couldn't setup test repo")
@@ -110,7 +119,7 @@ func Test_SmokeScan_SSH(t *testing.T) {
 		codeClient.WithErrorReporter(errorReporter),
 		codeClient.WithLogger(&logger),
 	)
-	response, bundleHash, scanErr := codeScanner.UploadAndAnalyze(context.Background(), uuid.New().String(), cloneTargetDir, files, map[string]bool{})
+	response, bundleHash, scanErr := codeScanner.UploadAndAnalyze(context.Background(), uuid.New().String(), target, files, map[string]bool{})
 	require.NoError(t, scanErr)
 	require.NotEmpty(t, bundleHash)
 	require.NotNil(t, response)
@@ -123,6 +132,9 @@ func Test_SmokeScan_SubFolder(t *testing.T) {
 	currDir, err := os.Getwd()
 	require.NoError(t, err)
 	cloneTargetDir := filepath.Join(currDir, "internal/util")
+	target, err := analysis.NewRepositoryTarget(cloneTargetDir, "")
+	assert.NoError(t, err)
+
 	files := sliceToChannel([]string{filepath.Join(cloneTargetDir, "hash.go")})
 
 	logger := zerolog.New(os.Stdout)
@@ -148,7 +160,7 @@ func Test_SmokeScan_SubFolder(t *testing.T) {
 		codeClient.WithErrorReporter(errorReporter),
 		codeClient.WithLogger(&logger),
 	)
-	response, bundleHash, scanErr := codeScanner.UploadAndAnalyze(context.Background(), uuid.New().String(), cloneTargetDir, files, map[string]bool{})
+	response, bundleHash, scanErr := codeScanner.UploadAndAnalyze(context.Background(), uuid.New().String(), target, files, map[string]bool{})
 	require.NoError(t, scanErr)
 	require.NotEmpty(t, bundleHash)
 	require.NotNil(t, response)
