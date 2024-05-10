@@ -92,6 +92,10 @@ func NewRepositoryTarget(path string, repositoryUrl string) (ScanTarget, error) 
 	return result, nil
 }
 
+func NewRepositoryTargetFromPath(path string) (ScanTarget, error) {
+	return NewRepositoryTarget(path, "")
+}
+
 type OptionFunc func(*analysisOrchestrator)
 
 func WithTimeoutInSeconds(timeoutInSeconds time.Duration) func(*analysisOrchestrator) {

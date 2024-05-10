@@ -80,7 +80,7 @@ func TestAnalysis_CreateWorkspace(t *testing.T) {
 		Body: io.NopCloser(bytes.NewReader([]byte(`{"data":{"id": "c172d1db-b465-4764-99e1-ecedad03b06a"}}`))),
 	}, nil).Times(1)
 
-	target, err := analysis.NewRepositoryTarget("../../", "")
+	target, err := analysis.NewRepositoryTargetFromPath("../../")
 	assert.NoError(t, err)
 
 	analysisOrchestrator := analysis.NewAnalysisOrchestrator(mockConfig, &logger, mockHTTPClient, mockInstrumentor, mockErrorReporter)
@@ -98,7 +98,7 @@ func TestAnalysis_CreateWorkspace_NotARepository(t *testing.T) {
 	mockErrorReporter.EXPECT().CaptureError(gomock.Any(), gomock.Any())
 
 	repoDir := t.TempDir()
-	target, err := analysis.NewRepositoryTarget(repoDir, "")
+	target, err := analysis.NewRepositoryTargetFromPath(repoDir)
 	assert.ErrorContains(t, err, "open local repository")
 
 	analysisOrchestrator := analysis.NewAnalysisOrchestrator(mockConfig, &logger, mockHTTPClient, mockInstrumentor, mockErrorReporter)
@@ -132,7 +132,7 @@ func TestAnalysis_CreateWorkspace_Failure(t *testing.T) {
 		Body: io.NopCloser(bytes.NewReader([]byte(`{"errors": [{"detail": "error detail", "status": "400"}], "jsonapi": {"version": "version"}}`))),
 	}, nil).Times(1)
 
-	target, err := analysis.NewRepositoryTarget("../../", "")
+	target, err := analysis.NewRepositoryTargetFromPath("../../")
 	assert.NoError(t, err)
 
 	analysisOrchestrator := analysis.NewAnalysisOrchestrator(mockConfig, &logger, mockHTTPClient, mockInstrumentor, mockErrorReporter)
@@ -205,7 +205,7 @@ func TestAnalysis_CreateWorkspace_KnownErrors(t *testing.T) {
 
 			logger := zerolog.Nop()
 
-			target, err := analysis.NewRepositoryTarget("../../", "")
+			target, err := analysis.NewRepositoryTargetFromPath("../../")
 			assert.NoError(t, err)
 
 			analysisOrchestrator := analysis.NewAnalysisOrchestrator(mockConfig, &logger, mockHTTPClient, mockInstrumentor, mockErrorReporter)
