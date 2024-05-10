@@ -37,7 +37,7 @@ func (m *MockAnalysisOrchestrator) EXPECT() *MockAnalysisOrchestratorMockRecorde
 }
 
 // CreateWorkspace mocks base method.
-func (m *MockAnalysisOrchestrator) CreateWorkspace(ctx context.Context, orgId, requestId string, path scan.ScanTarget, bundleHash string) (string, error) {
+func (m *MockAnalysisOrchestrator) CreateWorkspace(ctx context.Context, orgId, requestId string, path scan.Target, bundleHash string) (string, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "CreateWorkspace", ctx, orgId, requestId, path, bundleHash)
 	ret0, _ := ret[0].(string)

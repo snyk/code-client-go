@@ -142,7 +142,7 @@ func (c *codeScanner) WithAnalysisOrchestrator(analysisOrchestrator analysis.Ana
 func (c *codeScanner) UploadAndAnalyze(
 	ctx context.Context,
 	requestId string,
-	target scan.ScanTarget,
+	target scan.Target,
 	files <-chan string,
 	changedFiles map[string]bool,
 ) (*sarif.SarifResponse, string, error) {

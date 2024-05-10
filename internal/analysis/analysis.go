@@ -46,7 +46,7 @@ import (
 
 //go:generate mockgen -destination=mocks/analysis.go -source=analysis.go -package mocks
 type AnalysisOrchestrator interface {
-	CreateWorkspace(ctx context.Context, orgId string, requestId string, path scan.ScanTarget, bundleHash string) (string, error)
+	CreateWorkspace(ctx context.Context, orgId string, requestId string, path scan.Target, bundleHash string) (string, error)
 	RunAnalysis(ctx context.Context, orgId string, workspaceId string) (*sarif.SarifResponse, error)
 }
 
@@ -90,7 +90,7 @@ func NewAnalysisOrchestrator(
 	return a
 }
 
-func (a *analysisOrchestrator) CreateWorkspace(ctx context.Context, orgId string, requestId string, target scan.ScanTarget, bundleHash string) (string, error) {
+func (a *analysisOrchestrator) CreateWorkspace(ctx context.Context, orgId string, requestId string, target scan.Target, bundleHash string) (string, error) {
 	method := "analysis.CreateWorkspace"
 	logger := a.logger.With().Str("method", method).Logger()
 	logger.Debug().Msg("API: Creating the workspace")
