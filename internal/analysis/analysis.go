@@ -25,6 +25,7 @@ import (
 	"io"
 	"net/http"
 	"strings"
+
 	"time"
 
 	"github.com/google/uuid"
@@ -33,8 +34,6 @@ import (
 	"github.com/rs/zerolog"
 
 	"github.com/snyk/code-client-go/config"
-	"github.com/snyk/code-client-go/internal/util"
-
 	codeClientHTTP "github.com/snyk/code-client-go/http"
 	orchestrationClient "github.com/snyk/code-client-go/internal/orchestration/2024-02-16"
 	scans "github.com/snyk/code-client-go/internal/orchestration/2024-02-16/scans"
@@ -42,11 +41,12 @@ import (
 	workspaces "github.com/snyk/code-client-go/internal/workspace/2024-03-12/workspaces"
 	"github.com/snyk/code-client-go/observability"
 	"github.com/snyk/code-client-go/sarif"
+	"github.com/snyk/code-client-go/scan"
 )
 
 //go:generate mockgen -destination=mocks/analysis.go -source=analysis.go -package mocks
 type AnalysisOrchestrator interface {
-	CreateWorkspace(ctx context.Context, orgId string, requestId string, path ScanTarget, bundleHash string) (string, error)
+	CreateWorkspace(ctx context.Context, orgId string, requestId string, path scan.ScanTarget, bundleHash string) (string, error)
 	RunAnalysis(ctx context.Context, orgId string, workspaceId string) (*sarif.SarifResponse, error)
 }
 
@@ -57,43 +57,6 @@ type analysisOrchestrator struct {
 	logger           *zerolog.Logger
 	config           config.Config
 	timeoutInSeconds time.Duration
-}
-
-type RepositoryTarget struct {
-	LocalFilePath string
-	repositoryUrl string
-}
-
-type ScanTarget interface {
-	GetPath() string
-}
-
-func (r RepositoryTarget) GetPath() string {
-	return r.LocalFilePath
-}
-
-func (r RepositoryTarget) GetRepositoryUrl() string {
-	return r.repositoryUrl
-}
-
-func NewRepositoryTarget(path string, repositoryUrl string) (ScanTarget, error) {
-	var err error
-	if len(repositoryUrl) == 0 {
-		repositoryUrl, err = util.GetRepositoryUrl(path)
-		if err != nil {
-			return &RepositoryTarget{}, err
-		}
-	}
-
-	result := &RepositoryTarget{
-		LocalFilePath: path,
-		repositoryUrl: repositoryUrl,
-	}
-	return result, nil
-}
-
-func NewRepositoryTargetFromPath(path string) (ScanTarget, error) {
-	return NewRepositoryTarget(path, "")
 }
 
 type OptionFunc func(*analysisOrchestrator)
@@ -127,7 +90,7 @@ func NewAnalysisOrchestrator(
 	return a
 }
 
-func (a *analysisOrchestrator) CreateWorkspace(ctx context.Context, orgId string, requestId string, target ScanTarget, bundleHash string) (string, error) {
+func (a *analysisOrchestrator) CreateWorkspace(ctx context.Context, orgId string, requestId string, target scan.ScanTarget, bundleHash string) (string, error) {
 	method := "analysis.CreateWorkspace"
 	logger := a.logger.With().Str("method", method).Logger()
 	logger.Debug().Msg("API: Creating the workspace")
@@ -141,8 +104,8 @@ func (a *analysisOrchestrator) CreateWorkspace(ctx context.Context, orgId string
 		return "", fmt.Errorf("target is nil")
 	}
 
-	repositoryTarget, ok := target.(*RepositoryTarget)
-	if !ok || repositoryTarget.repositoryUrl == "" {
+	repositoryTarget, ok := target.(*scan.RepositoryTarget)
+	if !ok || repositoryTarget.GetRepositoryUrl() == "" {
 		err := fmt.Errorf("workspace is not a repository, cannot scan")
 		a.errorReporter.CaptureError(err, observability.ErrorReporterOptions{ErrorDiagnosticPath: target.GetPath()})
 		return "", err

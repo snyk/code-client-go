@@ -43,14 +43,14 @@ func GetRepositoryUrl(path string) (string, error) {
 
 	// based on the docs, the first URL is being used to fetch, so this is the one we use
 	repoUrl := remote.Config().URLs[0]
-	repoUrl, err = sanitiseCredentials(repoUrl)
+	repoUrl, err = SanitiseCredentials(repoUrl)
 
 	// we need to return an actual URL, not the SSH
 	repoUrl = strings.Replace(repoUrl, "git@github.com:", "https://github.com/", 1)
 	return repoUrl, err
 }
 
-func sanitiseCredentials(rawUrl string) (string, error) {
+func SanitiseCredentials(rawUrl string) (string, error) {
 	parsedURL, err := url.Parse(rawUrl)
 	if err != nil {
 		return rawUrl, nil

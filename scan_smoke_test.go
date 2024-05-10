@@ -34,8 +34,8 @@ import (
 
 	codeClient "github.com/snyk/code-client-go"
 	codeClientHTTP "github.com/snyk/code-client-go/http"
-	"github.com/snyk/code-client-go/internal/analysis"
 	"github.com/snyk/code-client-go/internal/util/testutil"
+	"github.com/snyk/code-client-go/scan"
 )
 
 func Test_SmokeScan_HTTPS(t *testing.T) {
@@ -45,7 +45,7 @@ func Test_SmokeScan_HTTPS(t *testing.T) {
 	var cloneTargetDir, err = setupCustomTestRepo(t, "https://github.com/snyk-labs/nodejs-goof", "0336589")
 	assert.NoError(t, err)
 
-	target, err := analysis.NewRepositoryTargetFromPath(cloneTargetDir)
+	target, err := scan.NewRepositoryTargetFromPath(cloneTargetDir)
 	assert.NoError(t, err)
 
 	defer func(path string) { _ = os.RemoveAll(path) }(cloneTargetDir)
@@ -91,7 +91,7 @@ func Test_SmokeScan_SSH(t *testing.T) {
 	var cloneTargetDir, err = setupCustomTestRepo(t, "git@github.com:snyk-labs/nodejs-goof", "0336589")
 	assert.NoError(t, err)
 
-	target, err := analysis.NewRepositoryTargetFromPath(cloneTargetDir)
+	target, err := scan.NewRepositoryTargetFromPath(cloneTargetDir)
 	assert.NoError(t, err)
 
 	defer func(path string) { _ = os.RemoveAll(path) }(cloneTargetDir)
@@ -136,7 +136,7 @@ func Test_SmokeScan_SubFolder(t *testing.T) {
 	currDir, err := os.Getwd()
 	require.NoError(t, err)
 	cloneTargetDir := filepath.Join(currDir, "internal/util")
-	target, err := analysis.NewRepositoryTargetFromPath(cloneTargetDir)
+	target, err := scan.NewRepositoryTargetFromPath(cloneTargetDir)
 	assert.NoError(t, err)
 
 	files := sliceToChannel([]string{filepath.Join(cloneTargetDir, "hash.go")})

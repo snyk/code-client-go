@@ -29,7 +29,6 @@ import (
 	codeclient "github.com/snyk/code-client-go"
 	confMocks "github.com/snyk/code-client-go/config/mocks"
 	httpmocks "github.com/snyk/code-client-go/http/mocks"
-	"github.com/snyk/code-client-go/internal/analysis"
 	mockAnalysis "github.com/snyk/code-client-go/internal/analysis/mocks"
 	"github.com/snyk/code-client-go/internal/bundle"
 	bundleMocks "github.com/snyk/code-client-go/internal/bundle/mocks"
@@ -37,6 +36,7 @@ import (
 	deepcodeMocks "github.com/snyk/code-client-go/internal/deepcode/mocks"
 	"github.com/snyk/code-client-go/observability/mocks"
 	"github.com/snyk/code-client-go/sarif"
+	"github.com/snyk/code-client-go/scan"
 )
 
 func Test_UploadAndAnalyze(t *testing.T) {
@@ -64,7 +64,7 @@ func Test_UploadAndAnalyze(t *testing.T) {
 	mockInstrumentor.EXPECT().Finish(gomock.Any()).AnyTimes()
 	mockErrorReporter := mocks.NewMockErrorReporter(ctrl)
 
-	target := analysis.RepositoryTarget{LocalFilePath: baseDir}
+	target := scan.RepositoryTarget{LocalFilePath: baseDir}
 
 	t.Run(
 		"should just create bundle when hash empty", func(t *testing.T) {

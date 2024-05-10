@@ -30,6 +30,7 @@ import (
 	"github.com/snyk/code-client-go/internal/deepcode"
 	"github.com/snyk/code-client-go/observability"
 	"github.com/snyk/code-client-go/sarif"
+	"github.com/snyk/code-client-go/scan"
 )
 
 type codeScanner struct {
@@ -141,7 +142,7 @@ func (c *codeScanner) WithAnalysisOrchestrator(analysisOrchestrator analysis.Ana
 func (c *codeScanner) UploadAndAnalyze(
 	ctx context.Context,
 	requestId string,
-	target analysis.ScanTarget,
+	target scan.ScanTarget,
 	files <-chan string,
 	changedFiles map[string]bool,
 ) (*sarif.SarifResponse, string, error) {
