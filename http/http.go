@@ -142,7 +142,7 @@ func (s *httpClient) httpCall(req *http.Request) (*http.Response, error) {
 		reqBody := io.NopCloser(bytes.NewBuffer(reqBuf))
 		copyReqBody = io.NopCloser(bytes.NewBuffer(reqBuf))
 		req.Body = reqBody
-		s.logger.Debug().Msg("SEND TO REMOTE")
+		log.Debug().Msg("SEND TO REMOTE")
 	}
 	response, err := s.httpClientFactory().Do(req)
 	req.Body = copyReqBody
@@ -152,9 +152,9 @@ func (s *httpClient) httpCall(req *http.Request) (*http.Response, error) {
 		resBuf, _ = io.ReadAll(response.Body)
 		copyResBody = io.NopCloser(bytes.NewBuffer(resBuf))
 		response.Body = copyResBody
-		s.logger.Debug().Str("response.Status", response.Status).Msg("RECEIVED FROM REMOTE")
+		log.Debug().Str("response.Status", response.Status).Msg("RECEIVED FROM REMOTE")
 	} else {
-		s.logger.Debug().Msg("RECEIVED FROM REMOTE")
+		log.Debug().Msg("RECEIVED FROM REMOTE")
 	}
 
 	if err != nil {

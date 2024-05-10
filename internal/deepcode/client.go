@@ -243,7 +243,7 @@ func (s *deepcodeClient) Request(
 	defer func() {
 		closeErr := response.Body.Close()
 		if closeErr != nil {
-			s.logger.Error().Err(closeErr).Msg("Couldn't close response body in call to Snyk Code")
+			log.Error().Err(closeErr).Msg("Couldn't close response body in call to Snyk Code")
 		}
 	}()
 	responseBody, err := io.ReadAll(response.Body)
