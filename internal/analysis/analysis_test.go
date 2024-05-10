@@ -37,6 +37,7 @@ import (
 	httpmocks "github.com/snyk/code-client-go/http/mocks"
 	"github.com/snyk/code-client-go/internal/analysis"
 	"github.com/snyk/code-client-go/observability/mocks"
+	"github.com/snyk/code-client-go/scan"
 )
 
 func setup(t *testing.T) (*confMocks.MockConfig, *httpmocks.MockHTTPClient, *mocks.MockInstrumentor, *mocks.MockErrorReporter, zerolog.Logger) {
@@ -80,12 +81,15 @@ func TestAnalysis_CreateWorkspace(t *testing.T) {
 		Body: io.NopCloser(bytes.NewReader([]byte(`{"data":{"id": "c172d1db-b465-4764-99e1-ecedad03b06a"}}`))),
 	}, nil).Times(1)
 
+	target, err := scan.NewRepositoryTarget("../../")
+	assert.NoError(t, err)
+
 	analysisOrchestrator := analysis.NewAnalysisOrchestrator(mockConfig, &logger, mockHTTPClient, mockInstrumentor, mockErrorReporter)
-	_, err := analysisOrchestrator.CreateWorkspace(
+	_, err = analysisOrchestrator.CreateWorkspace(
 		context.Background(),
 		"4a72d1db-b465-4764-99e1-ecedad03b06a",
 		"b372d1db-b465-4764-99e1-ecedad03b06a",
-		"../../",
+		target,
 		"testBundleHash")
 	assert.NoError(t, err)
 }
@@ -95,15 +99,18 @@ func TestAnalysis_CreateWorkspace_NotARepository(t *testing.T) {
 	mockErrorReporter.EXPECT().CaptureError(gomock.Any(), gomock.Any())
 
 	repoDir := t.TempDir()
+	target, err := scan.NewRepositoryTarget(repoDir)
+	assert.ErrorContains(t, err, "open local repository")
+
 	analysisOrchestrator := analysis.NewAnalysisOrchestrator(mockConfig, &logger, mockHTTPClient, mockInstrumentor, mockErrorReporter)
-	_, err := analysisOrchestrator.CreateWorkspace(
+	_, err = analysisOrchestrator.CreateWorkspace(
 		context.Background(),
 		"4a72d1db-b465-4764-99e1-ecedad03b06a",
 		"b372d1db-b465-4764-99e1-ecedad03b06a",
-		repoDir,
+		target,
 		"testBundleHash",
 	)
-	assert.ErrorContains(t, err, "open local repository")
+	assert.ErrorContains(t, err, "workspace is not a repository")
 }
 
 func TestAnalysis_CreateWorkspace_Failure(t *testing.T) {
@@ -126,12 +133,15 @@ func TestAnalysis_CreateWorkspace_Failure(t *testing.T) {
 		Body: io.NopCloser(bytes.NewReader([]byte(`{"errors": [{"detail": "error detail", "status": "400"}], "jsonapi": {"version": "version"}}`))),
 	}, nil).Times(1)
 
+	target, err := scan.NewRepositoryTarget("../../")
+	assert.NoError(t, err)
+
 	analysisOrchestrator := analysis.NewAnalysisOrchestrator(mockConfig, &logger, mockHTTPClient, mockInstrumentor, mockErrorReporter)
-	_, err := analysisOrchestrator.CreateWorkspace(
+	_, err = analysisOrchestrator.CreateWorkspace(
 		context.Background(),
 		"4a72d1db-b465-4764-99e1-ecedad03b06a",
 		"b372d1db-b465-4764-99e1-ecedad03b06a",
-		"../../",
+		target,
 		"testBundleHash")
 	assert.ErrorContains(t, err, "error detail")
 }
@@ -196,12 +206,15 @@ func TestAnalysis_CreateWorkspace_KnownErrors(t *testing.T) {
 
 			logger := zerolog.Nop()
 
+			target, err := scan.NewRepositoryTarget("../../")
+			assert.NoError(t, err)
+
 			analysisOrchestrator := analysis.NewAnalysisOrchestrator(mockConfig, &logger, mockHTTPClient, mockInstrumentor, mockErrorReporter)
-			_, err := analysisOrchestrator.CreateWorkspace(
+			_, err = analysisOrchestrator.CreateWorkspace(
 				context.Background(),
 				"4a72d1db-b465-4764-99e1-ecedad03b06a",
 				"b372d1db-b465-4764-99e1-ecedad03b06a",
-				"../../",
+				target,
 				"testBundleHash",
 			)
 			assert.ErrorContains(t, err, tc.expectedError)

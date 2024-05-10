@@ -10,6 +10,7 @@ import (
 
 	gomock "github.com/golang/mock/gomock"
 	sarif "github.com/snyk/code-client-go/sarif"
+	scan "github.com/snyk/code-client-go/scan"
 )
 
 // MockAnalysisOrchestrator is a mock of AnalysisOrchestrator interface.
@@ -36,7 +37,7 @@ func (m *MockAnalysisOrchestrator) EXPECT() *MockAnalysisOrchestratorMockRecorde
 }
 
 // CreateWorkspace mocks base method.
-func (m *MockAnalysisOrchestrator) CreateWorkspace(ctx context.Context, orgId, requestId, path, bundleHash string) (string, error) {
+func (m *MockAnalysisOrchestrator) CreateWorkspace(ctx context.Context, orgId, requestId string, path scan.Target, bundleHash string) (string, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "CreateWorkspace", ctx, orgId, requestId, path, bundleHash)
 	ret0, _ := ret[0].(string)

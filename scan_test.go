@@ -36,6 +36,7 @@ import (
 	deepcodeMocks "github.com/snyk/code-client-go/internal/deepcode/mocks"
 	"github.com/snyk/code-client-go/observability/mocks"
 	"github.com/snyk/code-client-go/sarif"
+	"github.com/snyk/code-client-go/scan"
 )
 
 func Test_UploadAndAnalyze(t *testing.T) {
@@ -63,6 +64,8 @@ func Test_UploadAndAnalyze(t *testing.T) {
 	mockInstrumentor.EXPECT().Finish(gomock.Any()).AnyTimes()
 	mockErrorReporter := mocks.NewMockErrorReporter(ctrl)
 
+	target := scan.RepositoryTarget{LocalFilePath: baseDir}
+
 	t.Run(
 		"should just create bundle when hash empty", func(t *testing.T) {
 			mockBundle := bundle.NewBundle(deepcodeMocks.NewMockDeepcode(ctrl), mockInstrumentor, mockErrorReporter, &logger, "", files, []string{}, []string{})
@@ -78,7 +81,7 @@ func Test_UploadAndAnalyze(t *testing.T) {
 				codeclient.WithLogger(&logger),
 			)
 
-			response, bundleHash, err := codeScanner.WithBundleManager(mockBundleManager).UploadAndAnalyze(context.Background(), "testRequestId", baseDir, docs, map[string]bool{})
+			response, bundleHash, err := codeScanner.WithBundleManager(mockBundleManager).UploadAndAnalyze(context.Background(), "testRequestId", target, docs, map[string]bool{})
 			require.NoError(t, err)
 			assert.Equal(t, "", bundleHash)
 			assert.Nil(t, response)
@@ -93,7 +96,7 @@ func Test_UploadAndAnalyze(t *testing.T) {
 			mockBundleManager.EXPECT().Upload(gomock.Any(), "b372d1db-b465-4764-99e1-ecedad03b06a", mockBundle, files).Return(mockBundle, nil)
 
 			mockAnalysisOrchestrator := mockAnalysis.NewMockAnalysisOrchestrator(ctrl)
-			mockAnalysisOrchestrator.EXPECT().CreateWorkspace(gomock.Any(), "4a72d1db-b465-4764-99e1-ecedad03b06a", "b372d1db-b465-4764-99e1-ecedad03b06a", baseDir, "testBundleHash").Return("c172d1db-b465-4764-99e1-ecedad03b06a", nil)
+			mockAnalysisOrchestrator.EXPECT().CreateWorkspace(gomock.Any(), "4a72d1db-b465-4764-99e1-ecedad03b06a", "b372d1db-b465-4764-99e1-ecedad03b06a", target, "testBundleHash").Return("c172d1db-b465-4764-99e1-ecedad03b06a", nil)
 			mockAnalysisOrchestrator.EXPECT().RunAnalysis(gomock.Any(), "4a72d1db-b465-4764-99e1-ecedad03b06a", "c172d1db-b465-4764-99e1-ecedad03b06a").Return(&sarif.SarifResponse{Status: "COMPLETE"}, nil)
 
 			codeScanner := codeclient.NewCodeScanner(
@@ -107,7 +110,7 @@ func Test_UploadAndAnalyze(t *testing.T) {
 			response, bundleHash, err := codeScanner.
 				WithBundleManager(mockBundleManager).
 				WithAnalysisOrchestrator(mockAnalysisOrchestrator).
-				UploadAndAnalyze(context.Background(), "b372d1db-b465-4764-99e1-ecedad03b06a", baseDir, docs, map[string]bool{})
+				UploadAndAnalyze(context.Background(), "b372d1db-b465-4764-99e1-ecedad03b06a", target, docs, map[string]bool{})
 			require.NoError(t, err)
 			assert.Equal(t, "COMPLETE", response.Status)
 			assert.Equal(t, "testBundleHash", bundleHash)

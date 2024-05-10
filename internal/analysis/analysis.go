@@ -25,27 +25,28 @@ import (
 	"io"
 	"net/http"
 	"strings"
+
 	"time"
 
 	"github.com/google/uuid"
 	openapi_types "github.com/oapi-codegen/runtime/types"
 	"github.com/pkg/errors"
 	"github.com/rs/zerolog"
-	"github.com/snyk/code-client-go/config"
 
+	"github.com/snyk/code-client-go/config"
 	codeClientHTTP "github.com/snyk/code-client-go/http"
 	orchestrationClient "github.com/snyk/code-client-go/internal/orchestration/2024-02-16"
 	scans "github.com/snyk/code-client-go/internal/orchestration/2024-02-16/scans"
-	"github.com/snyk/code-client-go/internal/util"
 	workspaceClient "github.com/snyk/code-client-go/internal/workspace/2024-03-12"
 	workspaces "github.com/snyk/code-client-go/internal/workspace/2024-03-12/workspaces"
 	"github.com/snyk/code-client-go/observability"
 	"github.com/snyk/code-client-go/sarif"
+	"github.com/snyk/code-client-go/scan"
 )
 
 //go:generate mockgen -destination=mocks/analysis.go -source=analysis.go -package mocks
 type AnalysisOrchestrator interface {
-	CreateWorkspace(ctx context.Context, orgId string, requestId string, path string, bundleHash string) (string, error)
+	CreateWorkspace(ctx context.Context, orgId string, requestId string, path scan.Target, bundleHash string) (string, error)
 	RunAnalysis(ctx context.Context, orgId string, workspaceId string) (*sarif.SarifResponse, error)
 }
 
@@ -89,7 +90,7 @@ func NewAnalysisOrchestrator(
 	return a
 }
 
-func (a *analysisOrchestrator) CreateWorkspace(ctx context.Context, orgId string, requestId string, path string, bundleHash string) (string, error) {
+func (a *analysisOrchestrator) CreateWorkspace(ctx context.Context, orgId string, requestId string, target scan.Target, bundleHash string) (string, error) {
 	method := "analysis.CreateWorkspace"
 	logger := a.logger.With().Str("method", method).Logger()
 	logger.Debug().Msg("API: Creating the workspace")
@@ -99,18 +100,23 @@ func (a *analysisOrchestrator) CreateWorkspace(ctx context.Context, orgId string
 
 	orgUUID := uuid.MustParse(orgId)
 
-	repositoryUri, err := util.GetRepositoryUrl(path)
-	if err != nil {
-		a.errorReporter.CaptureError(err, observability.ErrorReporterOptions{ErrorDiagnosticPath: path})
-		return "", fmt.Errorf("workspace is not a repository, cannot scan, %w", err)
+	if target == nil {
+		return "", fmt.Errorf("target is nil")
+	}
+
+	repositoryTarget, ok := target.(*scan.RepositoryTarget)
+	if !ok || repositoryTarget.GetRepositoryUrl() == "" {
+		err := fmt.Errorf("workspace is not a repository, cannot scan")
+		a.errorReporter.CaptureError(err, observability.ErrorReporterOptions{ErrorDiagnosticPath: target.GetPath()})
+		return "", err
 	}
 
 	host := a.host(true)
-	a.logger.Info().Str("host", host).Str("path", path).Str("repositoryUri", repositoryUri).Msg("creating workspace")
+	a.logger.Info().Str("host", host).Str("path", repositoryTarget.GetPath()).Str("repositoryUri", repositoryTarget.GetRepositoryUrl()).Msg("creating workspace")
 
 	workspace, err := workspaceClient.NewClientWithResponses(host, workspaceClient.WithHTTPClient(a.httpClient))
 	if err != nil {
-		a.errorReporter.CaptureError(err, observability.ErrorReporterOptions{ErrorDiagnosticPath: path})
+		a.errorReporter.CaptureError(err, observability.ErrorReporterOptions{ErrorDiagnosticPath: repositoryTarget.GetPath()})
 		return "", fmt.Errorf("failed to connect to the workspace API %w", err)
 	}
 
@@ -144,7 +150,7 @@ func (a *analysisOrchestrator) CreateWorkspace(ctx context.Context, orgId string
 			WorkspaceType workspaces.WorkspacePostRequestDataAttributesWorkspaceType
 		}{
 			BundleId:      bundleHash,
-			RepositoryUri: repositoryUri,
+			RepositoryUri: repositoryTarget.GetRepositoryUrl(),
 			WorkspaceType: "file_bundle_workspace",
 		}),
 			Type: "workspace",
