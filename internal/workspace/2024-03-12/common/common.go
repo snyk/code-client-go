@@ -10,6 +10,12 @@ import (
 	openapi_types "github.com/oapi-codegen/runtime/types"
 )
 
+// Defines values for MetaCount.
+const (
+	Only MetaCount = "only"
+	With MetaCount = "with"
+)
+
 // ActualVersion Resolved API version
 type ActualVersion = string
 
@@ -139,6 +145,9 @@ type EndingBefore = string
 
 // Limit defines model for Limit.
 type Limit = int32
+
+// MetaCount defines model for MetaCount.
+type MetaCount string
 
 // StartingAfter defines model for StartingAfter.
 type StartingAfter = string
