@@ -150,11 +150,6 @@ func (c *codeScanner) UploadAndAnalyze(
 		c.logger.Info().Msg("Canceling Code scan - Code scanner received cancellation signal")
 		return nil, "", nil
 	}
-
-	if ctx.Err() != nil {
-		c.logger.Info().Msg("Canceling Code scan - Code scanner received cancellation signal")
-		return nil, "", nil
-	}
 	b, err := c.bundleManager.Create(ctx, requestId, target.GetPath(), files, changedFiles)
 	if err != nil {
 		if bundle.IsNoFilesError(err) {
@@ -186,7 +181,7 @@ func (c *codeScanner) UploadAndAnalyze(
 	}
 
 	if bundleHash == "" {
-		c.logger.Info().Msg("empty bundle, no Snyk Code analysis")
+		c.logger.Debug().Msg("empty bundle, no Snyk Code analysis")
 		return nil, bundleHash, nil
 	}
 
@@ -201,8 +196,6 @@ func (c *codeScanner) UploadAndAnalyze(
 			return nil, bundleHash, nil
 		}
 	}
-
-	c.logger.Info().Str("workspaceId", workspaceId).Msg("finished wrapping the bundle in a workspace")
 
 	response, err := c.analysisOrchestrator.RunAnalysis(ctx, c.config.Organization(), workspaceId)
 	if ctx.Err() != nil {

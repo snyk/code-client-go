@@ -176,7 +176,9 @@ func (a *analysisOrchestrator) CreateWorkspace(ctx context.Context, orgId string
 		return "", errors.New(msg)
 	}
 
-	return workspaceResponse.ApplicationvndApiJSON201.Data.Id.String(), nil
+	workspaceId := workspaceResponse.ApplicationvndApiJSON201.Data.Id.String()
+	a.logger.Debug().Str("workspaceId", workspaceId).Msg("finished creating workspace")
+	return workspaceId, nil
 }
 
 func (a *analysisOrchestrator) RunAnalysis(ctx context.Context, orgId string, workspaceId string) (*sarif.SarifResponse, error) {
