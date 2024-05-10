@@ -47,11 +47,13 @@ type CodeScanner interface {
 	UploadAndAnalyze(
 		ctx context.Context,
 		requestId string,
-		path string,
+		target scan.Target,
 		files <-chan string,
 		changedFiles map[string]bool,
 	) (*sarif.SarifResponse, string, error)
 }
+
+var _ CodeScanner = (*codeScanner)(nil)
 
 type OptionFunc func(*codeScanner)
 
