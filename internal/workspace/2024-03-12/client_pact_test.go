@@ -1,3 +1,5 @@
+//go:build CONTRACT
+
 /*
  * © 2022-2024 Snyk Limited
  *

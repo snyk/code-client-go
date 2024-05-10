@@ -56,13 +56,32 @@ testv:
 	@echo "Testing verbosely..."
 	@go test -v
 
+.PHONY: contract-test
+contract-test: $(TOOLS_BIN)/pact
+	@echo "Contract testing..."
+	@go test -tags=CONTRACT ./...
+
 .PHONY: smoke-test
 smoke-test:
-	@go test -run="Test_SmokeScan"
+	@echo "Smoke testing..."
+	@go test -tags=SMOKE
 
 .PHONY: generate
-generate: $(TOOLS_BIN)/go/mockgen $(TOOLS_BIN)/go/oapi-codegen
-	@go generate ./...
+generate:
+    ifdef CI
+		$(MAKE) generate-mocks
+    else
+		$(MAKE) generate-mocks
+		$(MAKE) generate-apis
+    endif
+
+.PHONY: generate-mocks
+generate-mocks: $(TOOLS_BIN)/go/mockgen
+	@go generate -tags MOCK ./...
+
+.PHONY: generate-apis
+generate-apis: $(TOOLS_BIN)/go/oapi-codegen download-apis
+	@go generate -tags API,!MOCK ./...
 
 .PHONY: download-apis
 download-apis: download-workspace-api download-orchestration-api
@@ -82,6 +101,13 @@ help:
 	@echo "$(LOG_PREFIX) lint"
 	@echo "$(LOG_PREFIX) build"
 	@echo "$(LOG_PREFIX) test"
-	@echo "$(LOG_PREFIX) testv                      Test versbosely"
+	@echo "$(LOG_PREFIX) testv                      Test verbosely"
+	@echo "$(LOG_PREFIX) smoke-test"
+	@echo "$(LOG_PREFIX) generate"
+	@echo "$(LOG_PREFIX) generate-mocks"
+	@echo "$(LOG_PREFIX) generate-apis"
+	@echo "$(LOG_PREFIX) download-apis"
+	@echo "$(LOG_PREFIX) download-workspace-api"
+	@echo "$(LOG_PREFIX) download-orchestration-api"
 	@echo "$(LOG_PREFIX) GOOS                       Specify Operating System to compile for (see golang GOOS, default=$(GOOS))"
 	@echo "$(LOG_PREFIX) GOARCH                     Specify Architecture to compile for (see golang GOARCH, default=$(GOARCH))"

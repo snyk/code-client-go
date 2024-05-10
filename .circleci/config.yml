@@ -18,11 +18,14 @@ jobs:
           name: Install tools
           command: make tools
       - run: make format
+      - run: make generate
       - run:
-          name: "Ensure go.mod is tidy"
+          name: Run go mod tidy"
+          command: go mod tidy
+      - run:
+          name: Check if there are any changes
           command: |
-            go mod tidy
-            git diff --exit-code go.mod go.sum
+            git status --porcelain=v1 | tee /dev/stderr | wc -l | grep -qE '^ *0 *$$'
       - run: make lint
   unit_test:
     executor: default
@@ -44,6 +47,16 @@ jobs:
       - run:
           name: Run smoke tests
           command: make smoke-test
+  contract_test:
+    executor: default
+    steps:
+      - checkout
+      - run:
+          name: Install tools
+          command: make tools
+      - run:
+          name: Run smoke tests
+          command: make contract-test
   build:
     executor: default
     steps:
@@ -73,6 +86,7 @@ workflows:
           context: code-client-go
       - lint-and-format:
           name: Lint & Format
+          context: code-client-go
       - unit_test:
           name: Unit tests
           requires:
@@ -83,9 +97,14 @@ workflows:
             - code-client-go-smoke-tests-token
           requires:
             - Unit tests
+      - contract_test:
+          name: Contract tests
+          requires:
+            - Unit tests
       - build:
           name: Build
           requires:
             - Smoke tests
+            - Contract tests
             - Security Scans
             - Scan repository for secrets

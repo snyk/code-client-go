@@ -1,3 +1,5 @@
+//go:build SMOKE
+
 /*
  * © 2024 Snyk Limited All rights reserved.
  *

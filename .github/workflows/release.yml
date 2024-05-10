@@ -5,8 +5,29 @@ on:
       - 'main'
 
 jobs:
+  unit-tests:
+    name: unit tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Set up Go
+        uses: actions/setup-go@v3
+        with:
+          go-version-file: './go.mod'
+
+      - name: Lint
+        run: |
+          make lint
+
+      - name: Test
+        run: |
+          make test
+
   build:
     runs-on: ubuntu-latest
+    needs:
+      - unit-tests
     steps:
       - uses: actions/checkout@v3
         with:
