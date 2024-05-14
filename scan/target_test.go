@@ -23,7 +23,7 @@ func TestTarget_pathToNonRepo(t *testing.T) {
 	repoTarget, ok := target.(*RepositoryTarget)
 	assert.True(t, ok)
 	assert.Empty(t, repoTarget.GetRepositoryUrl())
-	assert.Empty(t, repoTarget.GetPath())
+	assert.Equal(t, expectedPath, repoTarget.GetPath())
 }
 
 func TestTarget_withRepoUrl(t *testing.T) {
