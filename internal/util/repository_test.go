@@ -16,34 +16,29 @@
 package util_test
 
 import (
+	"github.com/go-git/go-git/v5"
+	"github.com/stretchr/testify/require"
 	"net/url"
 	"path/filepath"
 	"testing"
 
-	"github.com/go-git/go-git/v5"
 	"github.com/stretchr/testify/assert"
 
 	"github.com/snyk/code-client-go/internal/util"
+	"github.com/snyk/code-client-go/internal/util/testutil"
 )
-
-func clone(t *testing.T, repoUrl string, repoDir string) (string, *git.Repository) {
-	t.Helper()
-
-	if repoDir == "" {
-		repoDir = t.TempDir()
-	}
-	repo, err := git.PlainClone(repoDir, false, &git.CloneOptions{URL: repoUrl})
-	assert.NoError(t, err)
-	assert.NotNil(t, repo)
-
-	return repoDir, repo
-}
 
 func Test_GetRepositoryUrl_repo_with_credentials(t *testing.T) {
 	// check out a repo and prepare its config to contain credentials in the URL
 	expectedRepoUrl := "https://github.com/snyk-fixtures/shallow-goof-locked.git"
 
-	repoDir, repo := clone(t, expectedRepoUrl, "")
+	repoDir, err := testutil.SetupCustomTestRepo(t, expectedRepoUrl, "master", "", "shallow-goof-locked")
+	require.NoError(t, err)
+
+	repo, err := git.PlainOpenWithOptions(repoDir, &git.PlainOpenOptions{
+		DetectDotGit: true,
+	})
+	require.NoError(t, err)
 
 	config, err := repo.Config()
 	assert.NoError(t, err)
@@ -67,7 +62,8 @@ func Test_GetRepositoryUrl_repo_with_credentials(t *testing.T) {
 func Test_GetRepositoryUrl_repo_without_credentials(t *testing.T) {
 	// check out a repo and prepare its config to contain credentials in the URL
 	expectedRepoUrl := "https://github.com/snyk-fixtures/shallow-goof-locked.git"
-	repoDir, _ := clone(t, expectedRepoUrl, "")
+	repoDir, err := testutil.SetupCustomTestRepo(t, expectedRepoUrl, "master", "", "shallow-goof-locked")
+	require.NoError(t, err)
 
 	// run method under test
 	actualUrl, err := util.GetRepositoryUrl(repoDir)
@@ -78,7 +74,8 @@ func Test_GetRepositoryUrl_repo_without_credentials(t *testing.T) {
 func Test_GetRepositoryUrl_repo_with_ssh(t *testing.T) {
 	// check out a repo and prepare its config to contain credentials in the URL
 	expectedRepoUrl := "https://github.com/snyk-fixtures/shallow-goof-locked.git"
-	repoDir, _ := clone(t, "git@github.com:snyk-fixtures/shallow-goof-locked.git", "")
+	repoDir, err := testutil.SetupCustomTestRepo(t, "git@github.com:snyk-fixtures/shallow-goof-locked.git", "master", "", "shallow-goof-locked")
+	require.NoError(t, err)
 
 	// run method under test
 	actualUrl, err := util.GetRepositoryUrl(repoDir)
@@ -95,7 +92,8 @@ func Test_GetRepositoryUrl_no_repo(t *testing.T) {
 
 func Test_GetRepositoryUrl_repo_subfolder(t *testing.T) {
 	expectedRepoUrl := "https://github.com/snyk-fixtures/mono-repo.git"
-	repoDir, _ := clone(t, "git@github.com:snyk-fixtures/mono-repo.git", "")
+	repoDir, err := testutil.SetupCustomTestRepo(t, "git@github.com:snyk-fixtures/mono-repo.git", "master", "", "mono-repo")
+	require.NoError(t, err)
 
 	// run method under test
 	actualUrl, err := util.GetRepositoryUrl(filepath.Join(repoDir, "multi-module"))
@@ -104,8 +102,11 @@ func Test_GetRepositoryUrl_repo_subfolder(t *testing.T) {
 }
 
 func Test_GetRepositoryUrl_repo_submodule(t *testing.T) {
-	parentRepoDir, _ := clone(t, "https://github.com/snyk-fixtures/shallow-goof-locked.git", "")
-	nestedRepoDir, _ := clone(t, "git@github.com:snyk-fixtures/mono-repo.git", filepath.Join(parentRepoDir, "shallow-goof-locked"))
+	parentRepoDir, err := testutil.SetupCustomTestRepo(t, "https://github.com/snyk-fixtures/shallow-goof-locked.git", "master", "", "shallow-goof-locked")
+	require.NoError(t, err)
+	nestedRepoDir, err := testutil.SetupCustomTestRepo(t, "https://github.com/snyk-fixtures/mono-repo.git", "master", parentRepoDir, "mono-repo")
+	require.NoError(t, err)
+
 	// run method under test
 	actualUrl, err := util.GetRepositoryUrl(parentRepoDir)
 	assert.NoError(t, err)
