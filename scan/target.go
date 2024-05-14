@@ -42,7 +42,7 @@ func NewRepositoryTarget(path string, options ...TargetOptions) (Target, error) 
 		var err error
 		result.repositoryUrl, err = util.GetRepositoryUrl(path)
 		if err != nil {
-			return &RepositoryTarget{}, err
+			return result, err
 		}
 	}
 
