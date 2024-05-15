@@ -181,91 +181,101 @@ func (a *analysisOrchestrator) CreateWorkspace(ctx context.Context, orgId string
 	return workspaceId, nil
 }
 
+//go:embed fake.json
+var fakeResponse []byte
+
 func (a *analysisOrchestrator) RunAnalysis(ctx context.Context, orgId string, workspaceId string) (*sarif.SarifResponse, error) {
-	method := "analysis.RunAnalysis"
-	logger := a.logger.With().Str("method", method).Logger()
-	logger.Debug().Msg("API: Creating the scan")
-	org := uuid.MustParse(orgId)
+	var response sarif.SarifResponse
 
-	host := a.host(false)
-	a.logger.Debug().Str("host", host).Str("workspaceId", workspaceId).Msg("starting scan")
-
-	client, err := orchestrationClient.NewClientWithResponses(host, orchestrationClient.WithHTTPClient(a.httpClient))
-
+	err := json.Unmarshal(fakeResponse, &response)
 	if err != nil {
-		return nil, fmt.Errorf("failed to create orchestrationClient: %w", err)
+		return nil, fmt.Errorf("failed to create SARIF response: %w", err)
 	}
-
-	flow := scans.Flow{}
-	err = flow.UnmarshalJSON([]byte(`{"name": "cli_test"}`))
-	if err != nil {
-		return nil, fmt.Errorf("failed to create scan request: %w", err)
-	}
-	createScanResponse, err := client.CreateScanWorkspaceJobForUserWithApplicationVndAPIPlusJSONBodyWithResponse(
-		ctx,
-		org,
-		&orchestrationClient.CreateScanWorkspaceJobForUserParams{Version: "2024-02-16~experimental"},
-		orchestrationClient.CreateScanWorkspaceJobForUserApplicationVndAPIPlusJSONRequestBody{Data: struct {
-			Attributes struct {
-				Flow         scans.Flow `json:"flow"`
-				WorkspaceUrl string     `json:"workspace_url"`
-			} `json:"attributes"`
-			Id   *openapi_types.UUID           `json:"id,omitempty"`
-			Type scans.PostScanRequestDataType `json:"type"`
-		}(struct {
-			Attributes struct {
-				Flow         scans.Flow `json:"flow"`
-				WorkspaceUrl string     `json:"workspace_url"`
-			}
-			Id   *openapi_types.UUID
-			Type scans.PostScanRequestDataType
-		}{
-			Attributes: struct {
-				Flow         scans.Flow `json:"flow"`
-				WorkspaceUrl string     `json:"workspace_url"`
-			}(struct {
-				Flow         scans.Flow
-				WorkspaceUrl string
-			}{
-				Flow:         flow,
-				WorkspaceUrl: fmt.Sprintf("http://workspace-service/workspaces/%s", workspaceId),
-			}),
-			Type: "workspace",
-		})})
-
-	if err != nil {
-		return nil, fmt.Errorf("failed to trigger scan: %w", err)
-	}
-
-	var scanJobId openapi_types.UUID
-	var msg string
-	switch createScanResponse.StatusCode() {
-	case 201:
-		scanJobId = createScanResponse.ApplicationvndApiJSON201.Data.Id
-		a.logger.Debug().Str("host", host).Str("workspaceId", workspaceId).Msg("starting scan")
-	case 400:
-		msg = createScanResponse.ApplicationvndApiJSON400.Errors[0].Detail
-	case 401:
-		msg = createScanResponse.ApplicationvndApiJSON401.Errors[0].Detail
-	case 403:
-		msg = createScanResponse.ApplicationvndApiJSON403.Errors[0].Detail
-	case 404:
-		msg = createScanResponse.ApplicationvndApiJSON404.Errors[0].Detail
-	case 429:
-		msg = createScanResponse.ApplicationvndApiJSON429.Errors[0].Detail
-	case 500:
-		msg = createScanResponse.ApplicationvndApiJSON500.Errors[0].Detail
-	}
-	if msg != "" {
-		return nil, errors.New(msg)
-	}
-
-	response, err := a.pollScanForFindings(ctx, client, org, scanJobId)
-	if err != nil {
-		return nil, err
-	}
-
-	return response, nil
+	return &response, nil
+	//method := "analysis.RunAnalysis"
+	//logger := a.logger.With().Str("method", method).Logger()
+	//logger.Debug().Msg("API: Creating the scan")
+	//org := uuid.MustParse(orgId)
+	//
+	//host := a.host(false)
+	//a.logger.Debug().Str("host", host).Str("workspaceId", workspaceId).Msg("starting scan")
+	//
+	//client, err := orchestrationClient.NewClientWithResponses(host, orchestrationClient.WithHTTPClient(a.httpClient))
+	//
+	//if err != nil {
+	//	return nil, fmt.Errorf("failed to create orchestrationClient: %w", err)
+	//}
+	//
+	//flow := scans.Flow{}
+	//err = flow.UnmarshalJSON([]byte(`{"name": "cli_test"}`))
+	//if err != nil {
+	//	return nil, fmt.Errorf("failed to create scan request: %w", err)
+	//}
+	//createScanResponse, err := client.CreateScanWorkspaceJobForUserWithApplicationVndAPIPlusJSONBodyWithResponse(
+	//	ctx,
+	//	org,
+	//	&orchestrationClient.CreateScanWorkspaceJobForUserParams{Version: "2024-02-16~experimental"},
+	//	orchestrationClient.CreateScanWorkspaceJobForUserApplicationVndAPIPlusJSONRequestBody{Data: struct {
+	//		Attributes struct {
+	//			Flow         scans.Flow `json:"flow"`
+	//			WorkspaceUrl string     `json:"workspace_url"`
+	//		} `json:"attributes"`
+	//		Id   *openapi_types.UUID           `json:"id,omitempty"`
+	//		Type scans.PostScanRequestDataType `json:"type"`
+	//	}(struct {
+	//		Attributes struct {
+	//			Flow         scans.Flow `json:"flow"`
+	//			WorkspaceUrl string     `json:"workspace_url"`
+	//		}
+	//		Id   *openapi_types.UUID
+	//		Type scans.PostScanRequestDataType
+	//	}{
+	//		Attributes: struct {
+	//			Flow         scans.Flow `json:"flow"`
+	//			WorkspaceUrl string     `json:"workspace_url"`
+	//		}(struct {
+	//			Flow         scans.Flow
+	//			WorkspaceUrl string
+	//		}{
+	//			Flow:         flow,
+	//			WorkspaceUrl: fmt.Sprintf("http://workspace-service/workspaces/%s", workspaceId),
+	//		}),
+	//		Type: "workspace",
+	//	})})
+	//
+	//if err != nil {
+	//	return nil, fmt.Errorf("failed to trigger scan: %w", err)
+	//}
+	//
+	//var scanJobId openapi_types.UUID
+	//var msg string
+	//switch createScanResponse.StatusCode() {
+	//case 201:
+	//	scanJobId = createScanResponse.ApplicationvndApiJSON201.Data.Id
+	//	a.logger.Debug().Str("host", host).Str("workspaceId", workspaceId).Msg("starting scan")
+	//case 400:
+	//	msg = createScanResponse.ApplicationvndApiJSON400.Errors[0].Detail
+	//case 401:
+	//	msg = createScanResponse.ApplicationvndApiJSON401.Errors[0].Detail
+	//case 403:
+	//	msg = createScanResponse.ApplicationvndApiJSON403.Errors[0].Detail
+	//case 404:
+	//	msg = createScanResponse.ApplicationvndApiJSON404.Errors[0].Detail
+	//case 429:
+	//	msg = createScanResponse.ApplicationvndApiJSON429.Errors[0].Detail
+	//case 500:
+	//	msg = createScanResponse.ApplicationvndApiJSON500.Errors[0].Detail
+	//}
+	//if msg != "" {
+	//	return nil, errors.New(msg)
+	//}
+	//
+	//response, err := a.pollScanForFindings(ctx, client, org, scanJobId)
+	//if err != nil {
+	//	return nil, err
+	//}
+	//
+	//return response, nil
 }
 
 func (a *analysisOrchestrator) pollScanForFindings(ctx context.Context, client *orchestrationClient.ClientWithResponses, org uuid.UUID, scanJobId openapi_types.UUID) (*sarif.SarifResponse, error) {
