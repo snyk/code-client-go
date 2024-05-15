@@ -108,7 +108,7 @@ func Test_GetRepositoryUrl_no_repo(t *testing.T) {
 
 func Test_GetRepositoryUrl_repo_subfolder(t *testing.T) {
 	expectedRepoUrl := "https://github.com/snyk-fixtures/mono-repo.git"
-	repoDir, err := testutil.SetupCustomTestRepo(t, "git@github.com:snyk-fixtures/mono-repo.git", "master", "", "mono-repo")
+	repoDir, err := testutil.SetupCustomTestRepo(t, expectedRepoUrl, "master", "", "mono-repo")
 	require.NoError(t, err)
 
 	// run method under test
