@@ -74,7 +74,7 @@ func Test_SmokeScan_HTTPS(t *testing.T) {
 	codeScanner := codeClient.NewCodeScanner(
 		config,
 		httpClient,
-		tracker,
+		codeClient.WithTracker(tracker),
 		codeClient.WithLogger(&logger),
 		codeClient.WithInstrumentor(instrumentor),
 		codeClient.WithErrorReporter(errorReporter),
@@ -125,7 +125,7 @@ func Test_SmokeScan_SSH(t *testing.T) {
 	codeScanner := codeClient.NewCodeScanner(
 		config,
 		httpClient,
-		tracker,
+		codeClient.WithTracker(tracker),
 		codeClient.WithInstrumentor(instrumentor),
 		codeClient.WithErrorReporter(errorReporter),
 		codeClient.WithLogger(&logger),
@@ -168,7 +168,7 @@ func Test_SmokeScan_SubFolder(t *testing.T) {
 	codeScanner := codeClient.NewCodeScanner(
 		config,
 		httpClient,
-		tracker,
+		codeClient.WithTracker(tracker),
 		codeClient.WithInstrumentor(instrumentor),
 		codeClient.WithErrorReporter(errorReporter),
 		codeClient.WithLogger(&logger),

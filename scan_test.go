@@ -77,7 +77,7 @@ func Test_UploadAndAnalyze(t *testing.T) {
 			codeScanner := codeclient.NewCodeScanner(
 				mockConfig,
 				mockHTTPClient,
-				mockTracker,
+				codeclient.WithTracker(mockTracker),
 				codeclient.WithInstrumentor(mockInstrumentor),
 				codeclient.WithErrorReporter(mockErrorReporter),
 				codeclient.WithLogger(&logger),
@@ -104,7 +104,7 @@ func Test_UploadAndAnalyze(t *testing.T) {
 			codeScanner := codeclient.NewCodeScanner(
 				mockConfig,
 				mockHTTPClient,
-				mockTracker,
+				codeclient.WithTracker(mockTracker),
 				codeclient.WithInstrumentor(mockInstrumentor),
 				codeclient.WithErrorReporter(mockErrorReporter),
 				codeclient.WithLogger(&logger),

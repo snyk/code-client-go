@@ -117,7 +117,7 @@ config := newConfigForMyApp()
 codeScanner := codeClient.NewCodeScanner(
     httpClient,
     config,
-    tracker,
+	codeClient.WithTracker(tracker),
     codeClientHTTP.WithLogger(logger),
     codeClientHTTP.WithInstrumentor(instrumentor),
     codeClientHTTP.WithErrorReporter(errorReporter),

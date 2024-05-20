@@ -78,6 +78,13 @@ func WithLogger(logger *zerolog.Logger) OptionFunc {
 	}
 }
 
+func WithTracker(tracker scan.Tracker) OptionFunc {
+	return func(c *codeScanner) {
+		c.tracker = tracker
+		c.initDeps(c.httpClient)
+	}
+}
+
 func (c *codeScanner) initDeps(
 	httpClient codeClientHTTP.HTTPClient,
 ) {
@@ -92,12 +99,12 @@ func (c *codeScanner) initDeps(
 func NewCodeScanner(
 	config config.Config,
 	httpClient codeClientHTTP.HTTPClient,
-	tracker scan.Tracker,
 	options ...OptionFunc,
 ) *codeScanner {
 	nopLogger := zerolog.Nop()
 	instrumentor := observability.NewInstrumentor()
 	errorReporter := observability.NewErrorReporter(&nopLogger)
+	tracker := scan.NewNopTracker()
 
 	scanner := &codeScanner{
 		config:        config,

@@ -78,3 +78,18 @@ func (t *tracker) End(message string) {
 		Message: message,
 	}
 }
+
+type nopTracker struct{}
+
+func NewNopTracker() *nopTracker {
+	return &nopTracker{}
+}
+
+func (n nopTracker) Begin(_, _ string) {
+}
+
+func (n nopTracker) Report(_ string) {
+}
+
+func (n nopTracker) End(_ string) {
+}
