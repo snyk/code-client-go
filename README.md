@@ -46,6 +46,58 @@ httpClient := codeClientHTTP.NewHTTPClient(
 
 The HTTP client exposes a `Do` function.
 
+### Target
+
+Use the target to record the target of a scan, which can be either a folder enhanced with repository metadata 
+or a repository.
+
+```go
+import (
+    codeClientScan  "github.com/snyk/code-client-go/scan"
+)
+
+target, _ := codeClientScan.NewRepositoryTarget(path)
+
+target, _ := codeClientScan.NewRepositoryTarget(path, codeClientScan.WithRepositoryUrl("https://github.com/snyk/code-client-go.git"))
+```
+### Tracker
+
+Use the tracker to update the consumer of the client with frequent progress updates. 
+
+The tracker either exposes an interface with three `Begin`, `Report`, and `End` functions or an actual implementation
+which uses Go channels to communicate between processes.
+
+```go
+import (
+    codeClientScan  "github.com/snyk/code-client-go/scan"
+)
+
+var progressChannels = make(codeClientScan.ProgressChannels, 10000)
+for {
+    select {
+    case p := <-progressChannels:
+        t := progress.NewTracker(false)
+        switch p.Kind {
+        case codeClientTracker.ProgressKindInit:
+		    // Process the initialisation of the progress
+        case codeClientTracker.ProgressKindBegin:
+            // Process the beginning of the progress
+            break
+        case codeClientTracker.ProgressKindReport:
+            // Process the end reporting of the progress
+            break
+        case codeClientTracker.ProgressKindEnd:
+            // Process the end of the progress
+            break
+        }
+    default:
+        break
+    }
+    break
+}
+tracker := codeClientScan.NewTracker(progressChannels)
+```
+
 ### Configuration
 
 Implement the `config.Config` interface to configure the Snyk Code API client from applications.
@@ -57,15 +109,20 @@ Use the Code Scanner to trigger a scan for a Snyk Code workspace using the Bundl
 The Code Scanner exposes a `UploadAndAnalyze` function, which can be used like this:
 
 ```go
+import (
+    codeClient  "github.com/snyk/code-client-go"
+)
+
 config := newConfigForMyApp()
-codeScanner := code.NewCodeScanner(
+codeScanner := codeClient.NewCodeScanner(
     httpClient,
     config,
+    tracker,
     codeClientHTTP.WithLogger(logger),
     codeClientHTTP.WithInstrumentor(instrumentor),
     codeClientHTTP.WithErrorReporter(errorReporter),
 )
-code.UploadAndAnalyze(context.Background(), requestId, "path/to/workspace", channelForWalkingFiles, changedFiles)
+codeScanner.UploadAndAnalyze(context.Background(), requestId, target, channelForWalkingFiles, changedFiles)
 ```
 
 

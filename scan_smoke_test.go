@@ -69,11 +69,16 @@ func Test_SmokeScan_HTTPS(t *testing.T) {
 		codeClientHTTP.WithRetryCount(3),
 		codeClientHTTP.WithLogger(&logger),
 	)
+	tracker := testutil.NewTestTracker()
 
 	codeScanner := codeClient.NewCodeScanner(
 		config,
 		httpClient,
-		codeClient.WithLogger(&logger), codeClient.WithInstrumentor(instrumentor), codeClient.WithErrorReporter(errorReporter))
+		tracker,
+		codeClient.WithLogger(&logger),
+		codeClient.WithInstrumentor(instrumentor),
+		codeClient.WithErrorReporter(errorReporter),
+	)
 	response, bundleHash, scanErr := codeScanner.UploadAndAnalyze(context.Background(), uuid.New().String(), target, files, map[string]bool{})
 	require.NoError(t, scanErr)
 	require.NotEmpty(t, bundleHash)
@@ -115,10 +120,12 @@ func Test_SmokeScan_SSH(t *testing.T) {
 		codeClientHTTP.WithRetryCount(3),
 		codeClientHTTP.WithLogger(&logger),
 	)
+	tracker := testutil.NewTestTracker()
 
 	codeScanner := codeClient.NewCodeScanner(
 		config,
 		httpClient,
+		tracker,
 		codeClient.WithInstrumentor(instrumentor),
 		codeClient.WithErrorReporter(errorReporter),
 		codeClient.WithLogger(&logger),
@@ -156,10 +163,12 @@ func Test_SmokeScan_SubFolder(t *testing.T) {
 		codeClientHTTP.WithRetryCount(3),
 		codeClientHTTP.WithLogger(&logger),
 	)
+	tracker := testutil.NewTestTracker()
 
 	codeScanner := codeClient.NewCodeScanner(
 		config,
 		httpClient,
+		tracker,
 		codeClient.WithInstrumentor(instrumentor),
 		codeClient.WithErrorReporter(errorReporter),
 		codeClient.WithLogger(&logger),

@@ -18,6 +18,7 @@ package bundle
 
 import (
 	"context"
+	"github.com/snyk/code-client-go/scan"
 	"os"
 	"path/filepath"
 
@@ -29,12 +30,12 @@ import (
 	"github.com/snyk/code-client-go/observability"
 )
 
-// TODO: add progress tracker for percentage progress
 type bundleManager struct {
 	deepcodeClient       deepcode.DeepcodeClient
 	instrumentor         observability.Instrumentor
 	errorReporter        observability.ErrorReporter
 	logger               *zerolog.Logger
+	tracker              scan.Tracker
 	supportedExtensions  *xsync.MapOf[string, bool]
 	supportedConfigFiles *xsync.MapOf[string, bool]
 }
@@ -61,12 +62,14 @@ func NewBundleManager(
 	logger *zerolog.Logger,
 	instrumentor observability.Instrumentor,
 	errorReporter observability.ErrorReporter,
+	tracker scan.Tracker,
 ) *bundleManager {
 	return &bundleManager{
 		deepcodeClient:       deepcodeClient,
 		instrumentor:         instrumentor,
 		errorReporter:        errorReporter,
 		logger:               logger,
+		tracker:              tracker,
 		supportedExtensions:  xsync.NewMapOf[bool](),
 		supportedConfigFiles: xsync.NewMapOf[bool](),
 	}
@@ -80,6 +83,9 @@ func (b *bundleManager) Create(ctx context.Context,
 ) (bundle Bundle, err error) {
 	span := b.instrumentor.StartSpan(ctx, "code.createBundle")
 	defer b.instrumentor.Finish(span)
+
+	b.tracker.Begin("Creating file bundle", "Checking and adding files for analysis")
+	defer b.tracker.End("")
 
 	var limitToFiles []string
 	fileHashes := make(map[string]string)
@@ -140,6 +146,7 @@ func (b *bundleManager) Create(ctx context.Context,
 		b.instrumentor,
 		b.errorReporter,
 		b.logger,
+		rootPath,
 		bundleHash,
 		bundleFiles,
 		limitToFiles,
@@ -157,6 +164,9 @@ func (b *bundleManager) Upload(
 	method := "code.Batch"
 	s := b.instrumentor.StartSpan(ctx, method)
 	defer b.instrumentor.Finish(s)
+
+	b.tracker.Begin("Snyk Code analysis for "+bundle.GetRootPath(), "Uploading batches...")
+	defer b.tracker.End("Upload done.")
 
 	// make uploads in batches until no missing files reported anymore
 	for len(bundle.GetMissingFiles()) > 0 {
@@ -187,6 +197,9 @@ func (b *bundleManager) groupInBatches(
 	method := "code.groupInBatches"
 	s := b.instrumentor.StartSpan(ctx, method)
 	defer b.instrumentor.Finish(s)
+
+	b.tracker.Begin("Snyk Code analysis for "+bundle.GetRootPath(), "Creating batches...")
+	defer b.tracker.End("Batches created.")
 
 	var batches []*Batch
 	batch := NewBatch(map[string]deepcode.BundleFile{})

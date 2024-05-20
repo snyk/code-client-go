@@ -63,12 +63,13 @@ func Test_UploadAndAnalyze(t *testing.T) {
 	mockInstrumentor.EXPECT().StartSpan(gomock.Any(), gomock.Any()).Return(mockSpan).AnyTimes()
 	mockInstrumentor.EXPECT().Finish(gomock.Any()).AnyTimes()
 	mockErrorReporter := mocks.NewMockErrorReporter(ctrl)
+	mockTracker := mocks.NewMockTracker(ctrl)
 
 	target := scan.RepositoryTarget{LocalFilePath: baseDir}
 
 	t.Run(
 		"should just create bundle when hash empty", func(t *testing.T) {
-			mockBundle := bundle.NewBundle(deepcodeMocks.NewMockDeepcodeClient(ctrl), mockInstrumentor, mockErrorReporter, &logger, "", files, []string{}, []string{})
+			mockBundle := bundle.NewBundle(deepcodeMocks.NewMockDeepcodeClient(ctrl), mockInstrumentor, mockErrorReporter, &logger, "testRootPath", "", files, []string{}, []string{})
 			mockBundleManager := bundleMocks.NewMockBundleManager(ctrl)
 			mockBundleManager.EXPECT().Create(gomock.Any(), "testRequestId", baseDir, gomock.Any(), map[string]bool{}).Return(mockBundle, nil)
 			mockBundleManager.EXPECT().Upload(gomock.Any(), "testRequestId", mockBundle, files).Return(mockBundle, nil)
@@ -76,6 +77,7 @@ func Test_UploadAndAnalyze(t *testing.T) {
 			codeScanner := codeclient.NewCodeScanner(
 				mockConfig,
 				mockHTTPClient,
+				mockTracker,
 				codeclient.WithInstrumentor(mockInstrumentor),
 				codeclient.WithErrorReporter(mockErrorReporter),
 				codeclient.WithLogger(&logger),
@@ -90,18 +92,19 @@ func Test_UploadAndAnalyze(t *testing.T) {
 
 	t.Run(
 		"should retrieve from backend", func(t *testing.T) {
-			mockBundle := bundle.NewBundle(deepcodeMocks.NewMockDeepcodeClient(ctrl), mockInstrumentor, mockErrorReporter, &logger, "testBundleHash", files, []string{}, []string{})
+			mockBundle := bundle.NewBundle(deepcodeMocks.NewMockDeepcodeClient(ctrl), mockInstrumentor, mockErrorReporter, &logger, "testRootPath", "testBundleHash", files, []string{}, []string{})
 			mockBundleManager := bundleMocks.NewMockBundleManager(ctrl)
 			mockBundleManager.EXPECT().Create(gomock.Any(), "b372d1db-b465-4764-99e1-ecedad03b06a", baseDir, gomock.Any(), map[string]bool{}).Return(mockBundle, nil)
 			mockBundleManager.EXPECT().Upload(gomock.Any(), "b372d1db-b465-4764-99e1-ecedad03b06a", mockBundle, files).Return(mockBundle, nil)
 
 			mockAnalysisOrchestrator := mockAnalysis.NewMockAnalysisOrchestrator(ctrl)
 			mockAnalysisOrchestrator.EXPECT().CreateWorkspace(gomock.Any(), "4a72d1db-b465-4764-99e1-ecedad03b06a", "b372d1db-b465-4764-99e1-ecedad03b06a", target, "testBundleHash").Return("c172d1db-b465-4764-99e1-ecedad03b06a", nil)
-			mockAnalysisOrchestrator.EXPECT().RunAnalysis(gomock.Any(), "4a72d1db-b465-4764-99e1-ecedad03b06a", "c172d1db-b465-4764-99e1-ecedad03b06a").Return(&sarif.SarifResponse{Status: "COMPLETE"}, nil)
+			mockAnalysisOrchestrator.EXPECT().RunAnalysis(gomock.Any(), "4a72d1db-b465-4764-99e1-ecedad03b06a", "testRootPath", "c172d1db-b465-4764-99e1-ecedad03b06a").Return(&sarif.SarifResponse{Status: "COMPLETE"}, nil)
 
 			codeScanner := codeclient.NewCodeScanner(
 				mockConfig,
 				mockHTTPClient,
+				mockTracker,
 				codeclient.WithInstrumentor(mockInstrumentor),
 				codeclient.WithErrorReporter(mockErrorReporter),
 				codeclient.WithLogger(&logger),

@@ -170,6 +170,9 @@ type N404 = ErrorDocument
 // N409 defines model for 409.
 type N409 = ErrorDocument
 
+// N410 defines model for 410.
+type N410 = ErrorDocument
+
 // N500 defines model for 500.
 type N500 = ErrorDocument
 

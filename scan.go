@@ -19,7 +19,6 @@ package codeclient
 
 import (
 	"context"
-
 	"github.com/pkg/errors"
 	"github.com/rs/zerolog"
 
@@ -39,6 +38,7 @@ type codeScanner struct {
 	analysisOrchestrator analysis.AnalysisOrchestrator
 	instrumentor         observability.Instrumentor
 	errorReporter        observability.ErrorReporter
+	tracker              scan.Tracker
 	logger               *zerolog.Logger
 	config               config.Config
 }
@@ -82,9 +82,9 @@ func (c *codeScanner) initDeps(
 	httpClient codeClientHTTP.HTTPClient,
 ) {
 	deepcodeClient := deepcode.NewDeepcodeClient(c.config, httpClient, c.logger, c.instrumentor, c.errorReporter)
-	bundleManager := bundle.NewBundleManager(deepcodeClient, c.logger, c.instrumentor, c.errorReporter)
+	bundleManager := bundle.NewBundleManager(deepcodeClient, c.logger, c.instrumentor, c.errorReporter, c.tracker)
 	c.bundleManager = bundleManager
-	analysisOrchestrator := analysis.NewAnalysisOrchestrator(c.config, c.logger, httpClient, c.instrumentor, c.errorReporter)
+	analysisOrchestrator := analysis.NewAnalysisOrchestrator(c.config, c.logger, httpClient, c.instrumentor, c.errorReporter, c.tracker)
 	c.analysisOrchestrator = analysisOrchestrator
 }
 
@@ -92,6 +92,7 @@ func (c *codeScanner) initDeps(
 func NewCodeScanner(
 	config config.Config,
 	httpClient codeClientHTTP.HTTPClient,
+	tracker scan.Tracker,
 	options ...OptionFunc,
 ) *codeScanner {
 	nopLogger := zerolog.Nop()
@@ -99,11 +100,12 @@ func NewCodeScanner(
 	errorReporter := observability.NewErrorReporter(&nopLogger)
 
 	scanner := &codeScanner{
+		config:        config,
 		httpClient:    httpClient,
 		errorReporter: errorReporter,
 		logger:        &nopLogger,
 		instrumentor:  instrumentor,
-		config:        config,
+		tracker:       tracker,
 	}
 
 	// initialize other dependencies with the default
@@ -199,7 +201,7 @@ func (c *codeScanner) UploadAndAnalyze(
 		}
 	}
 
-	response, err := c.analysisOrchestrator.RunAnalysis(ctx, c.config.Organization(), workspaceId)
+	response, err := c.analysisOrchestrator.RunAnalysis(ctx, c.config.Organization(), b.GetRootPath(), workspaceId)
 	if ctx.Err() != nil {
 		c.logger.Info().Msg("Canceling Code scan - Code scanner received cancellation signal")
 		return nil, bundleHash, nil

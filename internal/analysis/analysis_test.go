@@ -40,7 +40,7 @@ import (
 	"github.com/snyk/code-client-go/scan"
 )
 
-func setup(t *testing.T) (*confMocks.MockConfig, *httpmocks.MockHTTPClient, *mocks.MockInstrumentor, *mocks.MockErrorReporter, zerolog.Logger) {
+func setup(t *testing.T) (*confMocks.MockConfig, *httpmocks.MockHTTPClient, *mocks.MockInstrumentor, *mocks.MockErrorReporter, *mocks.MockTracker, zerolog.Logger) {
 	t.Helper()
 	ctrl := gomock.NewController(t)
 	mockSpan := mocks.NewMockSpan(ctrl)
@@ -56,13 +56,17 @@ func setup(t *testing.T) (*confMocks.MockConfig, *httpmocks.MockHTTPClient, *moc
 	mockInstrumentor.EXPECT().StartSpan(gomock.Any(), gomock.Any()).Return(mockSpan).AnyTimes()
 	mockInstrumentor.EXPECT().Finish(gomock.Any()).AnyTimes()
 	mockErrorReporter := mocks.NewMockErrorReporter(ctrl)
+	mockTracker := mocks.NewMockTracker(ctrl)
 
 	logger := zerolog.Nop()
-	return mockConfig, mockHTTPClient, mockInstrumentor, mockErrorReporter, logger
+	return mockConfig, mockHTTPClient, mockInstrumentor, mockErrorReporter, mockTracker, logger
 }
 
 func TestAnalysis_CreateWorkspace(t *testing.T) {
-	mockConfig, mockHTTPClient, mockInstrumentor, mockErrorReporter, logger := setup(t)
+	mockConfig, mockHTTPClient, mockInstrumentor, mockErrorReporter, mockTracker, logger := setup(t)
+
+	mockTracker.EXPECT().Begin(gomock.Eq("Creating file bundle workspace"), gomock.Eq("")).Return()
+	mockTracker.EXPECT().End(gomock.Eq("")).Return()
 
 	mockHTTPClient.EXPECT().Do(
 		mock.MatchedBy(func(i interface{}) bool {
@@ -84,7 +88,7 @@ func TestAnalysis_CreateWorkspace(t *testing.T) {
 	target, err := scan.NewRepositoryTarget("../../")
 	assert.NoError(t, err)
 
-	analysisOrchestrator := analysis.NewAnalysisOrchestrator(mockConfig, &logger, mockHTTPClient, mockInstrumentor, mockErrorReporter)
+	analysisOrchestrator := analysis.NewAnalysisOrchestrator(mockConfig, &logger, mockHTTPClient, mockInstrumentor, mockErrorReporter, mockTracker)
 	_, err = analysisOrchestrator.CreateWorkspace(
 		context.Background(),
 		"4a72d1db-b465-4764-99e1-ecedad03b06a",
@@ -95,14 +99,17 @@ func TestAnalysis_CreateWorkspace(t *testing.T) {
 }
 
 func TestAnalysis_CreateWorkspace_NotARepository(t *testing.T) {
-	mockConfig, mockHTTPClient, mockInstrumentor, mockErrorReporter, logger := setup(t)
+	mockConfig, mockHTTPClient, mockInstrumentor, mockErrorReporter, mockTracker, logger := setup(t)
+
 	mockErrorReporter.EXPECT().CaptureError(gomock.Any(), gomock.Any())
+	mockTracker.EXPECT().Begin(gomock.Eq("Creating file bundle workspace"), gomock.Eq("")).Return()
+	mockTracker.EXPECT().End(gomock.Eq("")).Return()
 
 	repoDir := t.TempDir()
 	target, err := scan.NewRepositoryTarget(repoDir)
 	assert.ErrorContains(t, err, "open local repository")
 
-	analysisOrchestrator := analysis.NewAnalysisOrchestrator(mockConfig, &logger, mockHTTPClient, mockInstrumentor, mockErrorReporter)
+	analysisOrchestrator := analysis.NewAnalysisOrchestrator(mockConfig, &logger, mockHTTPClient, mockInstrumentor, mockErrorReporter, mockTracker)
 	_, err = analysisOrchestrator.CreateWorkspace(
 		context.Background(),
 		"4a72d1db-b465-4764-99e1-ecedad03b06a",
@@ -114,7 +121,10 @@ func TestAnalysis_CreateWorkspace_NotARepository(t *testing.T) {
 }
 
 func TestAnalysis_CreateWorkspace_Failure(t *testing.T) {
-	mockConfig, mockHTTPClient, mockInstrumentor, mockErrorReporter, logger := setup(t)
+	mockConfig, mockHTTPClient, mockInstrumentor, mockErrorReporter, mockTracker, logger := setup(t)
+
+	mockTracker.EXPECT().Begin(gomock.Eq("Creating file bundle workspace"), gomock.Eq("")).Return()
+	mockTracker.EXPECT().End(gomock.Eq("")).Return()
 
 	mockHTTPClient.EXPECT().Do(
 		mock.MatchedBy(func(i interface{}) bool {
@@ -136,7 +146,7 @@ func TestAnalysis_CreateWorkspace_Failure(t *testing.T) {
 	target, err := scan.NewRepositoryTarget("../../")
 	assert.NoError(t, err)
 
-	analysisOrchestrator := analysis.NewAnalysisOrchestrator(mockConfig, &logger, mockHTTPClient, mockInstrumentor, mockErrorReporter)
+	analysisOrchestrator := analysis.NewAnalysisOrchestrator(mockConfig, &logger, mockHTTPClient, mockInstrumentor, mockErrorReporter, mockTracker)
 	_, err = analysisOrchestrator.CreateWorkspace(
 		context.Background(),
 		"4a72d1db-b465-4764-99e1-ecedad03b06a",
@@ -203,13 +213,16 @@ func TestAnalysis_CreateWorkspace_KnownErrors(t *testing.T) {
 			mockInstrumentor.EXPECT().StartSpan(gomock.Any(), gomock.Any()).Return(mockSpan).AnyTimes()
 			mockInstrumentor.EXPECT().Finish(gomock.Any()).AnyTimes()
 			mockErrorReporter := mocks.NewMockErrorReporter(ctrl)
+			mockTracker := mocks.NewMockTracker(ctrl)
+			mockTracker.EXPECT().Begin(gomock.Eq("Creating file bundle workspace"), gomock.Eq("")).Return()
+			mockTracker.EXPECT().End(gomock.Eq("")).Return()
 
 			logger := zerolog.Nop()
 
 			target, err := scan.NewRepositoryTarget("../../")
 			assert.NoError(t, err)
 
-			analysisOrchestrator := analysis.NewAnalysisOrchestrator(mockConfig, &logger, mockHTTPClient, mockInstrumentor, mockErrorReporter)
+			analysisOrchestrator := analysis.NewAnalysisOrchestrator(mockConfig, &logger, mockHTTPClient, mockInstrumentor, mockErrorReporter, mockTracker)
 			_, err = analysisOrchestrator.CreateWorkspace(
 				context.Background(),
 				"4a72d1db-b465-4764-99e1-ecedad03b06a",
@@ -226,7 +239,10 @@ func TestAnalysis_CreateWorkspace_KnownErrors(t *testing.T) {
 var fakeResponse []byte
 
 func TestAnalysis_RunAnalysis(t *testing.T) {
-	mockConfig, mockHTTPClient, mockInstrumentor, mockErrorReporter, logger := setup(t)
+	mockConfig, mockHTTPClient, mockInstrumentor, mockErrorReporter, mockTracker, logger := setup(t)
+
+	mockTracker.EXPECT().Begin(gomock.Eq("Snyk Code analysis for rootPath"), gomock.Eq("Retrieving results...")).Return()
+	mockTracker.EXPECT().End(gomock.Eq("Analysis complete.")).Return()
 
 	mockHTTPClient.EXPECT().Do(mock.MatchedBy(func(i interface{}) bool {
 		req := i.(*http.Request)
@@ -261,24 +277,28 @@ func TestAnalysis_RunAnalysis(t *testing.T) {
 		Body:       io.NopCloser(bytes.NewReader(fakeResponse)),
 	}, nil)
 
-	analysisOrchestrator := analysis.NewAnalysisOrchestrator(mockConfig, &logger, mockHTTPClient, mockInstrumentor, mockErrorReporter)
+	analysisOrchestrator := analysis.NewAnalysisOrchestrator(mockConfig, &logger, mockHTTPClient, mockInstrumentor, mockErrorReporter, mockTracker)
 	analysis.WithTimeoutInSeconds(120 * time.Second)
-	actual, err := analysisOrchestrator.RunAnalysis(context.Background(), "b6fc8954-5918-45ce-bc89-54591815ce1b", "c172d1db-b465-4764-99e1-ecedad03b06a")
+	actual, err := analysisOrchestrator.RunAnalysis(context.Background(), "b6fc8954-5918-45ce-bc89-54591815ce1b", "rootPath", "c172d1db-b465-4764-99e1-ecedad03b06a")
 
 	require.NoError(t, err)
 	assert.Equal(t, "scripts/db/migrations/20230811153738_add_generated_grouping_columns_to_collections_table.ts", actual.Sarif.Runs[0].Results[0].Locations[0].PhysicalLocation.ArtifactLocation.URI)
 }
 
 func TestAnalysis_RunAnalysis_TriggerFunctionError(t *testing.T) {
-	mockConfig, mockHTTPClient, mockInstrumentor, mockErrorReporter, logger := setup(t)
+	mockConfig, mockHTTPClient, mockInstrumentor, mockErrorReporter, mockTracker, logger := setup(t)
+
+	mockTracker.EXPECT().Begin(gomock.Eq("Snyk Code analysis for rootPath"), gomock.Eq("Retrieving results...")).Return()
+	mockTracker.EXPECT().End(gomock.Eq("Analysis failed: failed to trigger scan: error")).Return()
+
 	mockHTTPClient.EXPECT().Do(mock.MatchedBy(func(i interface{}) bool {
 		req := i.(*http.Request)
 		return req.URL.String() == "http://localhost/rest/orgs/b6fc8954-5918-45ce-bc89-54591815ce1b/scans?version=2024-02-16~experimental" &&
 			req.Method == "POST"
 	})).Times(1).Return(nil, errors.New("error"))
 
-	analysisOrchestrator := analysis.NewAnalysisOrchestrator(mockConfig, &logger, mockHTTPClient, mockInstrumentor, mockErrorReporter)
-	_, err := analysisOrchestrator.RunAnalysis(context.Background(), "b6fc8954-5918-45ce-bc89-54591815ce1b", "c172d1db-b465-4764-99e1-ecedad03b06a")
+	analysisOrchestrator := analysis.NewAnalysisOrchestrator(mockConfig, &logger, mockHTTPClient, mockInstrumentor, mockErrorReporter, mockTracker)
+	_, err := analysisOrchestrator.RunAnalysis(context.Background(), "b6fc8954-5918-45ce-bc89-54591815ce1b", "rootPath", "c172d1db-b465-4764-99e1-ecedad03b06a")
 	assert.ErrorContains(t, err, "error")
 }
 
@@ -324,7 +344,10 @@ func TestAnalysis_RunAnalysis_TriggerFunctionErrorCodes(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			mockConfig, mockHTTPClient, mockInstrumentor, mockErrorReporter, logger := setup(t)
+			mockConfig, mockHTTPClient, mockInstrumentor, mockErrorReporter, mockTracker, logger := setup(t)
+
+			mockTracker.EXPECT().Begin(gomock.Eq("Snyk Code analysis for rootPath"), gomock.Eq("Retrieving results...")).Return()
+			mockTracker.EXPECT().End(gomock.Eq("Analysis failed: failed to trigger scan: " + tc.expectedError)).Return()
 
 			mockHTTPClient.EXPECT().Do(mock.MatchedBy(func(i interface{}) bool {
 				req := i.(*http.Request)
@@ -332,15 +355,19 @@ func TestAnalysis_RunAnalysis_TriggerFunctionErrorCodes(t *testing.T) {
 					req.Method == "POST"
 			})).Times(1).Return(nil, errors.New(strconv.Itoa(tc.expectedStatus)))
 
-			analysisOrchestrator := analysis.NewAnalysisOrchestrator(mockConfig, &logger, mockHTTPClient, mockInstrumentor, mockErrorReporter)
-			_, err := analysisOrchestrator.RunAnalysis(context.Background(), "b6fc8954-5918-45ce-bc89-54591815ce1b", "c172d1db-b465-4764-99e1-ecedad03b06a")
+			analysisOrchestrator := analysis.NewAnalysisOrchestrator(mockConfig, &logger, mockHTTPClient, mockInstrumentor, mockErrorReporter, mockTracker)
+			_, err := analysisOrchestrator.RunAnalysis(context.Background(), "b6fc8954-5918-45ce-bc89-54591815ce1b", "rootPath", "c172d1db-b465-4764-99e1-ecedad03b06a")
 			assert.ErrorContains(t, err, tc.expectedError)
 		})
 	}
 }
 
 func TestAnalysis_RunAnalysis_PollingFunctionError(t *testing.T) {
-	mockConfig, mockHTTPClient, mockInstrumentor, mockErrorReporter, logger := setup(t)
+	mockConfig, mockHTTPClient, mockInstrumentor, mockErrorReporter, mockTracker, logger := setup(t)
+
+	mockTracker.EXPECT().Begin(gomock.Eq("Snyk Code analysis for rootPath"), gomock.Eq("Retrieving results...")).Return()
+	mockTracker.EXPECT().End(gomock.Eq("Analysis failed: error")).Return()
+
 	mockHTTPClient.EXPECT().Do(mock.MatchedBy(func(i interface{}) bool {
 		req := i.(*http.Request)
 		return req.URL.String() == "http://localhost/rest/orgs/b6fc8954-5918-45ce-bc89-54591815ce1b/scans?version=2024-02-16~experimental" &&
@@ -359,8 +386,8 @@ func TestAnalysis_RunAnalysis_PollingFunctionError(t *testing.T) {
 			req.Method == "GET"
 	})).Times(1).Return(nil, errors.New("error"))
 
-	analysisOrchestrator := analysis.NewAnalysisOrchestrator(mockConfig, &logger, mockHTTPClient, mockInstrumentor, mockErrorReporter)
-	_, err := analysisOrchestrator.RunAnalysis(context.Background(), "b6fc8954-5918-45ce-bc89-54591815ce1b", "c172d1db-b465-4764-99e1-ecedad03b06a")
+	analysisOrchestrator := analysis.NewAnalysisOrchestrator(mockConfig, &logger, mockHTTPClient, mockInstrumentor, mockErrorReporter, mockTracker)
+	_, err := analysisOrchestrator.RunAnalysis(context.Background(), "b6fc8954-5918-45ce-bc89-54591815ce1b", "rootPath", "c172d1db-b465-4764-99e1-ecedad03b06a")
 	assert.ErrorContains(t, err, "error")
 }
 
@@ -406,7 +433,10 @@ func TestAnalysis_RunAnalysis_PollingFunctionErrorCodes(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			mockConfig, mockHTTPClient, mockInstrumentor, mockErrorReporter, logger := setup(t)
+			mockConfig, mockHTTPClient, mockInstrumentor, mockErrorReporter, mockTracker, logger := setup(t)
+
+			mockTracker.EXPECT().Begin(gomock.Eq("Snyk Code analysis for rootPath"), gomock.Eq("Retrieving results...")).Return()
+			mockTracker.EXPECT().End(gomock.Eq("Analysis failed: " + tc.expectedError)).Return()
 
 			mockHTTPClient.EXPECT().Do(mock.MatchedBy(func(i interface{}) bool {
 				req := i.(*http.Request)
@@ -426,15 +456,18 @@ func TestAnalysis_RunAnalysis_PollingFunctionErrorCodes(t *testing.T) {
 					req.Method == "GET"
 			})).Times(1).Return(nil, errors.New(strconv.Itoa(tc.expectedStatus)))
 
-			analysisOrchestrator := analysis.NewAnalysisOrchestrator(mockConfig, &logger, mockHTTPClient, mockInstrumentor, mockErrorReporter)
-			_, err := analysisOrchestrator.RunAnalysis(context.Background(), "b6fc8954-5918-45ce-bc89-54591815ce1b", "c172d1db-b465-4764-99e1-ecedad03b06a")
+			analysisOrchestrator := analysis.NewAnalysisOrchestrator(mockConfig, &logger, mockHTTPClient, mockInstrumentor, mockErrorReporter, mockTracker)
+			_, err := analysisOrchestrator.RunAnalysis(context.Background(), "b6fc8954-5918-45ce-bc89-54591815ce1b", "rootPath", "c172d1db-b465-4764-99e1-ecedad03b06a")
 			assert.ErrorContains(t, err, tc.expectedError)
 		})
 	}
 }
 
 func TestAnalysis_RunAnalysis_PollingFunctionTimeout(t *testing.T) {
-	mockConfig, mockHTTPClient, mockInstrumentor, mockErrorReporter, logger := setup(t)
+	mockConfig, mockHTTPClient, mockInstrumentor, mockErrorReporter, mockTracker, logger := setup(t)
+
+	mockTracker.EXPECT().Begin(gomock.Eq("Snyk Code analysis for rootPath"), gomock.Eq("Retrieving results...")).Return()
+	mockTracker.EXPECT().End(gomock.Eq("Analysis failed: Snyk Code analysis timed out")).Return()
 
 	mockHTTPClient.EXPECT().Do(mock.MatchedBy(func(i interface{}) bool {
 		req := i.(*http.Request)
@@ -466,14 +499,18 @@ func TestAnalysis_RunAnalysis_PollingFunctionTimeout(t *testing.T) {
 		mockHTTPClient,
 		mockInstrumentor,
 		mockErrorReporter,
+		mockTracker,
 		analysis.WithTimeoutInSeconds(1*time.Second),
 	)
-	_, err := analysisOrchestrator.RunAnalysis(context.Background(), "b6fc8954-5918-45ce-bc89-54591815ce1b", "c172d1db-b465-4764-99e1-ecedad03b06a")
-	assert.ErrorContains(t, err, "timeout requesting the ScanJobResult")
+	_, err := analysisOrchestrator.RunAnalysis(context.Background(), "b6fc8954-5918-45ce-bc89-54591815ce1b", "rootPath", "c172d1db-b465-4764-99e1-ecedad03b06a")
+	assert.ErrorContains(t, err, "Snyk Code analysis timed out")
 }
 
 func TestAnalysis_RunAnalysis_GetFindingsError(t *testing.T) {
-	mockConfig, mockHTTPClient, mockInstrumentor, mockErrorReporter, logger := setup(t)
+	mockConfig, mockHTTPClient, mockInstrumentor, mockErrorReporter, mockTracker, logger := setup(t)
+
+	mockTracker.EXPECT().Begin(gomock.Eq("Snyk Code analysis for rootPath"), gomock.Eq("Retrieving results...")).Return()
+	mockTracker.EXPECT().End(gomock.Eq("Analysis failed: error")).Return()
 
 	mockHTTPClient.EXPECT().Do(mock.MatchedBy(func(i interface{}) bool {
 		req := i.(*http.Request)
@@ -505,12 +542,15 @@ func TestAnalysis_RunAnalysis_GetFindingsError(t *testing.T) {
 			req.Method == "GET"
 	})).Times(1).Return(nil, errors.New("error"))
 
-	analysisOrchestrator := analysis.NewAnalysisOrchestrator(mockConfig, &logger, mockHTTPClient, mockInstrumentor, mockErrorReporter)
-	_, err := analysisOrchestrator.RunAnalysis(context.Background(), "b6fc8954-5918-45ce-bc89-54591815ce1b", "c172d1db-b465-4764-99e1-ecedad03b06a")
+	analysisOrchestrator := analysis.NewAnalysisOrchestrator(mockConfig, &logger, mockHTTPClient, mockInstrumentor, mockErrorReporter, mockTracker)
+	_, err := analysisOrchestrator.RunAnalysis(context.Background(), "b6fc8954-5918-45ce-bc89-54591815ce1b", "rootPath", "c172d1db-b465-4764-99e1-ecedad03b06a")
 	require.ErrorContains(t, err, "error")
 }
 func TestAnalysis_RunAnalysis_GetFindingsNotSuccessful(t *testing.T) {
-	mockConfig, mockHTTPClient, mockInstrumentor, mockErrorReporter, logger := setup(t)
+	mockConfig, mockHTTPClient, mockInstrumentor, mockErrorReporter, mockTracker, logger := setup(t)
+
+	mockTracker.EXPECT().Begin(gomock.Eq("Snyk Code analysis for rootPath"), gomock.Eq("Retrieving results...")).Return()
+	mockTracker.EXPECT().End(gomock.Eq("Analysis failed: failed to retrieve findings from findings URL")).Return()
 
 	mockHTTPClient.EXPECT().Do(mock.MatchedBy(func(i interface{}) bool {
 		req := i.(*http.Request)
@@ -545,7 +585,7 @@ func TestAnalysis_RunAnalysis_GetFindingsNotSuccessful(t *testing.T) {
 		Body:       io.NopCloser(bytes.NewReader([]byte{})),
 	}, nil)
 
-	analysisOrchestrator := analysis.NewAnalysisOrchestrator(mockConfig, &logger, mockHTTPClient, mockInstrumentor, mockErrorReporter)
-	_, err := analysisOrchestrator.RunAnalysis(context.Background(), "b6fc8954-5918-45ce-bc89-54591815ce1b", "c172d1db-b465-4764-99e1-ecedad03b06a")
+	analysisOrchestrator := analysis.NewAnalysisOrchestrator(mockConfig, &logger, mockHTTPClient, mockInstrumentor, mockErrorReporter, mockTracker)
+	_, err := analysisOrchestrator.RunAnalysis(context.Background(), "b6fc8954-5918-45ce-bc89-54591815ce1b", "rootPath", "c172d1db-b465-4764-99e1-ecedad03b06a")
 	require.ErrorContains(t, err, "failed to retrieve findings from findings URL")
 }

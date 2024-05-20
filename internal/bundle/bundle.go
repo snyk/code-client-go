@@ -31,6 +31,7 @@ type Bundle interface {
 	GetBundleHash() string
 	GetFiles() map[string]deepcode.BundleFile
 	GetMissingFiles() []string
+	GetRootPath() string
 }
 
 type deepCodeBundle struct {
@@ -39,6 +40,7 @@ type deepCodeBundle struct {
 	errorReporter observability.ErrorReporter
 	logger        *zerolog.Logger
 	files         map[string]deepcode.BundleFile
+	rootPath      string
 	bundleHash    string
 	batches       []*Batch
 	missingFiles  []string
@@ -50,6 +52,7 @@ func NewBundle(
 	instrumentor observability.Instrumentor,
 	errorReporter observability.ErrorReporter,
 	logger *zerolog.Logger,
+	rootPath string,
 	bundleHash string,
 	files map[string]deepcode.BundleFile,
 	limitToFiles []string,
@@ -60,6 +63,7 @@ func NewBundle(
 		instrumentor:  instrumentor,
 		errorReporter: errorReporter,
 		logger:        logger,
+		rootPath:      rootPath,
 		bundleHash:    bundleHash,
 		batches:       []*Batch{},
 		files:         files,
@@ -78,6 +82,10 @@ func (b *deepCodeBundle) GetFiles() map[string]deepcode.BundleFile {
 
 func (b *deepCodeBundle) GetMissingFiles() []string {
 	return b.missingFiles
+}
+
+func (b *deepCodeBundle) GetRootPath() string {
+	return b.rootPath
 }
 
 func (b *deepCodeBundle) UploadBatch(ctx context.Context, requestId string, batch *Batch) error {
