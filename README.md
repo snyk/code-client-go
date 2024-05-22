@@ -60,42 +60,23 @@ target, _ := codeClientScan.NewRepositoryTarget(path)
 
 target, _ := codeClientScan.NewRepositoryTarget(path, codeClientScan.WithRepositoryUrl("https://github.com/snyk/code-client-go.git"))
 ```
-### Tracker
+### Tracker Factory
 
-Use the tracker to update the consumer of the client with frequent progress updates. 
+Use the tracker factory to generate a tracker used to update the consumer of the client with frequent progress updates. 
 
-The tracker either exposes an interface with three `Begin`, `Report`, and `End` functions or an actual implementation
-which uses Go channels to communicate between processes.
+The tracker either exposes an interface with two `Begin` and `End` functions or an implementation that doesn't do anything.
 
 ```go
 import (
     codeClientScan  "github.com/snyk/code-client-go/scan"
 )
 
-var progressChannels = make(codeClientScan.ProgressChannels, 10000)
-for {
-    select {
-    case p := <-progressChannels:
-        t := progress.NewTracker(false)
-        switch p.Kind {
-        case codeClientTracker.ProgressKindInit:
-		    // Process the initialisation of the progress
-        case codeClientTracker.ProgressKindBegin:
-            // Process the beginning of the progress
-            break
-        case codeClientTracker.ProgressKindReport:
-            // Process the end reporting of the progress
-            break
-        case codeClientTracker.ProgressKindEnd:
-            // Process the end of the progress
-            break
-        }
-    default:
-        break
-    }
-    break
-}
-tracker := codeClientScan.NewTracker(progressChannels)
+trackerFactory := codeClientScan.NewNoopTrackerFactory()
+
+tracker := trackerFactory.GenerateTracker()
+tracker.Begin()
+...
+tracker.End()
 ```
 
 ### Configuration
@@ -117,7 +98,7 @@ config := newConfigForMyApp()
 codeScanner := codeClient.NewCodeScanner(
     httpClient,
     config,
-	codeClient.WithTracker(tracker),
+	codeClient.WithTrackerFactory(trackerFactory),
     codeClientHTTP.WithLogger(logger),
     codeClientHTTP.WithInstrumentor(instrumentor),
     codeClientHTTP.WithErrorReporter(errorReporter),

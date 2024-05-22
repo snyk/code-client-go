@@ -69,12 +69,12 @@ func Test_SmokeScan_HTTPS(t *testing.T) {
 		codeClientHTTP.WithRetryCount(3),
 		codeClientHTTP.WithLogger(&logger),
 	)
-	tracker := testutil.NewTestTracker()
+	trackerFactory := scan.NewNoopTrackerFactory()
 
 	codeScanner := codeClient.NewCodeScanner(
 		config,
 		httpClient,
-		codeClient.WithTracker(tracker),
+		codeClient.WithTrackerFactory(trackerFactory),
 		codeClient.WithLogger(&logger),
 		codeClient.WithInstrumentor(instrumentor),
 		codeClient.WithErrorReporter(errorReporter),
@@ -120,12 +120,12 @@ func Test_SmokeScan_SSH(t *testing.T) {
 		codeClientHTTP.WithRetryCount(3),
 		codeClientHTTP.WithLogger(&logger),
 	)
-	tracker := testutil.NewTestTracker()
+	trackerFactory := scan.NewNoopTrackerFactory()
 
 	codeScanner := codeClient.NewCodeScanner(
 		config,
 		httpClient,
-		codeClient.WithTracker(tracker),
+		codeClient.WithTrackerFactory(trackerFactory),
 		codeClient.WithInstrumentor(instrumentor),
 		codeClient.WithErrorReporter(errorReporter),
 		codeClient.WithLogger(&logger),
@@ -163,12 +163,12 @@ func Test_SmokeScan_SubFolder(t *testing.T) {
 		codeClientHTTP.WithRetryCount(3),
 		codeClientHTTP.WithLogger(&logger),
 	)
-	tracker := testutil.NewTestTracker()
+	trackerFactory := scan.NewNoopTrackerFactory()
 
 	codeScanner := codeClient.NewCodeScanner(
 		config,
 		httpClient,
-		codeClient.WithTracker(tracker),
+		codeClient.WithTrackerFactory(trackerFactory),
 		codeClient.WithInstrumentor(instrumentor),
 		codeClient.WithErrorReporter(errorReporter),
 		codeClient.WithLogger(&logger),

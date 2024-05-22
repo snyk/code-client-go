@@ -8,7 +8,45 @@ import (
 	reflect "reflect"
 
 	gomock "github.com/golang/mock/gomock"
+	scan "github.com/snyk/code-client-go/scan"
 )
+
+// MockTrackerFactory is a mock of TrackerFactory interface.
+type MockTrackerFactory struct {
+	ctrl     *gomock.Controller
+	recorder *MockTrackerFactoryMockRecorder
+}
+
+// MockTrackerFactoryMockRecorder is the mock recorder for MockTrackerFactory.
+type MockTrackerFactoryMockRecorder struct {
+	mock *MockTrackerFactory
+}
+
+// NewMockTrackerFactory creates a new mock instance.
+func NewMockTrackerFactory(ctrl *gomock.Controller) *MockTrackerFactory {
+	mock := &MockTrackerFactory{ctrl: ctrl}
+	mock.recorder = &MockTrackerFactoryMockRecorder{mock}
+	return mock
+}
+
+// EXPECT returns an object that allows the caller to indicate expected use.
+func (m *MockTrackerFactory) EXPECT() *MockTrackerFactoryMockRecorder {
+	return m.recorder
+}
+
+// GenerateTracker mocks base method.
+func (m *MockTrackerFactory) GenerateTracker() scan.Tracker {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GenerateTracker")
+	ret0, _ := ret[0].(scan.Tracker)
+	return ret0
+}
+
+// GenerateTracker indicates an expected call of GenerateTracker.
+func (mr *MockTrackerFactoryMockRecorder) GenerateTracker() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GenerateTracker", reflect.TypeOf((*MockTrackerFactory)(nil).GenerateTracker))
+}
 
 // MockTracker is a mock of Tracker interface.
 type MockTracker struct {
@@ -55,16 +93,4 @@ func (m *MockTracker) End(message string) {
 func (mr *MockTrackerMockRecorder) End(message interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "End", reflect.TypeOf((*MockTracker)(nil).End), message)
-}
-
-// Report mocks base method.
-func (m *MockTracker) Report(message string) {
-	m.ctrl.T.Helper()
-	m.ctrl.Call(m, "Report", message)
-}
-
-// Report indicates an expected call of Report.
-func (mr *MockTrackerMockRecorder) Report(message interface{}) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Report", reflect.TypeOf((*MockTracker)(nil).Report), message)
 }

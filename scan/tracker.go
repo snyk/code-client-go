@@ -15,41 +15,12 @@
  */
 package scan
 
-type ProgressID string
-
-type ProgressKind string
-
-const (
-	ProgressKindInit   ProgressKind = "init"
-	ProgressKindBegin  ProgressKind = "begin"
-	ProgressKindReport ProgressKind = "report"
-	ProgressKindEnd    ProgressKind = "end"
-)
-
-type Progress struct {
-	ID   ProgressID   `json:"token"`
-	Kind ProgressKind `json:"kind"`
-	/**
-	 * (Optional) Used to briefly inform about the kind of operation being performed.
-	 *
-	 * Examples: "Indexing" or "Linking dependencies".
-	 */
-	Title string `json:"titleWorkDoneProgressReport"`
-	/**
-	 * (Optional) Detailed progress message. Contains
-	 * complementary information to the `title`.
-	 *
-	 * Examples: "3/25 files", "project/src/module2", "node_modules/some_dep".
-	 * If unset, the previous progress message (if any) is still valid.
-	 */
-	Message string `json:"message,omitempty"`
+//go:generate mockgen -destination=mocks/tracker.go -source=tracker.go -package mocks
+type TrackerFactory interface {
+	GenerateTracker() Tracker
 }
 
-type ProgressChannels chan Progress
-
-//go:generate mockgen -destination=mocks/tracker.go -source=tracker.go -package mocks
 type Tracker interface {
 	Begin(title, message string)
-	Report(message string)
 	End(message string)
 }

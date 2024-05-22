@@ -15,80 +15,23 @@
  */
 package scan
 
-import (
-	"time"
+type noopTrackerFactory struct{}
 
-	"github.com/google/uuid"
-)
-
-type tracker struct {
-	progressID ProgressID
-	lastReport time.Time
-	finished   bool
-	progresses ProgressChannels
+func NewNoopTrackerFactory() TrackerFactory {
+	return &noopTrackerFactory{}
 }
 
-func NewTracker(progresses ProgressChannels) *tracker {
-	return &tracker{
-		progresses: progresses,
-		finished:   false,
-	}
-}
-
-func (t *tracker) Begin(title, message string) {
-	progressToken := uuid.New().String()
-
-	t.progressID = ProgressID(progressToken)
-	t.progresses <- Progress{
-		ID:   t.progressID,
-		Kind: ProgressKindInit,
-	}
-
-	t.progresses <- Progress{
-		ID:      t.progressID,
-		Kind:    ProgressKindBegin,
-		Title:   title,
-		Message: message,
-	}
-	t.lastReport = time.Now()
-}
-
-func (t *tracker) Report(message string) {
-	// throttle progress so it's sent once a second
-	if time.Now().Before(t.lastReport.Add(time.Second)) {
-		return
-	}
-	t.progresses <- Progress{
-		ID:      t.progressID,
-		Kind:    ProgressKindReport,
-		Message: message,
-	}
-	t.lastReport = time.Now()
-}
-
-func (t *tracker) End(message string) {
-	// make sure we don't end the progress more than once
-	if t.finished {
-		return
-	}
-	t.finished = true
-	t.progresses <- Progress{
-		ID:      t.progressID,
-		Kind:    ProgressKindEnd,
-		Message: message,
-	}
+func (n noopTrackerFactory) GenerateTracker() Tracker {
+	return newNopTracker()
 }
 
 type nopTracker struct{}
 
-func NewNopTracker() *nopTracker {
+func newNopTracker() Tracker {
 	return &nopTracker{}
 }
 
 func (n nopTracker) Begin(_, _ string) {
-}
-
-func (n nopTracker) Report(_ string) {
 }
 
 func (n nopTracker) End(_ string) {

@@ -55,7 +55,7 @@ type analysisOrchestrator struct {
 	instrumentor     observability.Instrumentor
 	errorReporter    observability.ErrorReporter
 	logger           *zerolog.Logger
-	tracker          scan.Tracker
+	trackerFactory   scan.TrackerFactory
 	config           config.Config
 	timeoutInSeconds time.Duration
 }
@@ -74,7 +74,7 @@ func NewAnalysisOrchestrator(
 	httpClient codeClientHTTP.HTTPClient,
 	instrumentor observability.Instrumentor,
 	errorReporter observability.ErrorReporter,
-	tracker scan.Tracker,
+	trackerFactory scan.TrackerFactory,
 	options ...OptionFunc,
 ) AnalysisOrchestrator {
 	a := &analysisOrchestrator{
@@ -82,7 +82,7 @@ func NewAnalysisOrchestrator(
 		instrumentor:     instrumentor,
 		errorReporter:    errorReporter,
 		logger:           logger,
-		tracker:          tracker,
+		trackerFactory:   trackerFactory,
 		config:           config,
 		timeoutInSeconds: 120 * time.Second,
 	}
@@ -101,8 +101,9 @@ func (a *analysisOrchestrator) CreateWorkspace(ctx context.Context, orgId string
 	span := a.instrumentor.StartSpan(ctx, method)
 	defer a.instrumentor.Finish(span)
 
-	a.tracker.Begin("Creating file bundle workspace", "")
-	defer a.tracker.End("")
+	tracker := a.trackerFactory.GenerateTracker()
+	tracker.Begin("Creating file bundle workspace", "")
+	defer tracker.End("")
 
 	orgUUID := uuid.MustParse(orgId)
 
@@ -192,7 +193,8 @@ func (a *analysisOrchestrator) RunAnalysis(ctx context.Context, orgId string, ro
 	logger := a.logger.With().Str("method", method).Logger()
 	logger.Debug().Msg("API: Creating the scan")
 
-	a.tracker.Begin("Snyk Code analysis for "+rootPath, "Retrieving results...")
+	tracker := a.trackerFactory.GenerateTracker()
+	tracker.Begin("Snyk Code analysis for "+rootPath, "Retrieving results...")
 
 	org := uuid.MustParse(orgId)
 
@@ -201,23 +203,23 @@ func (a *analysisOrchestrator) RunAnalysis(ctx context.Context, orgId string, ro
 
 	client, err := orchestrationClient.NewClientWithResponses(host, orchestrationClient.WithHTTPClient(a.httpClient))
 	if err != nil {
-		a.tracker.End(fmt.Sprintf("Analysis failed: %v", err))
+		tracker.End(fmt.Sprintf("Analysis failed: %v", err))
 		return nil, fmt.Errorf("failed to create orchestrationClient: %w", err)
 	}
 
 	scanJobId, err := a.triggerScan(ctx, client, org, workspaceId)
 	if err != nil {
-		a.tracker.End(fmt.Sprintf("Analysis failed: %v", err))
+		tracker.End(fmt.Sprintf("Analysis failed: %v", err))
 		return nil, err
 	}
 
 	response, err := a.pollScanForFindings(ctx, client, org, *scanJobId)
 	if err != nil {
-		a.tracker.End(fmt.Sprintf("Analysis failed: %v", err))
+		tracker.End(fmt.Sprintf("Analysis failed: %v", err))
 		return nil, err
 	}
 
-	a.tracker.End("Analysis complete.")
+	tracker.End("Analysis complete.")
 	return response, nil
 }
 

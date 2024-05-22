@@ -35,7 +35,7 @@ type bundleManager struct {
 	instrumentor         observability.Instrumentor
 	errorReporter        observability.ErrorReporter
 	logger               *zerolog.Logger
-	tracker              scan.Tracker
+	trackerFactory       scan.TrackerFactory
 	supportedExtensions  *xsync.MapOf[string, bool]
 	supportedConfigFiles *xsync.MapOf[string, bool]
 }
@@ -62,14 +62,14 @@ func NewBundleManager(
 	logger *zerolog.Logger,
 	instrumentor observability.Instrumentor,
 	errorReporter observability.ErrorReporter,
-	tracker scan.Tracker,
+	trackerFactory scan.TrackerFactory,
 ) *bundleManager {
 	return &bundleManager{
 		deepcodeClient:       deepcodeClient,
 		instrumentor:         instrumentor,
 		errorReporter:        errorReporter,
 		logger:               logger,
-		tracker:              tracker,
+		trackerFactory:       trackerFactory,
 		supportedExtensions:  xsync.NewMapOf[bool](),
 		supportedConfigFiles: xsync.NewMapOf[bool](),
 	}
@@ -84,8 +84,9 @@ func (b *bundleManager) Create(ctx context.Context,
 	span := b.instrumentor.StartSpan(ctx, "code.createBundle")
 	defer b.instrumentor.Finish(span)
 
-	b.tracker.Begin("Creating file bundle", "Checking and adding files for analysis")
-	defer b.tracker.End("")
+	tracker := b.trackerFactory.GenerateTracker()
+	tracker.Begin("Creating file bundle", "Checking and adding files for analysis")
+	defer tracker.End("")
 
 	var limitToFiles []string
 	fileHashes := make(map[string]string)
@@ -165,8 +166,9 @@ func (b *bundleManager) Upload(
 	s := b.instrumentor.StartSpan(ctx, method)
 	defer b.instrumentor.Finish(s)
 
-	b.tracker.Begin("Snyk Code analysis for "+bundle.GetRootPath(), "Uploading batches...")
-	defer b.tracker.End("Upload done.")
+	tracker := b.trackerFactory.GenerateTracker()
+	tracker.Begin("Snyk Code analysis for "+bundle.GetRootPath(), "Uploading batches...")
+	defer tracker.End("Upload done.")
 
 	// make uploads in batches until no missing files reported anymore
 	for len(bundle.GetMissingFiles()) > 0 {
@@ -198,8 +200,9 @@ func (b *bundleManager) groupInBatches(
 	s := b.instrumentor.StartSpan(ctx, method)
 	defer b.instrumentor.Finish(s)
 
-	b.tracker.Begin("Snyk Code analysis for "+bundle.GetRootPath(), "Creating batches...")
-	defer b.tracker.End("Batches created.")
+	tracker := b.trackerFactory.GenerateTracker()
+	tracker.Begin("Snyk Code analysis for "+bundle.GetRootPath(), "Creating batches...")
+	defer tracker.End("Batches created.")
 
 	var batches []*Batch
 	batch := NewBatch(map[string]deepcode.BundleFile{})

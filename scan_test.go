@@ -37,6 +37,7 @@ import (
 	"github.com/snyk/code-client-go/observability/mocks"
 	"github.com/snyk/code-client-go/sarif"
 	"github.com/snyk/code-client-go/scan"
+	trackerMocks "github.com/snyk/code-client-go/scan/mocks"
 )
 
 func Test_UploadAndAnalyze(t *testing.T) {
@@ -63,7 +64,7 @@ func Test_UploadAndAnalyze(t *testing.T) {
 	mockInstrumentor.EXPECT().StartSpan(gomock.Any(), gomock.Any()).Return(mockSpan).AnyTimes()
 	mockInstrumentor.EXPECT().Finish(gomock.Any()).AnyTimes()
 	mockErrorReporter := mocks.NewMockErrorReporter(ctrl)
-	mockTracker := mocks.NewMockTracker(ctrl)
+	mockTrackerFactory := trackerMocks.NewMockTrackerFactory(ctrl)
 
 	target := scan.RepositoryTarget{LocalFilePath: baseDir}
 
@@ -77,7 +78,7 @@ func Test_UploadAndAnalyze(t *testing.T) {
 			codeScanner := codeclient.NewCodeScanner(
 				mockConfig,
 				mockHTTPClient,
-				codeclient.WithTracker(mockTracker),
+				codeclient.WithTrackerFactory(mockTrackerFactory),
 				codeclient.WithInstrumentor(mockInstrumentor),
 				codeclient.WithErrorReporter(mockErrorReporter),
 				codeclient.WithLogger(&logger),
@@ -104,7 +105,7 @@ func Test_UploadAndAnalyze(t *testing.T) {
 			codeScanner := codeclient.NewCodeScanner(
 				mockConfig,
 				mockHTTPClient,
-				codeclient.WithTracker(mockTracker),
+				codeclient.WithTrackerFactory(mockTrackerFactory),
 				codeclient.WithInstrumentor(mockInstrumentor),
 				codeclient.WithErrorReporter(mockErrorReporter),
 				codeclient.WithLogger(&logger),

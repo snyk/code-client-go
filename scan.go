@@ -21,7 +21,6 @@ import (
 	"context"
 	"github.com/pkg/errors"
 	"github.com/rs/zerolog"
-
 	"github.com/snyk/code-client-go/config"
 	codeClientHTTP "github.com/snyk/code-client-go/http"
 	"github.com/snyk/code-client-go/internal/analysis"
@@ -38,7 +37,7 @@ type codeScanner struct {
 	analysisOrchestrator analysis.AnalysisOrchestrator
 	instrumentor         observability.Instrumentor
 	errorReporter        observability.ErrorReporter
-	tracker              scan.Tracker
+	trackerFactory       scan.TrackerFactory
 	logger               *zerolog.Logger
 	config               config.Config
 }
@@ -78,9 +77,9 @@ func WithLogger(logger *zerolog.Logger) OptionFunc {
 	}
 }
 
-func WithTracker(tracker scan.Tracker) OptionFunc {
+func WithTrackerFactory(trackerFactory scan.TrackerFactory) OptionFunc {
 	return func(c *codeScanner) {
-		c.tracker = tracker
+		c.trackerFactory = trackerFactory
 		c.initDeps(c.httpClient)
 	}
 }
@@ -89,9 +88,9 @@ func (c *codeScanner) initDeps(
 	httpClient codeClientHTTP.HTTPClient,
 ) {
 	deepcodeClient := deepcode.NewDeepcodeClient(c.config, httpClient, c.logger, c.instrumentor, c.errorReporter)
-	bundleManager := bundle.NewBundleManager(deepcodeClient, c.logger, c.instrumentor, c.errorReporter, c.tracker)
+	bundleManager := bundle.NewBundleManager(deepcodeClient, c.logger, c.instrumentor, c.errorReporter, c.trackerFactory)
 	c.bundleManager = bundleManager
-	analysisOrchestrator := analysis.NewAnalysisOrchestrator(c.config, c.logger, httpClient, c.instrumentor, c.errorReporter, c.tracker)
+	analysisOrchestrator := analysis.NewAnalysisOrchestrator(c.config, c.logger, httpClient, c.instrumentor, c.errorReporter, c.trackerFactory)
 	c.analysisOrchestrator = analysisOrchestrator
 }
 
@@ -104,15 +103,15 @@ func NewCodeScanner(
 	nopLogger := zerolog.Nop()
 	instrumentor := observability.NewInstrumentor()
 	errorReporter := observability.NewErrorReporter(&nopLogger)
-	tracker := scan.NewNopTracker()
+	trackerFactory := scan.NewNoopTrackerFactory()
 
 	scanner := &codeScanner{
-		config:        config,
-		httpClient:    httpClient,
-		errorReporter: errorReporter,
-		logger:        &nopLogger,
-		instrumentor:  instrumentor,
-		tracker:       tracker,
+		config:         config,
+		httpClient:     httpClient,
+		errorReporter:  errorReporter,
+		logger:         &nopLogger,
+		instrumentor:   instrumentor,
+		trackerFactory: trackerFactory,
 	}
 
 	// initialize other dependencies with the default
