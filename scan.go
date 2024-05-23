@@ -59,39 +59,25 @@ type OptionFunc func(*codeScanner)
 func WithInstrumentor(instrumentor observability.Instrumentor) OptionFunc {
 	return func(c *codeScanner) {
 		c.instrumentor = instrumentor
-		c.initDeps(c.httpClient)
 	}
 }
 
 func WithErrorReporter(errorReporter observability.ErrorReporter) OptionFunc {
 	return func(c *codeScanner) {
 		c.errorReporter = errorReporter
-		c.initDeps(c.httpClient)
 	}
 }
 
 func WithLogger(logger *zerolog.Logger) OptionFunc {
 	return func(c *codeScanner) {
 		c.logger = logger
-		c.initDeps(c.httpClient)
 	}
 }
 
 func WithTrackerFactory(trackerFactory scan.TrackerFactory) OptionFunc {
 	return func(c *codeScanner) {
 		c.trackerFactory = trackerFactory
-		c.initDeps(c.httpClient)
 	}
-}
-
-func (c *codeScanner) initDeps(
-	httpClient codeClientHTTP.HTTPClient,
-) {
-	deepcodeClient := deepcode.NewDeepcodeClient(c.config, httpClient, c.logger, c.instrumentor, c.errorReporter)
-	bundleManager := bundle.NewBundleManager(deepcodeClient, c.logger, c.instrumentor, c.errorReporter, c.trackerFactory)
-	c.bundleManager = bundleManager
-	analysisOrchestrator := analysis.NewAnalysisOrchestrator(c.config, c.logger, httpClient, c.instrumentor, c.errorReporter, c.trackerFactory)
-	c.analysisOrchestrator = analysisOrchestrator
 }
 
 // NewCodeScanner creates a Code Scanner which can be used to trigger Snyk Code on a folder.
@@ -114,12 +100,16 @@ func NewCodeScanner(
 		trackerFactory: trackerFactory,
 	}
 
-	// initialize other dependencies with the default
-	scanner.initDeps(httpClient)
-
 	for _, option := range options {
 		option(scanner)
 	}
+
+	// initialize other dependencies
+	deepcodeClient := deepcode.NewDeepcodeClient(scanner.config, httpClient, scanner.logger, scanner.instrumentor, scanner.errorReporter)
+	bundleManager := bundle.NewBundleManager(deepcodeClient, scanner.logger, scanner.instrumentor, scanner.errorReporter, scanner.trackerFactory)
+	scanner.bundleManager = bundleManager
+	analysisOrchestrator := analysis.NewAnalysisOrchestrator(scanner.config, scanner.logger, httpClient, scanner.instrumentor, scanner.errorReporter, scanner.trackerFactory)
+	scanner.analysisOrchestrator = analysisOrchestrator
 
 	return scanner
 }
