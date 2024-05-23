@@ -50,7 +50,7 @@ func Test_UploadBatch(t *testing.T) {
 		mockInstrumentor.EXPECT().StartSpan(gomock.Any(), gomock.Any()).Return(mockSpan).AnyTimes()
 		mockInstrumentor.EXPECT().Finish(gomock.Any()).AnyTimes()
 		mockErrorReporter := mocks.NewMockErrorReporter(ctrl)
-		b := bundle.NewBundle(mockSnykCodeClient, mockInstrumentor, mockErrorReporter, &testLogger, "testBundleHash", map[string]deepcode.BundleFile{}, []string{}, []string{})
+		b := bundle.NewBundle(mockSnykCodeClient, mockInstrumentor, mockErrorReporter, &testLogger, "testRootPath", "testBundleHash", map[string]deepcode.BundleFile{}, []string{}, []string{})
 
 		emptyBundle := &bundle.Batch{}
 		err := b.UploadBatch(context.Background(), "testRequestId", emptyBundle)
@@ -70,7 +70,7 @@ func Test_UploadBatch(t *testing.T) {
 		mockInstrumentor.EXPECT().StartSpan(gomock.Any(), gomock.Any()).Return(mockSpan).AnyTimes()
 		mockInstrumentor.EXPECT().Finish(gomock.Any()).AnyTimes()
 		mockErrorReporter := mocks.NewMockErrorReporter(ctrl)
-		b := bundle.NewBundle(mockSnykCodeClient, mockInstrumentor, mockErrorReporter, &testLogger, "testBundleHash", map[string]deepcode.BundleFile{}, []string{}, []string{})
+		b := bundle.NewBundle(mockSnykCodeClient, mockInstrumentor, mockErrorReporter, &testLogger, "testRootPath", "testBundleHash", map[string]deepcode.BundleFile{}, []string{}, []string{})
 
 		err := b.UploadBatch(context.Background(), "testRequestId", bundleWithFiles)
 		assert.NoError(t, err)
@@ -93,7 +93,7 @@ func Test_UploadBatch(t *testing.T) {
 		mockInstrumentor.EXPECT().StartSpan(gomock.Any(), gomock.Any()).Return(mockSpan).AnyTimes()
 		mockInstrumentor.EXPECT().Finish(gomock.Any()).AnyTimes()
 		mockErrorReporter := mocks.NewMockErrorReporter(ctrl)
-		b := bundle.NewBundle(mockSnykCodeClient, mockInstrumentor, mockErrorReporter, &testLogger, "testBundleHash", map[string]deepcode.BundleFile{}, []string{}, []string{})
+		b := bundle.NewBundle(mockSnykCodeClient, mockInstrumentor, mockErrorReporter, &testLogger, "testRootPath", "testBundleHash", map[string]deepcode.BundleFile{}, []string{}, []string{})
 
 		err := b.UploadBatch(context.Background(), "testRequestId", bundleWithFiles)
 		require.NoError(t, err)

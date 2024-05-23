@@ -34,6 +34,7 @@ import (
 	deepcodeMocks "github.com/snyk/code-client-go/internal/deepcode/mocks"
 	"github.com/snyk/code-client-go/internal/util"
 	"github.com/snyk/code-client-go/observability/mocks"
+	trackerMocks "github.com/snyk/code-client-go/scan/mocks"
 )
 
 func Test_Create(t *testing.T) {
@@ -54,6 +55,11 @@ func Test_Create(t *testing.T) {
 			mockInstrumentor.EXPECT().StartSpan(gomock.Any(), gomock.Any()).Return(mockSpan).AnyTimes()
 			mockInstrumentor.EXPECT().Finish(gomock.Any()).AnyTimes()
 			mockErrorReporter := mocks.NewMockErrorReporter(ctrl)
+			mockTracker := trackerMocks.NewMockTracker(ctrl)
+			mockTracker.EXPECT().Begin(gomock.Eq("Creating file bundle"), gomock.Eq("Checking and adding files for analysis")).Return()
+			mockTracker.EXPECT().End(gomock.Eq("")).Return()
+			mockTrackerFactory := trackerMocks.NewMockTrackerFactory(ctrl)
+			mockTrackerFactory.EXPECT().GenerateTracker().Return(mockTracker)
 
 			dir := t.TempDir()
 			file := filepath.Join(dir, "file.java")
@@ -61,7 +67,7 @@ func Test_Create(t *testing.T) {
 			err := os.WriteFile(file, []byte(data), 0600)
 			require.NoError(t, err)
 
-			var bundleManager = bundle.NewBundleManager(mockSnykCodeClient, newLogger(t), mockInstrumentor, mockErrorReporter)
+			var bundleManager = bundle.NewBundleManager(mockSnykCodeClient, newLogger(t), mockInstrumentor, mockErrorReporter, mockTrackerFactory)
 			bundle, err := bundleManager.Create(context.Background(),
 				"testRequestId",
 				dir,
@@ -86,6 +92,11 @@ func Test_Create(t *testing.T) {
 			mockInstrumentor.EXPECT().StartSpan(gomock.Any(), gomock.Any()).Return(mockSpan).AnyTimes()
 			mockInstrumentor.EXPECT().Finish(gomock.Any()).AnyTimes()
 			mockErrorReporter := mocks.NewMockErrorReporter(ctrl)
+			mockTracker := trackerMocks.NewMockTracker(ctrl)
+			mockTracker.EXPECT().Begin(gomock.Eq("Creating file bundle"), gomock.Eq("Checking and adding files for analysis")).Return()
+			mockTracker.EXPECT().End(gomock.Eq("")).Return()
+			mockTrackerFactory := trackerMocks.NewMockTrackerFactory(ctrl)
+			mockTrackerFactory.EXPECT().GenerateTracker().Return(mockTracker)
 
 			dir := t.TempDir()
 			file := filepath.Join(dir, "file.java")
@@ -93,7 +104,7 @@ func Test_Create(t *testing.T) {
 			err := os.WriteFile(file, []byte(data), 0600)
 			require.NoError(t, err)
 
-			var bundleManager = bundle.NewBundleManager(mockSnykCodeClient, newLogger(t), mockInstrumentor, mockErrorReporter)
+			var bundleManager = bundle.NewBundleManager(mockSnykCodeClient, newLogger(t), mockInstrumentor, mockErrorReporter, mockTrackerFactory)
 			bundle, err := bundleManager.Create(context.Background(),
 				"testRequestId",
 				dir,
@@ -119,6 +130,11 @@ func Test_Create(t *testing.T) {
 			mockInstrumentor.EXPECT().StartSpan(gomock.Any(), gomock.Any()).Return(mockSpan).AnyTimes()
 			mockInstrumentor.EXPECT().Finish(gomock.Any()).AnyTimes()
 			mockErrorReporter := mocks.NewMockErrorReporter(ctrl)
+			mockTracker := trackerMocks.NewMockTracker(ctrl)
+			mockTracker.EXPECT().Begin(gomock.Eq("Creating file bundle"), gomock.Eq("Checking and adding files for analysis")).Return()
+			mockTracker.EXPECT().End(gomock.Eq("")).Return()
+			mockTrackerFactory := trackerMocks.NewMockTrackerFactory(ctrl)
+			mockTrackerFactory.EXPECT().GenerateTracker().Return(mockTracker)
 
 			dir := t.TempDir()
 			file := filepath.Join(dir, "file.java")
@@ -130,7 +146,7 @@ func Test_Create(t *testing.T) {
 			)
 			require.NoError(t, err)
 
-			var bundleManager = bundle.NewBundleManager(mockSnykCodeClient, newLogger(t), mockInstrumentor, mockErrorReporter)
+			var bundleManager = bundle.NewBundleManager(mockSnykCodeClient, newLogger(t), mockInstrumentor, mockErrorReporter, mockTrackerFactory)
 			bundle, err := bundleManager.Create(context.Background(),
 				"testRequestId",
 				dir,
@@ -156,6 +172,11 @@ func Test_Create(t *testing.T) {
 			mockInstrumentor.EXPECT().StartSpan(gomock.Any(), gomock.Any()).Return(mockSpan).AnyTimes()
 			mockInstrumentor.EXPECT().Finish(gomock.Any()).AnyTimes()
 			mockErrorReporter := mocks.NewMockErrorReporter(ctrl)
+			mockTracker := trackerMocks.NewMockTracker(ctrl)
+			mockTracker.EXPECT().Begin(gomock.Eq("Creating file bundle"), gomock.Eq("Checking and adding files for analysis")).Return()
+			mockTracker.EXPECT().End(gomock.Eq("")).Return()
+			mockTrackerFactory := trackerMocks.NewMockTrackerFactory(ctrl)
+			mockTrackerFactory.EXPECT().GenerateTracker().Return(mockTracker)
 
 			dir := t.TempDir()
 			file := filepath.Join(dir, "file.rb")
@@ -166,7 +187,7 @@ func Test_Create(t *testing.T) {
 				},
 			)
 			require.NoError(t, err)
-			var bundleManager = bundle.NewBundleManager(mockSnykCodeClient, newLogger(t), mockInstrumentor, mockErrorReporter)
+			var bundleManager = bundle.NewBundleManager(mockSnykCodeClient, newLogger(t), mockInstrumentor, mockErrorReporter, mockTrackerFactory)
 			bundle, err := bundleManager.Create(context.Background(),
 				"testRequestId",
 				dir,
@@ -193,13 +214,18 @@ func Test_Create(t *testing.T) {
 		mockInstrumentor.EXPECT().StartSpan(gomock.Any(), gomock.Any()).Return(mockSpan).AnyTimes()
 		mockInstrumentor.EXPECT().Finish(gomock.Any()).AnyTimes()
 		mockErrorReporter := mocks.NewMockErrorReporter(ctrl)
+		mockTracker := trackerMocks.NewMockTracker(ctrl)
+		mockTracker.EXPECT().Begin(gomock.Eq("Creating file bundle"), gomock.Eq("Checking and adding files for analysis")).Return()
+		mockTracker.EXPECT().End(gomock.Eq("")).Return()
+		mockTrackerFactory := trackerMocks.NewMockTrackerFactory(ctrl)
+		mockTrackerFactory.EXPECT().GenerateTracker().Return(mockTracker)
 
 		tempDir := t.TempDir()
 		file := filepath.Join(tempDir, ".test")
 		err := os.WriteFile(file, []byte("some content so the file won't be skipped"), 0600)
 		assert.Nil(t, err)
 
-		var bundleManager = bundle.NewBundleManager(mockSnykCodeClient, newLogger(t), mockInstrumentor, mockErrorReporter)
+		var bundleManager = bundle.NewBundleManager(mockSnykCodeClient, newLogger(t), mockInstrumentor, mockErrorReporter, mockTrackerFactory)
 		bundle, err := bundleManager.Create(context.Background(),
 			"testRequestId",
 			tempDir,
@@ -227,6 +253,11 @@ func Test_Create(t *testing.T) {
 		mockInstrumentor.EXPECT().StartSpan(gomock.Any(), gomock.Any()).Return(mockSpan).AnyTimes()
 		mockInstrumentor.EXPECT().Finish(gomock.Any()).AnyTimes()
 		mockErrorReporter := mocks.NewMockErrorReporter(ctrl)
+		mockTracker := trackerMocks.NewMockTracker(ctrl)
+		mockTracker.EXPECT().Begin(gomock.Eq("Creating file bundle"), gomock.Eq("Checking and adding files for analysis")).Return()
+		mockTracker.EXPECT().End(gomock.Eq("")).Return()
+		mockTrackerFactory := trackerMocks.NewMockTrackerFactory(ctrl)
+		mockTrackerFactory.EXPECT().GenerateTracker().Return(mockTracker)
 
 		filesRelPaths := []string{
 			"path/to/file1.java",
@@ -247,7 +278,7 @@ func Test_Create(t *testing.T) {
 			require.NoError(t, err)
 		}
 
-		var bundleManager = bundle.NewBundleManager(mockSnykCodeClient, newLogger(t), mockInstrumentor, mockErrorReporter)
+		var bundleManager = bundle.NewBundleManager(mockSnykCodeClient, newLogger(t), mockInstrumentor, mockErrorReporter, mockTrackerFactory)
 		bundle, err := bundleManager.Create(context.Background(),
 			"testRequestId",
 			tempDir,
@@ -278,8 +309,17 @@ func Test_Upload(t *testing.T) {
 		mockInstrumentor.EXPECT().StartSpan(gomock.Any(), gomock.Any()).Return(mockSpan).Times(2)
 		mockInstrumentor.EXPECT().Finish(gomock.Any()).Times(2)
 		mockErrorReporter := mocks.NewMockErrorReporter(ctrl)
+		mockTracker1 := trackerMocks.NewMockTracker(ctrl)
+		mockTracker1.EXPECT().Begin(gomock.Eq("Snyk Code analysis for rootPath"), gomock.Eq("Uploading batches...")).Return()
+		mockTracker1.EXPECT().End(gomock.Eq("Upload done.")).Return()
+		mockTracker2 := trackerMocks.NewMockTracker(ctrl)
+		mockTracker2.EXPECT().Begin(gomock.Eq("Snyk Code analysis for rootPath"), gomock.Eq("Creating batches...")).Return()
+		mockTracker2.EXPECT().End(gomock.Eq("Batches created.")).Return()
+		mockTrackerFactory := trackerMocks.NewMockTrackerFactory(ctrl)
+		mockTrackerFactory.EXPECT().GenerateTracker().Times(1).Return(mockTracker1)
+		mockTrackerFactory.EXPECT().GenerateTracker().Times(1).Return(mockTracker2)
 
-		var bundleManager = bundle.NewBundleManager(mockSnykCodeClient, newLogger(t), mockInstrumentor, mockErrorReporter)
+		var bundleManager = bundle.NewBundleManager(mockSnykCodeClient, newLogger(t), mockInstrumentor, mockErrorReporter, mockTrackerFactory)
 		documentURI, bundleFile := createTempFileInDir(t, "bundleDoc.java", 10, temporaryDir)
 		bundleFileMap := map[string]deepcode.BundleFile{}
 		bundleFileMap[documentURI] = bundleFile
@@ -287,7 +327,7 @@ func Test_Upload(t *testing.T) {
 		_, err := bundleManager.Upload(
 			context.Background(),
 			"testRequestId",
-			bundle.NewBundle(mockSnykCodeClient, mockInstrumentor, mockErrorReporter, &logger, "bundleHash", bundleFileMap, []string{}, []string{documentURI}),
+			bundle.NewBundle(mockSnykCodeClient, mockInstrumentor, mockErrorReporter, &logger, "rootPath", "bundleHash", bundleFileMap, []string{}, []string{documentURI}),
 			bundleFileMap)
 		assert.NoError(t, err)
 	})
@@ -303,7 +343,17 @@ func Test_Upload(t *testing.T) {
 		mockInstrumentor.EXPECT().StartSpan(gomock.Any(), gomock.Any()).Return(mockSpan).Times(2)
 		mockInstrumentor.EXPECT().Finish(gomock.Any()).Times(2)
 		mockErrorReporter := mocks.NewMockErrorReporter(ctrl)
-		var bundleManager = bundle.NewBundleManager(mockSnykCodeClient, newLogger(t), mockInstrumentor, mockErrorReporter)
+		mockTracker1 := trackerMocks.NewMockTracker(ctrl)
+		mockTracker1.EXPECT().Begin(gomock.Eq("Snyk Code analysis for rootPath"), gomock.Eq("Uploading batches...")).Return()
+		mockTracker1.EXPECT().End(gomock.Eq("Upload done.")).Return()
+		mockTracker2 := trackerMocks.NewMockTracker(ctrl)
+		mockTracker2.EXPECT().Begin(gomock.Eq("Snyk Code analysis for rootPath"), gomock.Eq("Creating batches...")).Return()
+		mockTracker2.EXPECT().End(gomock.Eq("Batches created.")).Return()
+		mockTrackerFactory := trackerMocks.NewMockTrackerFactory(ctrl)
+		mockTrackerFactory.EXPECT().GenerateTracker().Times(1).Return(mockTracker1)
+		mockTrackerFactory.EXPECT().GenerateTracker().Times(1).Return(mockTracker2)
+
+		var bundleManager = bundle.NewBundleManager(mockSnykCodeClient, newLogger(t), mockInstrumentor, mockErrorReporter, mockTrackerFactory)
 
 		bundleFileMap := map[string]deepcode.BundleFile{}
 		var missingFiles []string
@@ -326,7 +376,7 @@ func Test_Upload(t *testing.T) {
 		_, err := bundleManager.Upload(
 			context.Background(),
 			"testRequestId",
-			bundle.NewBundle(mockSnykCodeClient, mockInstrumentor, mockErrorReporter, &logger, "bundleHash", bundleFileMap, []string{}, missingFiles),
+			bundle.NewBundle(mockSnykCodeClient, mockInstrumentor, mockErrorReporter, &logger, "rootPath", "bundleHash", bundleFileMap, []string{}, missingFiles),
 			bundleFileMap)
 		assert.Nil(t, err)
 	})
@@ -348,7 +398,9 @@ func Test_IsSupported_Extensions(t *testing.T) {
 	}, nil)
 	mockInstrumentor := mocks.NewMockInstrumentor(ctrl)
 	mockErrorReporter := mocks.NewMockErrorReporter(ctrl)
-	bundler := bundle.NewBundleManager(mockSnykCodeClient, newLogger(t), mockInstrumentor, mockErrorReporter)
+	mockTrackerFactory := trackerMocks.NewMockTrackerFactory(ctrl)
+
+	bundler := bundle.NewBundleManager(mockSnykCodeClient, newLogger(t), mockInstrumentor, mockErrorReporter, mockTrackerFactory)
 
 	t.Run("should return true for supported languages", func(t *testing.T) {
 		supported, _ := bundler.IsSupported(context.Background(), "C:\\some\\path\\Test.java")
@@ -387,7 +439,9 @@ func Test_IsSupported_ConfigFiles(t *testing.T) {
 	}, nil)
 	mockInstrumentor := mocks.NewMockInstrumentor(ctrl)
 	mockErrorReporter := mocks.NewMockErrorReporter(ctrl)
-	bundler := bundle.NewBundleManager(mockSnykCodeClient, newLogger(t), mockInstrumentor, mockErrorReporter)
+	mockTrackerFactory := trackerMocks.NewMockTrackerFactory(ctrl)
+
+	bundler := bundle.NewBundleManager(mockSnykCodeClient, newLogger(t), mockInstrumentor, mockErrorReporter, mockTrackerFactory)
 	dir, _ := os.Getwd()
 
 	t.Run("should return true for supported config files", func(t *testing.T) {

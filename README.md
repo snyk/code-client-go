@@ -46,6 +46,39 @@ httpClient := codeClientHTTP.NewHTTPClient(
 
 The HTTP client exposes a `Do` function.
 
+### Target
+
+Use the target to record the target of a scan, which can be either a folder enhanced with repository metadata 
+or a repository.
+
+```go
+import (
+    codeClientScan  "github.com/snyk/code-client-go/scan"
+)
+
+target, _ := codeClientScan.NewRepositoryTarget(path)
+
+target, _ := codeClientScan.NewRepositoryTarget(path, codeClientScan.WithRepositoryUrl("https://github.com/snyk/code-client-go.git"))
+```
+### Tracker Factory
+
+Use the tracker factory to generate a tracker used to update the consumer of the client with frequent progress updates. 
+
+The tracker either exposes an interface with two `Begin` and `End` functions or an implementation that doesn't do anything.
+
+```go
+import (
+    codeClientScan  "github.com/snyk/code-client-go/scan"
+)
+
+trackerFactory := codeClientScan.NewNoopTrackerFactory()
+
+tracker := trackerFactory.GenerateTracker()
+tracker.Begin()
+...
+tracker.End()
+```
+
 ### Configuration
 
 Implement the `config.Config` interface to configure the Snyk Code API client from applications.
@@ -57,15 +90,20 @@ Use the Code Scanner to trigger a scan for a Snyk Code workspace using the Bundl
 The Code Scanner exposes a `UploadAndAnalyze` function, which can be used like this:
 
 ```go
+import (
+    codeClient  "github.com/snyk/code-client-go"
+)
+
 config := newConfigForMyApp()
-codeScanner := code.NewCodeScanner(
+codeScanner := codeClient.NewCodeScanner(
     httpClient,
     config,
+	codeClient.WithTrackerFactory(trackerFactory),
     codeClientHTTP.WithLogger(logger),
     codeClientHTTP.WithInstrumentor(instrumentor),
     codeClientHTTP.WithErrorReporter(errorReporter),
 )
-code.UploadAndAnalyze(context.Background(), requestId, "path/to/workspace", channelForWalkingFiles, changedFiles)
+codeScanner.UploadAndAnalyze(context.Background(), requestId, target, channelForWalkingFiles, changedFiles)
 ```
 
 

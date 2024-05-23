@@ -19,10 +19,8 @@ package codeclient
 
 import (
 	"context"
-
 	"github.com/pkg/errors"
 	"github.com/rs/zerolog"
-
 	"github.com/snyk/code-client-go/config"
 	codeClientHTTP "github.com/snyk/code-client-go/http"
 	"github.com/snyk/code-client-go/internal/analysis"
@@ -39,6 +37,7 @@ type codeScanner struct {
 	analysisOrchestrator analysis.AnalysisOrchestrator
 	instrumentor         observability.Instrumentor
 	errorReporter        observability.ErrorReporter
+	trackerFactory       scan.TrackerFactory
 	logger               *zerolog.Logger
 	config               config.Config
 }
@@ -60,32 +59,25 @@ type OptionFunc func(*codeScanner)
 func WithInstrumentor(instrumentor observability.Instrumentor) OptionFunc {
 	return func(c *codeScanner) {
 		c.instrumentor = instrumentor
-		c.initDeps(c.httpClient)
 	}
 }
 
 func WithErrorReporter(errorReporter observability.ErrorReporter) OptionFunc {
 	return func(c *codeScanner) {
 		c.errorReporter = errorReporter
-		c.initDeps(c.httpClient)
 	}
 }
 
 func WithLogger(logger *zerolog.Logger) OptionFunc {
 	return func(c *codeScanner) {
 		c.logger = logger
-		c.initDeps(c.httpClient)
 	}
 }
 
-func (c *codeScanner) initDeps(
-	httpClient codeClientHTTP.HTTPClient,
-) {
-	deepcodeClient := deepcode.NewDeepcodeClient(c.config, httpClient, c.logger, c.instrumentor, c.errorReporter)
-	bundleManager := bundle.NewBundleManager(deepcodeClient, c.logger, c.instrumentor, c.errorReporter)
-	c.bundleManager = bundleManager
-	analysisOrchestrator := analysis.NewAnalysisOrchestrator(c.config, c.logger, httpClient, c.instrumentor, c.errorReporter)
-	c.analysisOrchestrator = analysisOrchestrator
+func WithTrackerFactory(trackerFactory scan.TrackerFactory) OptionFunc {
+	return func(c *codeScanner) {
+		c.trackerFactory = trackerFactory
+	}
 }
 
 // NewCodeScanner creates a Code Scanner which can be used to trigger Snyk Code on a folder.
@@ -97,21 +89,27 @@ func NewCodeScanner(
 	nopLogger := zerolog.Nop()
 	instrumentor := observability.NewInstrumentor()
 	errorReporter := observability.NewErrorReporter(&nopLogger)
+	trackerFactory := scan.NewNoopTrackerFactory()
 
 	scanner := &codeScanner{
-		httpClient:    httpClient,
-		errorReporter: errorReporter,
-		logger:        &nopLogger,
-		instrumentor:  instrumentor,
-		config:        config,
+		config:         config,
+		httpClient:     httpClient,
+		errorReporter:  errorReporter,
+		logger:         &nopLogger,
+		instrumentor:   instrumentor,
+		trackerFactory: trackerFactory,
 	}
-
-	// initialize other dependencies with the default
-	scanner.initDeps(httpClient)
 
 	for _, option := range options {
 		option(scanner)
 	}
+
+	// initialize other dependencies
+	deepcodeClient := deepcode.NewDeepcodeClient(scanner.config, httpClient, scanner.logger, scanner.instrumentor, scanner.errorReporter)
+	bundleManager := bundle.NewBundleManager(deepcodeClient, scanner.logger, scanner.instrumentor, scanner.errorReporter, scanner.trackerFactory)
+	scanner.bundleManager = bundleManager
+	analysisOrchestrator := analysis.NewAnalysisOrchestrator(scanner.config, scanner.logger, httpClient, scanner.instrumentor, scanner.errorReporter, scanner.trackerFactory)
+	scanner.analysisOrchestrator = analysisOrchestrator
 
 	return scanner
 }
@@ -199,7 +197,7 @@ func (c *codeScanner) UploadAndAnalyze(
 		}
 	}
 
-	response, err := c.analysisOrchestrator.RunAnalysis(ctx, c.config.Organization(), workspaceId)
+	response, err := c.analysisOrchestrator.RunAnalysis(ctx, c.config.Organization(), b.GetRootPath(), workspaceId)
 	if ctx.Err() != nil {
 		c.logger.Info().Msg("Canceling Code scan - Code scanner received cancellation signal")
 		return nil, bundleHash, nil

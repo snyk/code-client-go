@@ -78,6 +78,20 @@ func (mr *MockBundleMockRecorder) GetMissingFiles() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetMissingFiles", reflect.TypeOf((*MockBundle)(nil).GetMissingFiles))
 }
 
+// GetRootPath mocks base method.
+func (m *MockBundle) GetRootPath() string {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetRootPath")
+	ret0, _ := ret[0].(string)
+	return ret0
+}
+
+// GetRootPath indicates an expected call of GetRootPath.
+func (mr *MockBundleMockRecorder) GetRootPath() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetRootPath", reflect.TypeOf((*MockBundle)(nil).GetRootPath))
+}
+
 // UploadBatch mocks base method.
 func (m *MockBundle) UploadBatch(ctx context.Context, requestId string, batch *bundle.Batch) error {
 	m.ctrl.T.Helper()

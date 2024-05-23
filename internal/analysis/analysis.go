@@ -47,7 +47,7 @@ import (
 //go:generate mockgen -destination=mocks/analysis.go -source=analysis.go -package mocks
 type AnalysisOrchestrator interface {
 	CreateWorkspace(ctx context.Context, orgId string, requestId string, path scan.Target, bundleHash string) (string, error)
-	RunAnalysis(ctx context.Context, orgId string, workspaceId string) (*sarif.SarifResponse, error)
+	RunAnalysis(ctx context.Context, orgId string, rootPath string, workspaceId string) (*sarif.SarifResponse, error)
 }
 
 type analysisOrchestrator struct {
@@ -55,6 +55,7 @@ type analysisOrchestrator struct {
 	instrumentor     observability.Instrumentor
 	errorReporter    observability.ErrorReporter
 	logger           *zerolog.Logger
+	trackerFactory   scan.TrackerFactory
 	config           config.Config
 	timeoutInSeconds time.Duration
 }
@@ -73,6 +74,7 @@ func NewAnalysisOrchestrator(
 	httpClient codeClientHTTP.HTTPClient,
 	instrumentor observability.Instrumentor,
 	errorReporter observability.ErrorReporter,
+	trackerFactory scan.TrackerFactory,
 	options ...OptionFunc,
 ) AnalysisOrchestrator {
 	a := &analysisOrchestrator{
@@ -80,6 +82,7 @@ func NewAnalysisOrchestrator(
 		instrumentor:     instrumentor,
 		errorReporter:    errorReporter,
 		logger:           logger,
+		trackerFactory:   trackerFactory,
 		config:           config,
 		timeoutInSeconds: 120 * time.Second,
 	}
@@ -97,6 +100,10 @@ func (a *analysisOrchestrator) CreateWorkspace(ctx context.Context, orgId string
 
 	span := a.instrumentor.StartSpan(ctx, method)
 	defer a.instrumentor.Finish(span)
+
+	tracker := a.trackerFactory.GenerateTracker()
+	tracker.Begin("Creating file bundle workspace", "")
+	defer tracker.End("")
 
 	orgUUID := uuid.MustParse(orgId)
 
@@ -181,23 +188,44 @@ func (a *analysisOrchestrator) CreateWorkspace(ctx context.Context, orgId string
 	return workspaceId, nil
 }
 
-func (a *analysisOrchestrator) RunAnalysis(ctx context.Context, orgId string, workspaceId string) (*sarif.SarifResponse, error) {
+func (a *analysisOrchestrator) RunAnalysis(ctx context.Context, orgId string, rootPath string, workspaceId string) (*sarif.SarifResponse, error) {
 	method := "analysis.RunAnalysis"
 	logger := a.logger.With().Str("method", method).Logger()
 	logger.Debug().Msg("API: Creating the scan")
+
+	tracker := a.trackerFactory.GenerateTracker()
+	tracker.Begin("Snyk Code analysis for "+rootPath, "Retrieving results...")
+
 	org := uuid.MustParse(orgId)
 
 	host := a.host(false)
 	a.logger.Debug().Str("host", host).Str("workspaceId", workspaceId).Msg("starting scan")
 
 	client, err := orchestrationClient.NewClientWithResponses(host, orchestrationClient.WithHTTPClient(a.httpClient))
-
 	if err != nil {
+		tracker.End(fmt.Sprintf("Analysis failed: %v", err))
 		return nil, fmt.Errorf("failed to create orchestrationClient: %w", err)
 	}
 
+	scanJobId, err := a.triggerScan(ctx, client, org, workspaceId)
+	if err != nil {
+		tracker.End(fmt.Sprintf("Analysis failed: %v", err))
+		return nil, err
+	}
+
+	response, err := a.pollScanForFindings(ctx, client, org, *scanJobId)
+	if err != nil {
+		tracker.End(fmt.Sprintf("Analysis failed: %v", err))
+		return nil, err
+	}
+
+	tracker.End("Analysis complete.")
+	return response, nil
+}
+
+func (a *analysisOrchestrator) triggerScan(ctx context.Context, client *orchestrationClient.ClientWithResponses, org uuid.UUID, workspaceId string) (*openapi_types.UUID, error) {
 	flow := scans.Flow{}
-	err = flow.UnmarshalJSON([]byte(`{"name": "cli_test"}`))
+	err := flow.UnmarshalJSON([]byte(`{"name": "cli_test"}`))
 	if err != nil {
 		return nil, fmt.Errorf("failed to create scan request: %w", err)
 	}
@@ -242,7 +270,7 @@ func (a *analysisOrchestrator) RunAnalysis(ctx context.Context, orgId string, wo
 	switch createScanResponse.StatusCode() {
 	case 201:
 		scanJobId = createScanResponse.ApplicationvndApiJSON201.Data.Id
-		a.logger.Debug().Str("host", host).Str("workspaceId", workspaceId).Msg("starting scan")
+		a.logger.Debug().Str("workspaceId", workspaceId).Msg("starting scan")
 	case 400:
 		msg = createScanResponse.ApplicationvndApiJSON400.Errors[0].Detail
 	case 401:
@@ -260,12 +288,7 @@ func (a *analysisOrchestrator) RunAnalysis(ctx context.Context, orgId string, wo
 		return nil, errors.New(msg)
 	}
 
-	response, err := a.pollScanForFindings(ctx, client, org, scanJobId)
-	if err != nil {
-		return nil, err
-	}
-
-	return response, nil
+	return &scanJobId, nil
 }
 
 func (a *analysisOrchestrator) pollScanForFindings(ctx context.Context, client *orchestrationClient.ClientWithResponses, org uuid.UUID, scanJobId openapi_types.UUID) (*sarif.SarifResponse, error) {
@@ -279,7 +302,7 @@ func (a *analysisOrchestrator) pollScanForFindings(ctx context.Context, client *
 	for {
 		select {
 		case <-timeoutTimer.C:
-			msg := "timeout requesting the ScanJobResult"
+			msg := "Snyk Code analysis timed out"
 			logger.Error().Str("scanJobId", scanJobId.String()).Msg(msg)
 			return nil, errors.New(msg)
 		case <-pollingTicker.C:
