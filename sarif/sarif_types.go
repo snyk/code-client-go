@@ -24,6 +24,12 @@ type SarifDocument struct {
 	Runs    []Run  `json:"runs"`
 }
 
+type SarifCoverage struct {
+	Files       int    `json:"files"`
+	IsSupported bool   `json:"isSupported"`
+	Lang        string `json:"lang"`
+}
+
 type SarifResponse struct {
 	Type     string  `json:"type"`
 	Progress float64 `json:"progress"`
@@ -33,12 +39,8 @@ type SarifResponse struct {
 		Queue        int `json:"queue"`
 		Analysis     int `json:"analysis"`
 	} `json:"timing"`
-	Coverage []struct {
-		Files       int    `json:"files"`
-		IsSupported bool   `json:"isSupported"`
-		Lang        string `json:"lang"`
-	} `json:"coverage"`
-	Sarif SarifDocument `json:"sarif"`
+	Coverage []SarifCoverage `json:"coverage"`
+	Sarif    SarifDocument   `json:"sarif"`
 }
 
 type region struct {
