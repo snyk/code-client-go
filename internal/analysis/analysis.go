@@ -413,7 +413,6 @@ func (a *analysisOrchestrator) retrieveFindings(ctx context.Context, scanJobId u
 }
 
 func (a *analysisOrchestrator) host(isHidden bool) string {
-	// TODO
 	apiUrl := strings.TrimRight(a.config.SnykApi(), "/")
 	// Temporary Workaround because intellij currently adds a /v1 suffix to the EndpointAPI
 	if strings.Contains(apiUrl, "/v1") {
