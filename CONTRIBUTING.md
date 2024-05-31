@@ -51,7 +51,7 @@ python3 -m pip install yq --break-system-packages
 python3 -m pip install pycurl --break-system-packages
 ```
 
-Then run `make download-apis` to download the latest code. If you want to download a new version, you can also do that.
+Then run `make tools download-apis` to download the latest code. If you want to download a new version, you can also do that.
 
 Then generate the client by running `make generate`.
 
