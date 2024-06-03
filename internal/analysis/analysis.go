@@ -47,6 +47,7 @@ import (
 type AnalysisOrchestrator interface {
 	CreateWorkspace(ctx context.Context, orgId string, requestId string, path scan.Target, bundleHash string) (string, error)
 	RunAnalysis(ctx context.Context, orgId string, rootPath string, workspaceId string) (*sarif.SarifResponse, error)
+	RunIncrementalAnalysis(ctx context.Context, orgId string, rootPath string, workspaceId string, limitToFiles []string) (*sarif.SarifResponse, error)
 }
 
 type analysisOrchestrator struct {
@@ -192,6 +193,10 @@ func (a *analysisOrchestrator) CreateWorkspace(ctx context.Context, orgId string
 }
 
 func (a *analysisOrchestrator) RunAnalysis(ctx context.Context, orgId string, rootPath string, workspaceId string) (*sarif.SarifResponse, error) {
+	return a.RunIncrementalAnalysis(ctx, orgId, rootPath, workspaceId, []string{})
+}
+
+func (a *analysisOrchestrator) RunIncrementalAnalysis(ctx context.Context, orgId string, rootPath string, workspaceId string, limitToFiles []string) (*sarif.SarifResponse, error) {
 	method := "analysis.RunAnalysis"
 	logger := a.logger.With().Str("method", method).Logger()
 	logger.Debug().Msg("API: Creating the scan")
@@ -210,7 +215,7 @@ func (a *analysisOrchestrator) RunAnalysis(ctx context.Context, orgId string, ro
 		return nil, fmt.Errorf("failed to create orchestrationClient: %w", err)
 	}
 
-	scanJobId, err := a.triggerScan(ctx, client, org, workspaceId)
+	scanJobId, err := a.triggerScan(ctx, client, org, workspaceId, limitToFiles)
 	if err != nil {
 		tracker.End(fmt.Sprintf("Analysis failed: %v", err))
 		return nil, err
@@ -226,52 +231,55 @@ func (a *analysisOrchestrator) RunAnalysis(ctx context.Context, orgId string, ro
 	return response, nil
 }
 
-func (a *analysisOrchestrator) triggerScan(ctx context.Context, client *orchestrationClient.ClientWithResponses, org uuid.UUID, workspaceId string) (*openapi_types.UUID, error) {
+func (a *analysisOrchestrator) triggerScan(
+	ctx context.Context,
+	client *orchestrationClient.ClientWithResponses,
+	org uuid.UUID,
+	workspaceId string,
+	limitToFiles []string,
+) (*openapi_types.UUID, error) {
+	workspaceUUID := uuid.MustParse(workspaceId)
+
 	flow := scans.Flow{}
-	err := flow.UnmarshalJSON([]byte(`{"name": "ide"}`))
+	err := flow.UnmarshalJSON([]byte(`{"name": "ide_test"}`))
 	if err != nil {
-		return nil, fmt.Errorf("failed to create scan request: %w", err)
+		return nil, errors.Wrap(err, "cannot create test flow element")
 	}
 
-	workspaceUUID := uuid.MustParse(workspaceId)
+	scanOptions := &struct {
+		LimitScanToFiles *[]string `json:"limit_scan_to_files,omitempty"`
+	}{
+		LimitScanToFiles: &limitToFiles,
+	}
+
+	if len(limitToFiles) == 0 {
+		scanOptions = nil
+	}
 
 	data := struct {
 		Attributes struct {
-			Flow scans.Flow `json:"flow"`
-
-			// ScanOptions Additional options for the scan
+			Flow        scans.Flow `json:"flow"`
 			ScanOptions *struct {
-				// LimitScanToFiles The findings will be limited to a subset of files only.
 				LimitScanToFiles *[]string `json:"limit_scan_to_files,omitempty"`
 			} `json:"scan_options,omitempty"`
-
-			// WorkspaceId ID of the workspace to be scanned. We are migrating from URL to the ID - please send both fields until we can drop the URL.
-			WorkspaceId *openapi_types.UUID `json:"workspace_id,omitempty"`
-
-			// WorkspaceUrl The URI of the workspace to be scanned as returned by the workspace service.
-			WorkspaceUrl string `json:"workspace_url"`
+			WorkspaceId  *openapi_types.UUID `json:"workspace_id,omitempty"`
+			WorkspaceUrl string              `json:"workspace_url"`
 		} `json:"attributes"`
 		Id   *openapi_types.UUID           `json:"id,omitempty"`
 		Type scans.PostScanRequestDataType `json:"type"`
 	}{
 		Attributes: struct {
-			Flow scans.Flow `json:"flow"`
-
-			// ScanOptions Additional options for the scan
+			Flow        scans.Flow `json:"flow"`
 			ScanOptions *struct {
-				// LimitScanToFiles The findings will be limited to a subset of files only.
 				LimitScanToFiles *[]string `json:"limit_scan_to_files,omitempty"`
 			} `json:"scan_options,omitempty"`
-
-			// WorkspaceId ID of the workspace to be scanned. We are migrating from URL to the ID - please send both fields until we can drop the URL.
-			WorkspaceId *openapi_types.UUID `json:"workspace_id,omitempty"`
-
-			// WorkspaceUrl The URI of the workspace to be scanned as returned by the workspace service.
-			WorkspaceUrl string `json:"workspace_url"`
+			WorkspaceId  *openapi_types.UUID `json:"workspace_id,omitempty"`
+			WorkspaceUrl string              `json:"workspace_url"`
 		}{
 			Flow:         flow,
-			WorkspaceId:  &workspaceUUID,
 			WorkspaceUrl: fmt.Sprintf("http://workspace-service/workspaces/%s", workspaceId),
+			WorkspaceId:  &workspaceUUID,
+			ScanOptions:  scanOptions,
 		},
 		Type: "workspace",
 	}

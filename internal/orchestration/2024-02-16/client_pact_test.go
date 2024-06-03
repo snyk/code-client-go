@@ -21,9 +21,10 @@ package v20240216_test
 import (
 	"context"
 	"fmt"
-	v20240216 "github.com/snyk/code-client-go/internal/orchestration/2024-02-16"
 	"net/http"
 	"testing"
+
+	v20240216 "github.com/snyk/code-client-go/internal/orchestration/2024-02-16"
 
 	"github.com/google/uuid"
 	openapi_types "github.com/oapi-codegen/runtime/types"
@@ -216,7 +217,7 @@ func getBodyMatcher() dsl.Matcher {
 		"data": dsl.Like(map[string]interface{}{
 			"attributes": dsl.Like(map[string]interface{}{
 				"flow": dsl.MapMatcher{
-					"name": dsl.String("cli_test"),
+					"name": dsl.String("ide"),
 				},
 				"workspace_url": getWorkspaceIDMatcher(),
 			}),

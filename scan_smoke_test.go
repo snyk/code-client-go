@@ -48,7 +48,6 @@ func Test_SmokeScan_HTTPS(t *testing.T) {
 	target, err := scan.NewRepositoryTarget(cloneTargetDir)
 	assert.NoError(t, err)
 
-	defer func(path string) { _ = os.RemoveAll(path) }(cloneTargetDir)
 	if err != nil {
 		t.Fatal(err, "Couldn't setup test repo")
 	}
@@ -68,6 +67,7 @@ func Test_SmokeScan_HTTPS(t *testing.T) {
 		},
 		codeClientHTTP.WithRetryCount(3),
 		codeClientHTTP.WithLogger(&logger),
+		codeClientHTTP.WithInstrumentor(instrumentor),
 	)
 	trackerFactory := scan.NewNoopTrackerFactory()
 
@@ -79,7 +79,12 @@ func Test_SmokeScan_HTTPS(t *testing.T) {
 		codeClient.WithInstrumentor(instrumentor),
 		codeClient.WithErrorReporter(errorReporter),
 	)
-	response, bundleHash, scanErr := codeScanner.UploadAndAnalyze(context.Background(), uuid.New().String(), target, files, map[string]bool{})
+
+	// let's have a requestID that does not change
+	span := instrumentor.StartSpan(context.Background(), "UploadAndAnalyze")
+	defer span.Finish()
+
+	response, bundleHash, scanErr := codeScanner.UploadAndAnalyze(span.Context(), uuid.New().String(), target, files, map[string]bool{})
 	require.NoError(t, scanErr)
 	require.NotEmpty(t, bundleHash)
 	require.NotNil(t, response)
@@ -130,7 +135,12 @@ func Test_SmokeScan_SSH(t *testing.T) {
 		codeClient.WithErrorReporter(errorReporter),
 		codeClient.WithLogger(&logger),
 	)
-	response, bundleHash, scanErr := codeScanner.UploadAndAnalyze(context.Background(), uuid.New().String(), target, files, map[string]bool{})
+
+	// let's have a requestID that does not change
+	span := instrumentor.StartSpan(context.Background(), "UploadAndAnalyze")
+	defer span.Finish()
+
+	response, bundleHash, scanErr := codeScanner.UploadAndAnalyze(span.Context(), uuid.New().String(), target, files, map[string]bool{})
 	require.NoError(t, scanErr)
 	require.NotEmpty(t, bundleHash)
 	require.NotNil(t, response)
@@ -173,7 +183,12 @@ func Test_SmokeScan_SubFolder(t *testing.T) {
 		codeClient.WithErrorReporter(errorReporter),
 		codeClient.WithLogger(&logger),
 	)
-	response, bundleHash, scanErr := codeScanner.UploadAndAnalyze(context.Background(), uuid.New().String(), target, files, map[string]bool{})
+
+	// let's have a requestID that does not change
+	span := instrumentor.StartSpan(context.Background(), "UploadAndAnalyze")
+	defer span.Finish()
+
+	response, bundleHash, scanErr := codeScanner.UploadAndAnalyze(span.Context(), uuid.New().String(), target, files, map[string]bool{})
 	require.NoError(t, scanErr)
 	require.NotEmpty(t, bundleHash)
 	require.NotNil(t, response)
