@@ -7,8 +7,12 @@ from utils import formatSpecWithParameters
 from utils import replaceInFile
 
 ORCHESTRATION_API_VERSION = "2024-02-16"
-ORCHESTRATION_COMMIT_SHA = "c6a338190fa7260f8154d386589c5e42ea9c7479"
+ORCHESTRATION_COMMIT_SHA = "a20671b"
 
+mkDir(f"./internal/orchestration/{ORCHESTRATION_API_VERSION}")
+mkDir(f"./internal/orchestration/{ORCHESTRATION_API_VERSION}/common")
+mkDir(f"./internal/orchestration/{ORCHESTRATION_API_VERSION}/parameters")
+mkDir(f"./internal/orchestration/{ORCHESTRATION_API_VERSION}/scans")
 mkDir(f"./internal/orchestration/{ORCHESTRATION_API_VERSION}")
 
 # Download the Common spec

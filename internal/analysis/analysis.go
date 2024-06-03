@@ -25,7 +25,6 @@ import (
 	"io"
 	"net/http"
 	"strings"
-
 	"time"
 
 	"github.com/google/uuid"
@@ -37,8 +36,8 @@ import (
 	codeClientHTTP "github.com/snyk/code-client-go/http"
 	orchestrationClient "github.com/snyk/code-client-go/internal/orchestration/2024-02-16"
 	scans "github.com/snyk/code-client-go/internal/orchestration/2024-02-16/scans"
-	workspaceClient "github.com/snyk/code-client-go/internal/workspace/2024-03-12"
-	workspaces "github.com/snyk/code-client-go/internal/workspace/2024-03-12/workspaces"
+	workspaceClient "github.com/snyk/code-client-go/internal/workspace/2024-05-14"
+	workspaces "github.com/snyk/code-client-go/internal/workspace/2024-05-14/workspaces"
 	"github.com/snyk/code-client-go/observability"
 	"github.com/snyk/code-client-go/sarif"
 	"github.com/snyk/code-client-go/scan"
@@ -128,7 +127,7 @@ func (a *analysisOrchestrator) CreateWorkspace(ctx context.Context, orgId string
 	}
 
 	workspaceResponse, err := workspace.CreateWorkspaceWithApplicationVndAPIPlusJSONBodyWithResponse(ctx, orgUUID, &workspaceClient.CreateWorkspaceParams{
-		Version:       "2024-03-12~experimental",
+		Version:       "2024-05-14~experimental",
 		SnykRequestId: uuid.MustParse(requestId),
 		ContentType:   "application/vnd.api+json",
 		UserAgent:     "cli",
@@ -137,6 +136,7 @@ func (a *analysisOrchestrator) CreateWorkspace(ctx context.Context, orgId string
 			Attributes struct {
 				BundleId      string                                                     `json:"bundle_id"`
 				RepositoryUri string                                                     `json:"repository_uri"`
+				RootFolderId  string                                                     `json:"root_folder_id"`
 				WorkspaceType workspaces.WorkspacePostRequestDataAttributesWorkspaceType `json:"workspace_type"`
 			} `json:"attributes"`
 			Type workspaces.WorkspacePostRequestDataType `json:"type"`
@@ -144,16 +144,19 @@ func (a *analysisOrchestrator) CreateWorkspace(ctx context.Context, orgId string
 			Attributes struct {
 				BundleId      string                                                     `json:"bundle_id"`
 				RepositoryUri string                                                     `json:"repository_uri"`
+				RootFolderId  string                                                     `json:"root_folder_id"`
 				WorkspaceType workspaces.WorkspacePostRequestDataAttributesWorkspaceType `json:"workspace_type"`
 			}
 			Type workspaces.WorkspacePostRequestDataType
 		}{Attributes: struct {
 			BundleId      string                                                     `json:"bundle_id"`
 			RepositoryUri string                                                     `json:"repository_uri"`
+			RootFolderId  string                                                     `json:"root_folder_id"`
 			WorkspaceType workspaces.WorkspacePostRequestDataAttributesWorkspaceType `json:"workspace_type"`
 		}(struct {
 			BundleId      string
 			RepositoryUri string
+			RootFolderId  string
 			WorkspaceType workspaces.WorkspacePostRequestDataAttributesWorkspaceType
 		}{
 			BundleId:      bundleHash,
@@ -225,41 +228,59 @@ func (a *analysisOrchestrator) RunAnalysis(ctx context.Context, orgId string, ro
 
 func (a *analysisOrchestrator) triggerScan(ctx context.Context, client *orchestrationClient.ClientWithResponses, org uuid.UUID, workspaceId string) (*openapi_types.UUID, error) {
 	flow := scans.Flow{}
-	err := flow.UnmarshalJSON([]byte(`{"name": "cli_test"}`))
+	err := flow.UnmarshalJSON([]byte(`{"name": "ide"}`))
 	if err != nil {
 		return nil, fmt.Errorf("failed to create scan request: %w", err)
 	}
+
+	workspaceUUID := uuid.MustParse(workspaceId)
+
+	data := struct {
+		Attributes struct {
+			Flow scans.Flow `json:"flow"`
+
+			// ScanOptions Additional options for the scan
+			ScanOptions *struct {
+				// LimitScanToFiles The findings will be limited to a subset of files only.
+				LimitScanToFiles *[]string `json:"limit_scan_to_files,omitempty"`
+			} `json:"scan_options,omitempty"`
+
+			// WorkspaceId ID of the workspace to be scanned. We are migrating from URL to the ID - please send both fields until we can drop the URL.
+			WorkspaceId *openapi_types.UUID `json:"workspace_id,omitempty"`
+
+			// WorkspaceUrl The URI of the workspace to be scanned as returned by the workspace service.
+			WorkspaceUrl string `json:"workspace_url"`
+		} `json:"attributes"`
+		Id   *openapi_types.UUID           `json:"id,omitempty"`
+		Type scans.PostScanRequestDataType `json:"type"`
+	}{
+		Attributes: struct {
+			Flow scans.Flow `json:"flow"`
+
+			// ScanOptions Additional options for the scan
+			ScanOptions *struct {
+				// LimitScanToFiles The findings will be limited to a subset of files only.
+				LimitScanToFiles *[]string `json:"limit_scan_to_files,omitempty"`
+			} `json:"scan_options,omitempty"`
+
+			// WorkspaceId ID of the workspace to be scanned. We are migrating from URL to the ID - please send both fields until we can drop the URL.
+			WorkspaceId *openapi_types.UUID `json:"workspace_id,omitempty"`
+
+			// WorkspaceUrl The URI of the workspace to be scanned as returned by the workspace service.
+			WorkspaceUrl string `json:"workspace_url"`
+		}{
+			Flow:         flow,
+			WorkspaceId:  &workspaceUUID,
+			WorkspaceUrl: fmt.Sprintf("http://workspace-service/workspaces/%s", workspaceId),
+		},
+		Type: "workspace",
+	}
+
 	createScanResponse, err := client.CreateScanWorkspaceJobForUserWithApplicationVndAPIPlusJSONBodyWithResponse(
 		ctx,
 		org,
 		&orchestrationClient.CreateScanWorkspaceJobForUserParams{Version: "2024-02-16~experimental"},
-		orchestrationClient.CreateScanWorkspaceJobForUserApplicationVndAPIPlusJSONRequestBody{Data: struct {
-			Attributes struct {
-				Flow         scans.Flow `json:"flow"`
-				WorkspaceUrl string     `json:"workspace_url"`
-			} `json:"attributes"`
-			Id   *openapi_types.UUID           `json:"id,omitempty"`
-			Type scans.PostScanRequestDataType `json:"type"`
-		}(struct {
-			Attributes struct {
-				Flow         scans.Flow `json:"flow"`
-				WorkspaceUrl string     `json:"workspace_url"`
-			}
-			Id   *openapi_types.UUID
-			Type scans.PostScanRequestDataType
-		}{
-			Attributes: struct {
-				Flow         scans.Flow `json:"flow"`
-				WorkspaceUrl string     `json:"workspace_url"`
-			}(struct {
-				Flow         scans.Flow
-				WorkspaceUrl string
-			}{
-				Flow:         flow,
-				WorkspaceUrl: fmt.Sprintf("http://workspace-service/workspaces/%s", workspaceId),
-			}),
-			Type: "workspace",
-		})})
+		orchestrationClient.CreateScanWorkspaceJobForUserApplicationVndAPIPlusJSONRequestBody{Data: data})
 
 	if err != nil {
 		return nil, fmt.Errorf("failed to trigger scan: %w", err)

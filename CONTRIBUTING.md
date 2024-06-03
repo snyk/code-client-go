@@ -51,6 +51,12 @@ python3 -m pip install yq --break-system-packages
 python3 -m pip install pycurl --break-system-packages
 ```
 
+Then update `scripts/download-orchestration-api.py` with the latest commit & api version timestamp as found at https://github.com/snyk/orchestration-service/tree/main/src/rest/resources/scans
+
+Then update `scripts/download-workspace-api.py` with the latest commit & api version timestamp as found at https://github.com/snyk/workspace-service/tree/main/src/rest/api/hidden/resources/workspaces
+
+Do a search/replace across files, if the version timestamp has changed to replace all old versions with the new version.
+
 Then run `make tools download-apis` to download the latest code. If you want to download a new version, you can also do that.
 
 Then generate the client by running `make generate`.

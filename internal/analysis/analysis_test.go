@@ -74,7 +74,7 @@ func TestAnalysis_CreateWorkspace(t *testing.T) {
 	mockHTTPClient.EXPECT().Do(
 		mock.MatchedBy(func(i interface{}) bool {
 			req := i.(*http.Request)
-			return req.URL.String() == "http://localhost/hidden/orgs/4a72d1db-b465-4764-99e1-ecedad03b06a/workspaces?version=2024-03-12~experimental" &&
+			return req.URL.String() == "http://localhost/hidden/orgs/4a72d1db-b465-4764-99e1-ecedad03b06a/workspaces?version=2024-05-14~experimental" &&
 				req.Method == "POST" &&
 				req.Header.Get("Content-Type") == "application/vnd.api+json" &&
 				req.Header.Get("Snyk-Request-Id") == "b372d1db-b465-4764-99e1-ecedad03b06a" &&
@@ -132,7 +132,7 @@ func TestAnalysis_CreateWorkspace_Failure(t *testing.T) {
 	mockHTTPClient.EXPECT().Do(
 		mock.MatchedBy(func(i interface{}) bool {
 			req := i.(*http.Request)
-			return req.URL.String() == "http://localhost/hidden/orgs/4a72d1db-b465-4764-99e1-ecedad03b06a/workspaces?version=2024-03-12~experimental" &&
+			return req.URL.String() == "http://localhost/hidden/orgs/4a72d1db-b465-4764-99e1-ecedad03b06a/workspaces?version=2024-05-14~experimental" &&
 				req.Method == "POST" &&
 				req.Header.Get("Content-Type") == "application/vnd.api+json" &&
 				req.Header.Get("Snyk-Request-Id") == "b372d1db-b465-4764-99e1-ecedad03b06a" &&
@@ -202,7 +202,7 @@ func TestAnalysis_CreateWorkspace_KnownErrors(t *testing.T) {
 			mockHTTPClient := httpmocks.NewMockHTTPClient(ctrl)
 			mockHTTPClient.EXPECT().Do(mock.MatchedBy(func(i interface{}) bool {
 				req := i.(*http.Request)
-				return req.URL.String() == "http://localhost/hidden/orgs/4a72d1db-b465-4764-99e1-ecedad03b06a/workspaces?version=2024-03-12~experimental" &&
+				return req.URL.String() == "http://localhost/hidden/orgs/4a72d1db-b465-4764-99e1-ecedad03b06a/workspaces?version=2024-05-14~experimental" &&
 					req.Method == "POST"
 			})).Times(1).Return(&http.Response{
 				StatusCode: tc.expectedStatus,

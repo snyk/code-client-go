@@ -1,4 +1,4 @@
-package v20240312_test
+package v20240514_test
 
 import (
 	"bytes"
@@ -13,8 +13,8 @@ import (
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 
-	workspaceClient "github.com/snyk/code-client-go/internal/workspace/2024-03-12"
-	externalRef3 "github.com/snyk/code-client-go/internal/workspace/2024-03-12/workspaces"
+	workspaceClient "github.com/snyk/code-client-go/internal/workspace/2024-05-14"
+	externalRef3 "github.com/snyk/code-client-go/internal/workspace/2024-05-14/workspaces"
 )
 
 // HTTPRequestDoerMock mocks the interface HttpRequestDoerMock.
@@ -50,7 +50,7 @@ func TestWorkspace_CreateWorkspaceWithApplicationVndAPIPlusJSONBody_Success(t *t
 	doer.On("Do", mock.Anything).Return(&mockResponse, nil).Run(func(args mock.Arguments) {
 		req, ok := args.Get(0).(*http.Request)
 		assert.True(t, ok)
-		assert.Equal(t, "https://api.snyk.io/rest/orgs/e7ea34c9-de0f-422c-bf2c-4654c2e2da90/workspaces?version=2024-03-12~experimental", req.URL.String())
+		assert.Equal(t, "https://api.snyk.io/rest/orgs/e7ea34c9-de0f-422c-bf2c-4654c2e2da90/workspaces?version=2024-05-14~experimental", req.URL.String())
 	})
 	client, err := workspaceClient.NewClientWithResponses("https://api.snyk.io/rest", workspaceClient.WithHTTPClient(doer))
 	require.NoError(t, err)
@@ -58,13 +58,14 @@ func TestWorkspace_CreateWorkspaceWithApplicationVndAPIPlusJSONBody_Success(t *t
 	orgUUID := uuid.MustParse("e7ea34c9-de0f-422c-bf2c-4654c2e2da90")
 	requestId := uuid.New()
 	response, err := client.CreateWorkspaceWithApplicationVndAPIPlusJSONBodyWithResponse(context.Background(), orgUUID, &workspaceClient.CreateWorkspaceParams{
-		Version:       "2024-03-12~experimental",
+		Version:       "2024-05-14~experimental",
 		SnykRequestId: requestId,
 	}, workspaceClient.CreateWorkspaceApplicationVndAPIPlusJSONRequestBody{
 		Data: struct {
 			Attributes struct {
 				BundleId      string                                                       `json:"bundle_id"`
 				RepositoryUri string                                                       `json:"repository_uri"`
+				RootFolderId  string                                                       `json:"root_folder_id"`
 				WorkspaceType externalRef3.WorkspacePostRequestDataAttributesWorkspaceType `json:"workspace_type"`
 			} `json:"attributes"`
 			Type externalRef3.WorkspacePostRequestDataType `json:"type"`
@@ -72,16 +73,19 @@ func TestWorkspace_CreateWorkspaceWithApplicationVndAPIPlusJSONBody_Success(t *t
 			Attributes struct {
 				BundleId      string                                                       `json:"bundle_id"`
 				RepositoryUri string                                                       `json:"repository_uri"`
+				RootFolderId  string                                                       `json:"root_folder_id"`
 				WorkspaceType externalRef3.WorkspacePostRequestDataAttributesWorkspaceType `json:"workspace_type"`
 			}
 			Type externalRef3.WorkspacePostRequestDataType
 		}{Attributes: struct {
 			BundleId      string                                                       `json:"bundle_id"`
 			RepositoryUri string                                                       `json:"repository_uri"`
+			RootFolderId  string                                                       `json:"root_folder_id"`
 			WorkspaceType externalRef3.WorkspacePostRequestDataAttributesWorkspaceType `json:"workspace_type"`
 		}(struct {
 			BundleId      string
 			RepositoryUri string
+			RootFolderId  string
 			WorkspaceType externalRef3.WorkspacePostRequestDataAttributesWorkspaceType
 		}{BundleId: "bundleId", RepositoryUri: "repositoryUri", WorkspaceType: "workspaceUri"}), Type: "workspace"}),
 	})
@@ -109,7 +113,7 @@ func TestWorkspace_CreateWorkspaceWithApplicationVndAPIPlusJSONBody_Invalid(t *t
 	doer.On("Do", mock.Anything).Return(&mockResponse, nil).Run(func(args mock.Arguments) {
 		req, ok := args.Get(0).(*http.Request)
 		assert.True(t, ok)
-		assert.Equal(t, "https://api.snyk.io/rest/orgs/e7ea34c9-de0f-422c-bf2c-4654c2e2da90/workspaces?version=2024-03-12~experimental", req.URL.String())
+		assert.Equal(t, "https://api.snyk.io/rest/orgs/e7ea34c9-de0f-422c-bf2c-4654c2e2da90/workspaces?version=2024-05-14~experimental", req.URL.String())
 	})
 	client, err := workspaceClient.NewClientWithResponses("https://api.snyk.io/rest", workspaceClient.WithHTTPClient(doer))
 	require.NoError(t, err)
@@ -117,13 +121,14 @@ func TestWorkspace_CreateWorkspaceWithApplicationVndAPIPlusJSONBody_Invalid(t *t
 	orgUUID := uuid.MustParse("e7ea34c9-de0f-422c-bf2c-4654c2e2da90")
 	requestId := uuid.New()
 	response, err := client.CreateWorkspaceWithApplicationVndAPIPlusJSONBodyWithResponse(context.Background(), orgUUID, &workspaceClient.CreateWorkspaceParams{
-		Version:       "2024-03-12~experimental",
+		Version:       "2024-05-14~experimental",
 		SnykRequestId: requestId,
 	}, workspaceClient.CreateWorkspaceApplicationVndAPIPlusJSONRequestBody{
 		Data: struct {
 			Attributes struct {
 				BundleId      string                                                       `json:"bundle_id"`
 				RepositoryUri string                                                       `json:"repository_uri"`
+				RootFolderId  string                                                       `json:"root_folder_id"`
 				WorkspaceType externalRef3.WorkspacePostRequestDataAttributesWorkspaceType `json:"workspace_type"`
 			} `json:"attributes"`
 			Type externalRef3.WorkspacePostRequestDataType `json:"type"`
@@ -131,16 +136,19 @@ func TestWorkspace_CreateWorkspaceWithApplicationVndAPIPlusJSONBody_Invalid(t *t
 			Attributes struct {
 				BundleId      string                                                       `json:"bundle_id"`
 				RepositoryUri string                                                       `json:"repository_uri"`
+				RootFolderId  string                                                       `json:"root_folder_id"`
 				WorkspaceType externalRef3.WorkspacePostRequestDataAttributesWorkspaceType `json:"workspace_type"`
 			}
 			Type externalRef3.WorkspacePostRequestDataType
 		}{Attributes: struct {
 			BundleId      string                                                       `json:"bundle_id"`
 			RepositoryUri string                                                       `json:"repository_uri"`
+			RootFolderId  string                                                       `json:"root_folder_id"`
 			WorkspaceType externalRef3.WorkspacePostRequestDataAttributesWorkspaceType `json:"workspace_type"`
 		}(struct {
 			BundleId      string
 			RepositoryUri string
+			RootFolderId  string
 			WorkspaceType externalRef3.WorkspacePostRequestDataAttributesWorkspaceType
 		}{BundleId: "bundleId", RepositoryUri: "repositoryUri", WorkspaceType: "workspaceUri"}), Type: "workspace"}),
 	})
@@ -156,7 +164,7 @@ func TestWorkspace_CreateWorkspaceWithApplicationVndAPIPlusJSONBody_Failure(t *t
 	doer.On("Do", mock.Anything).Return(nil, errors.New("something went wrong")).Run(func(args mock.Arguments) {
 		req, ok := args.Get(0).(*http.Request)
 		assert.True(t, ok)
-		assert.Equal(t, "https://api.snyk.io/rest/orgs/e7ea34c9-de0f-422c-bf2c-4654c2e2da90/workspaces?version=2024-03-12~experimental", req.URL.String())
+		assert.Equal(t, "https://api.snyk.io/rest/orgs/e7ea34c9-de0f-422c-bf2c-4654c2e2da90/workspaces?version=2024-05-14~experimental", req.URL.String())
 	})
 	client, err := workspaceClient.NewClientWithResponses("https://api.snyk.io/rest", workspaceClient.WithHTTPClient(doer))
 	require.NoError(t, err)
@@ -164,13 +172,14 @@ func TestWorkspace_CreateWorkspaceWithApplicationVndAPIPlusJSONBody_Failure(t *t
 	orgUUID := uuid.MustParse("e7ea34c9-de0f-422c-bf2c-4654c2e2da90")
 	requestId := uuid.New()
 	_, err = client.CreateWorkspaceWithApplicationVndAPIPlusJSONBodyWithResponse(context.Background(), orgUUID, &workspaceClient.CreateWorkspaceParams{
-		Version:       "2024-03-12~experimental",
+		Version:       "2024-05-14~experimental",
 		SnykRequestId: requestId,
 	}, workspaceClient.CreateWorkspaceApplicationVndAPIPlusJSONRequestBody{
 		Data: struct {
 			Attributes struct {
 				BundleId      string                                                       `json:"bundle_id"`
 				RepositoryUri string                                                       `json:"repository_uri"`
+				RootFolderId  string                                                       `json:"root_folder_id"`
 				WorkspaceType externalRef3.WorkspacePostRequestDataAttributesWorkspaceType `json:"workspace_type"`
 			} `json:"attributes"`
 			Type externalRef3.WorkspacePostRequestDataType `json:"type"`
@@ -178,16 +187,19 @@ func TestWorkspace_CreateWorkspaceWithApplicationVndAPIPlusJSONBody_Failure(t *t
 			Attributes struct {
 				BundleId      string                                                       `json:"bundle_id"`
 				RepositoryUri string                                                       `json:"repository_uri"`
+				RootFolderId  string                                                       `json:"root_folder_id"`
 				WorkspaceType externalRef3.WorkspacePostRequestDataAttributesWorkspaceType `json:"workspace_type"`
 			}
 			Type externalRef3.WorkspacePostRequestDataType
 		}{Attributes: struct {
 			BundleId      string                                                       `json:"bundle_id"`
 			RepositoryUri string                                                       `json:"repository_uri"`
+			RootFolderId  string                                                       `json:"root_folder_id"`
 			WorkspaceType externalRef3.WorkspacePostRequestDataAttributesWorkspaceType `json:"workspace_type"`
 		}(struct {
 			BundleId      string
 			RepositoryUri string
+			RootFolderId  string
 			WorkspaceType externalRef3.WorkspacePostRequestDataAttributesWorkspaceType
 		}{BundleId: "bundleId", RepositoryUri: "repositoryUri", WorkspaceType: "workspaceUri"}), Type: "workspace"}),
 	})

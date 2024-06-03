@@ -12,7 +12,7 @@
       "request": {
         "method": "POST",
         "path": "/orgs/e7ea34c9-de0f-422c-bf2c-4654c2e2da90/workspaces",
-        "query": "version=2024-03-12%7Eexperimental",
+        "query": "version=2024-05-14%7Eexperimental",
         "headers": {
           "Snyk-Request-Id": "fc763eba-0905-41c5-a27f-3934ab26786c"
         },

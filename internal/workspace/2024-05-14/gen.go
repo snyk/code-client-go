@@ -1,7 +1,7 @@
 //go:build API && !MOCK
 // +build API,!MOCK
 
-package v20240312
+package v20240514
 
 //go:generate oapi-codegen --config common/common.config.yaml common/common.yaml
 //go:generate oapi-codegen --config parameters/orgs.config.yaml parameters/orgs.yaml

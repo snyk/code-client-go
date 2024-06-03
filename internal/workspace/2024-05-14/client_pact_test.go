@@ -16,7 +16,7 @@
  * limitations under the License.
  */
 
-package v20240312_test
+package v20240514_test
 
 import (
 	"context"
@@ -31,8 +31,8 @@ import (
 
 	codeClientHTTP "github.com/snyk/code-client-go/http"
 	"github.com/snyk/code-client-go/internal/util/testutil"
-	v20240312 "github.com/snyk/code-client-go/internal/workspace/2024-03-12"
-	workspaces "github.com/snyk/code-client-go/internal/workspace/2024-03-12/workspaces"
+	v20240514 "github.com/snyk/code-client-go/internal/workspace/2024-05-14"
+	workspaces "github.com/snyk/code-client-go/internal/workspace/2024-05-14/workspaces"
 )
 
 const (
@@ -47,7 +47,7 @@ const (
 
 // Common test data
 var pact dsl.Pact
-var client *v20240312.ClientWithResponses
+var client *v20240514.ClientWithResponses
 
 func TestWorkspaceClientPact(t *testing.T) {
 	setupPact(t)
@@ -59,13 +59,13 @@ func TestWorkspaceClientPact(t *testing.T) {
 		}
 	}()
 
-	// https://snyk.roadie.so/catalog/default/api/workspace-service_2024-03-12_experimental
+	// https://snyk.roadie.so/catalog/default/api/workspace-service_2024-05-14_experimental
 	t.Run("Create workspace", func(t *testing.T) {
 		pact.AddInteraction().Given("New workspace").UponReceiving("Create workspace").WithRequest(dsl.Request{
 			Method: "POST",
 			Path:   dsl.String(fmt.Sprintf("/orgs/%s/workspaces", orgUUID)),
 			Query: dsl.MapMatcher{
-				"version": dsl.String("2024-03-12~experimental"),
+				"version": dsl.String("2024-05-14~experimental"),
 			},
 			Headers: getHeaderMatcher(),
 			Body:    getBodyMatcher(),
@@ -81,34 +81,33 @@ func TestWorkspaceClientPact(t *testing.T) {
 			_, err := client.CreateWorkspaceWithApplicationVndAPIPlusJSONBodyWithResponse(
 				context.Background(),
 				uuid.MustParse(orgUUID),
-				&v20240312.CreateWorkspaceParams{
-					Version:       "2024-03-12~experimental",
+				&v20240514.CreateWorkspaceParams{
+					Version:       "2024-05-14~experimental",
 					SnykRequestId: uuid.MustParse(requestId),
 				},
-				v20240312.CreateWorkspaceApplicationVndAPIPlusJSONRequestBody{
+				v20240514.CreateWorkspaceApplicationVndAPIPlusJSONRequestBody{
 					Data: struct {
 						Attributes struct {
 							BundleId      string                                                     `json:"bundle_id"`
 							RepositoryUri string                                                     `json:"repository_uri"`
+							RootFolderId  string                                                     `json:"root_folder_id"`
 							WorkspaceType workspaces.WorkspacePostRequestDataAttributesWorkspaceType `json:"workspace_type"`
 						} `json:"attributes"`
 						Type workspaces.WorkspacePostRequestDataType `json:"type"`
-					}(struct {
-						Attributes struct {
+					}{
+						Attributes: struct {
 							BundleId      string                                                     `json:"bundle_id"`
 							RepositoryUri string                                                     `json:"repository_uri"`
+							RootFolderId  string                                                     `json:"root_folder_id"`
 							WorkspaceType workspaces.WorkspacePostRequestDataAttributesWorkspaceType `json:"workspace_type"`
-						}
-						Type workspaces.WorkspacePostRequestDataType
-					}{Attributes: struct {
-						BundleId      string                                                     `json:"bundle_id"`
-						RepositoryUri string                                                     `json:"repository_uri"`
-						WorkspaceType workspaces.WorkspacePostRequestDataAttributesWorkspaceType `json:"workspace_type"`
-					}(struct {
-						BundleId      string
-						RepositoryUri string
-						WorkspaceType workspaces.WorkspacePostRequestDataAttributesWorkspaceType
-					}{BundleId: "YnVuZGxlSWQK", RepositoryUri: "https://github.com/snyk/code-client-go.git", WorkspaceType: "file_bundle_workspace"}), Type: "workspace"}),
+						}{
+							BundleId:      "YnVuZGxlSWQK",
+							RepositoryUri: "https://github.com/snyk/code-client-go.git",
+							RootFolderId:  "testFolder",
+							WorkspaceType: "file_bundle_workspace",
+						},
+						Type: "workspace",
+					},
 				})
 			if err != nil {
 				return err
@@ -151,7 +150,7 @@ func setupPact(t *testing.T) {
 		codeClientHTTP.WithLogger(&logger),
 	)
 	var err error
-	client, err = v20240312.NewClientWithResponses(restApi, v20240312.WithHTTPClient(httpClient))
+	client, err = v20240514.NewClientWithResponses(restApi, v20240514.WithHTTPClient(httpClient))
 	require.NoError(t, err)
 }
 
