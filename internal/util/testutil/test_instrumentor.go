@@ -27,7 +27,16 @@ func (i *localInstrumentor) ClearSpans() {
 }
 
 func (i *localInstrumentor) StartSpan(ctx context.Context, operation string) observability.Span {
-	return &testSpan{}
+	type traceId string
+	span := testSpan{}
+	const key traceId = "traceId"
+	value := ctx.Value(key)
+	if value == nil {
+		value = uuid.NewString()
+	}
+	span.traceId = value.(string)
+	span.ctx = context.WithValue(ctx, key, span.traceId)
+	return &span
 }
 
 func (i *localInstrumentor) NewTransaction(ctx context.Context, txName string, operation string) observability.Span {
@@ -38,6 +47,8 @@ func (i *localInstrumentor) Finish(span observability.Span) {
 }
 
 type testSpan struct {
+	traceId string
+	ctx     context.Context
 }
 
 func (n *testSpan) GetDurationMs() int64 { return 0 }
@@ -55,9 +66,9 @@ func (n *testSpan) GetTxName() string {
 	return "test"
 }
 func (n *testSpan) GetTraceId() string {
-	return uuid.New().String()
+	return n.traceId
 }
 
 func (n *testSpan) Context() context.Context {
-	return context.Background()
+	return n.ctx
 }
