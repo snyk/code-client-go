@@ -104,9 +104,25 @@ func TestAnalysis_CreateWorkspace(t *testing.T) {
 func TestAnalysis_CreateWorkspace_NotARepository(t *testing.T) {
 	mockConfig, mockHTTPClient, mockInstrumentor, mockErrorReporter, mockTracker, mockTrackerFactory, logger := setup(t)
 
-	mockErrorReporter.EXPECT().CaptureError(gomock.Any(), gomock.Any())
 	mockTracker.EXPECT().Begin(gomock.Eq("Creating file bundle workspace"), gomock.Eq("")).Return()
 	mockTracker.EXPECT().End(gomock.Eq("")).Return()
+
+	mockHTTPClient.EXPECT().Do(
+		mock.MatchedBy(func(i interface{}) bool {
+			req := i.(*http.Request)
+			return req.URL.String() == "http://localhost/hidden/orgs/4a72d1db-b465-4764-99e1-ecedad03b06a/workspaces?version=2024-03-12~experimental" &&
+				req.Method == "POST" &&
+				req.Header.Get("Content-Type") == "application/vnd.api+json" &&
+				req.Header.Get("Snyk-Request-Id") == "b372d1db-b465-4764-99e1-ecedad03b06a" &&
+				req.Header.Get("User-Agent") == "cli"
+		}),
+	).Return(&http.Response{
+		StatusCode: http.StatusCreated,
+		Header: http.Header{
+			"Content-Type": []string{"application/vnd.api+json"},
+		},
+		Body: io.NopCloser(bytes.NewReader([]byte(`{"data":{"id": "c172d1db-b465-4764-99e1-ecedad03b06a"}}`))),
+	}, nil).Times(1)
 
 	repoDir := t.TempDir()
 	target, err := scan.NewRepositoryTarget(repoDir)
@@ -120,7 +136,7 @@ func TestAnalysis_CreateWorkspace_NotARepository(t *testing.T) {
 		target,
 		"testBundleHash",
 	)
-	assert.ErrorContains(t, err, "workspace is not a repository")
+	assert.NoError(t, err)
 }
 
 func TestAnalysis_CreateWorkspace_Failure(t *testing.T) {
