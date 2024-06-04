@@ -55,11 +55,13 @@ func TestSnykCodeClientPact(t *testing.T) {
 	setupPact(t)
 
 	t.Run("Create bundle", func(t *testing.T) {
+		files := make(map[string]string)
+		files[path1] = util.Hash([]byte(content))
+
 		pact.AddInteraction().Given("New bundle").UponReceiving("Create bundle").WithCompleteRequest(consumer.Request{
 			Method:  "POST",
 			Path:    matchers.String("/bundle"),
 			Headers: getPutPostHeaderMatcher(),
-			Body:    getPutPostBodyMatcher(),
 		}).WithCompleteResponse(consumer.Response{
 			Status: 200,
 			Headers: matchers.MapMatcher{
@@ -70,8 +72,6 @@ func TestSnykCodeClientPact(t *testing.T) {
 
 		test := func(config consumer.MockServerConfig) error {
 			client := getDeepCodeClient(t, getLocalMockserver(config))
-			files := make(map[string]string)
-			files[path1] = util.Hash([]byte(content))
 			bundleHash, missingFiles, err := client.CreateBundle(context.Background(), files)
 
 			if err != nil {
@@ -99,7 +99,6 @@ func TestSnykCodeClientPact(t *testing.T) {
 			Method:  "POST",
 			Path:    matchers.String("/bundle"),
 			Headers: getPutPostHeaderMatcher(),
-			Body:    getPutPostBodyMatcher(),
 		}).WithCompleteResponse(consumer.Response{
 			Status: 401,
 			Headers: matchers.MapMatcher{
@@ -137,7 +136,6 @@ func TestSnykCodeClientPact(t *testing.T) {
 			Method:  "PUT",
 			Path:    matchers.Term("/bundle/"+bundleHash, "/bundle/[A-Fa-f0-9]{64}"),
 			Headers: getPutPostHeaderMatcher(),
-			Body:    getPutPostBodyMatcher(),
 		}).WithCompleteResponse(consumer.Response{
 			Status: 200,
 			Headers: matchers.MapMatcher{
@@ -250,10 +248,6 @@ func getPutPostHeaderMatcher() matchers.MapMatcher {
 		"snyk-org-name":    matchers.Regex(orgUUID, uuidMatcher),
 		"snyk-request-id":  getSnykRequestIdMatcher(),
 	}
-}
-
-func getPutPostBodyMatcher() matchers.Matcher {
-	return matchers.Like(make([]byte, 1))
 }
 
 func getSnykRequestIdMatcher() matchers.Matcher {
