@@ -21,11 +21,14 @@ package deepcode_test
 import (
 	"context"
 	"fmt"
-	"github.com/golang/mock/gomock"
-	"github.com/pact-foundation/pact-go/dsl"
-	"github.com/stretchr/testify/assert"
 	"net/http"
 	"testing"
+
+	"github.com/golang/mock/gomock"
+	"github.com/pact-foundation/pact-go/v2/consumer"
+	"github.com/pact-foundation/pact-go/v2/matchers"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 
 	confMocks "github.com/snyk/code-client-go/config/mocks"
 	codeClientHTTP "github.com/snyk/code-client-go/http"
@@ -35,7 +38,7 @@ import (
 )
 
 const (
-	consumer     = "code-client-go"
+	consumerName = "code-client-go"
 	pactDir      = "./pacts"
 	pactProvider = "SnykCodeApi"
 
@@ -44,34 +47,29 @@ const (
 )
 
 // Common test data
-var pact dsl.Pact
-var client deepcode.DeepcodeClient
+var (
+	pact *consumer.V2HTTPMockProvider
+)
 
 func TestSnykCodeClientPact(t *testing.T) {
 	setupPact(t)
-	defer pact.Teardown()
-
-	defer func() {
-		if err := pact.WritePact(); err != nil {
-			t.Fatal(err)
-		}
-	}()
 
 	t.Run("Create bundle", func(t *testing.T) {
-		pact.AddInteraction().Given("New bundle").UponReceiving("Create bundle").WithRequest(dsl.Request{
+		pact.AddInteraction().Given("New bundle").UponReceiving("Create bundle").WithCompleteRequest(consumer.Request{
 			Method:  "POST",
-			Path:    dsl.String("/bundle"),
+			Path:    matchers.String("/bundle"),
 			Headers: getPutPostHeaderMatcher(),
 			Body:    getPutPostBodyMatcher(),
-		}).WillRespondWith(dsl.Response{
+		}).WithCompleteResponse(consumer.Response{
 			Status: 200,
-			Headers: dsl.MapMatcher{
-				"Content-Type": dsl.String("application/json"),
+			Headers: matchers.MapMatcher{
+				"Content-Type": matchers.String("application/json"),
 			},
-			Body: dsl.Match(deepcode.BundleResponse{}),
+			Body: matchers.MatchV2(deepcode.BundleResponse{}),
 		})
 
-		test := func() error {
+		test := func(config consumer.MockServerConfig) error {
+			client := getDeepCodeClient(t, fmt.Sprintf("%s:%d", config.Host, config.Port))
 			files := make(map[string]string)
 			files[path1] = util.Hash([]byte(content))
 			bundleHash, missingFiles, err := client.CreateBundle(context.Background(), files)
@@ -89,7 +87,7 @@ func TestSnykCodeClientPact(t *testing.T) {
 			return nil
 		}
 
-		err := pact.Verify(test)
+		err := pact.ExecuteTest(t, test)
 
 		if err != nil {
 			t.Fatalf("Error on verify: %v", err)
@@ -97,22 +95,23 @@ func TestSnykCodeClientPact(t *testing.T) {
 	})
 
 	t.Run("Create bundle with invalid token", func(t *testing.T) {
-		pact.AddInteraction().Given("New bundle and invalid token").UponReceiving("Create bundle").WithRequest(dsl.Request{
+		pact.AddInteraction().Given("New bundle and invalid token").UponReceiving("Create bundle").WithCompleteRequest(consumer.Request{
 			Method:  "POST",
-			Path:    dsl.String("/bundle"),
+			Path:    matchers.String("/bundle"),
 			Headers: getPutPostHeaderMatcher(),
 			Body:    getPutPostBodyMatcher(),
-		}).WillRespondWith(dsl.Response{
+		}).WithCompleteResponse(consumer.Response{
 			Status: 401,
-			Headers: dsl.MapMatcher{
-				"Content-Type": dsl.String("application/json; charset=utf-8"),
+			Headers: matchers.MapMatcher{
+				"Content-Type": matchers.String("application/json; charset=utf-8"),
 			},
 			Body: map[string]string{
 				"message": "Invalid auth token provided",
 			},
 		})
 
-		test := func() error {
+		test := func(config consumer.MockServerConfig) error {
+			client := getDeepCodeClient(t, fmt.Sprintf("%s:%d", config.Host, config.Port))
 			files := make(map[string]string)
 			files[path1] = util.Hash([]byte(content))
 			_, _, err := client.CreateBundle(context.Background(), files)
@@ -124,7 +123,7 @@ func TestSnykCodeClientPact(t *testing.T) {
 			return fmt.Errorf("no error returned")
 		}
 
-		err := pact.Verify(test)
+		err := pact.ExecuteTest(t, test)
 
 		if err != nil {
 			t.Fatalf("Error on verify: %v", err)
@@ -134,20 +133,21 @@ func TestSnykCodeClientPact(t *testing.T) {
 	t.Run("Extend bundle", func(*testing.T) {
 		bundleHash := "faa6b7161c14f933ef4ca79a18ad9283eab362d5e6d3a977125eb95b37c377d8"
 
-		pact.AddInteraction().Given("Existing bundle").UponReceiving("Extend bundle").WithRequest(dsl.Request{
+		pact.AddInteraction().Given("Existing bundle").UponReceiving("Extend bundle").WithCompleteRequest(consumer.Request{
 			Method:  "PUT",
-			Path:    dsl.Term("/bundle/"+bundleHash, "/bundle/[A-Fa-f0-9]{64}"),
+			Path:    matchers.Term("/bundle/"+bundleHash, "/bundle/[A-Fa-f0-9]{64}"),
 			Headers: getPutPostHeaderMatcher(),
 			Body:    getPutPostBodyMatcher(),
-		}).WillRespondWith(dsl.Response{
+		}).WithCompleteResponse(consumer.Response{
 			Status: 200,
-			Headers: dsl.MapMatcher{
-				"Content-Type": dsl.String("application/json"),
+			Headers: matchers.MapMatcher{
+				"Content-Type": matchers.String("application/json"),
 			},
-			Body: dsl.Match(deepcode.BundleResponse{}),
+			Body: matchers.MatchV2(deepcode.BundleResponse{}),
 		})
 
-		test := func() error {
+		test := func(config consumer.MockServerConfig) error {
+			client := getDeepCodeClient(t, fmt.Sprintf("%s:%d", config.Host, config.Port))
 			filesExtend := createTestExtendMap()
 			var removedFiles []string
 
@@ -166,7 +166,7 @@ func TestSnykCodeClientPact(t *testing.T) {
 			return nil
 		}
 
-		err := pact.Verify(test)
+		err := pact.ExecuteTest(t, test)
 
 		if err != nil {
 			t.Fatalf("Error on verify: %v", err)
@@ -174,22 +174,23 @@ func TestSnykCodeClientPact(t *testing.T) {
 	})
 
 	t.Run("Get filters", func(*testing.T) {
-		pact.AddInteraction().UponReceiving("Get filters").WithRequest(dsl.Request{
+		pact.AddInteraction().UponReceiving("Get filters").WithCompleteRequest(consumer.Request{
 			Method: "GET",
-			Path:   dsl.String("/filters"),
-			Headers: dsl.MapMatcher{
-				"Content-Type":    dsl.String("application/json"),
+			Path:   matchers.String("/filters"),
+			Headers: matchers.MapMatcher{
+				"Content-Type":    matchers.String("application/json"),
 				"snyk-request-id": getSnykRequestIdMatcher(),
 			},
-		}).WillRespondWith(dsl.Response{
+		}).WithCompleteResponse(consumer.Response{
 			Status: 200,
-			Headers: dsl.MapMatcher{
-				"Content-Type": dsl.String("application/json"),
+			Headers: matchers.MapMatcher{
+				"Content-Type": matchers.String("application/json"),
 			},
-			Body: dsl.Match(deepcode.FiltersResponse{}),
+			Body: matchers.MatchV2(deepcode.FiltersResponse{}),
 		})
 
-		test := func() error {
+		test := func(config consumer.MockServerConfig) error {
+			client := getDeepCodeClient(t, fmt.Sprintf("%s:%d", config.Host, config.Port))
 			if _, err := client.GetFilters(context.Background()); err != nil {
 				return err
 			}
@@ -197,7 +198,7 @@ func TestSnykCodeClientPact(t *testing.T) {
 			return nil
 		}
 
-		err := pact.Verify(test)
+		err := pact.ExecuteTest(t, test)
 
 		assert.NoError(t, err)
 	})
@@ -206,21 +207,18 @@ func TestSnykCodeClientPact(t *testing.T) {
 func setupPact(t *testing.T) {
 	t.Helper()
 
-	// Proactively start service to get access to the port
-	pact = dsl.Pact{
-		Consumer: consumer,
+	pactConfig := consumer.MockHTTPProviderConfig{
+		Consumer: consumerName,
 		Provider: pactProvider,
 		PactDir:  pactDir,
 	}
+	var err error
+	pact, err = consumer.NewV2Pact(pactConfig)
+	require.NoError(t, err)
+}
 
-	pact.Setup(true)
-	ctrl := gomock.NewController(t)
-	config := confMocks.NewMockConfig(ctrl)
-	config.EXPECT().IsFedramp().AnyTimes().Return(false)
-	config.EXPECT().Organization().AnyTimes().Return(orgUUID)
-	snykCodeApiUrl := fmt.Sprintf("http://localhost:%d", pact.Server.Port)
-	config.EXPECT().SnykCodeApi().AnyTimes().Return(snykCodeApiUrl)
-
+func getDeepCodeClient(t *testing.T, snykCodeApiUrl string) deepcode.DeepcodeClient {
+	t.Helper()
 	instrumentor := testutil.NewTestInstrumentor()
 	errorReporter := testutil.NewTestErrorReporter()
 	httpClient := codeClientHTTP.NewHTTPClient(
@@ -232,54 +230,59 @@ func setupPact(t *testing.T) {
 		codeClientHTTP.WithErrorReporter(errorReporter),
 		codeClientHTTP.WithLogger(newLogger(t)),
 	)
-	client = deepcode.NewDeepcodeClient(config, httpClient, newLogger(t), instrumentor, errorReporter)
+
+	ctrl := gomock.NewController(t)
+	config := confMocks.NewMockConfig(ctrl)
+	config.EXPECT().IsFedramp().AnyTimes().Return(false)
+	config.EXPECT().Organization().AnyTimes().Return(orgUUID)
+	config.EXPECT().SnykCodeApi().AnyTimes().Return(snykCodeApiUrl)
+	return deepcode.NewDeepcodeClient(config, httpClient, newLogger(t), instrumentor, errorReporter)
 }
 
-func getPutPostHeaderMatcher() dsl.MapMatcher {
-	return dsl.MapMatcher{
-		"Content-Type":     dsl.String("application/octet-stream"),
-		"Content-Encoding": dsl.String("gzip"),
-		"snyk-org-name":    dsl.Regex(orgUUID, uuidMatcher),
+func getPutPostHeaderMatcher() matchers.MapMatcher {
+	return matchers.MapMatcher{
+		"Content-Type":     matchers.S("application/octet-stream"),
+		"Content-Encoding": matchers.S("gzip"),
+		"snyk-org-name":    matchers.Regex(orgUUID, uuidMatcher),
 		"snyk-request-id":  getSnykRequestIdMatcher(),
 	}
 }
 
-func getPutPostBodyMatcher() dsl.Matcher {
-	return dsl.Like(make([]byte, 1))
+func getPutPostBodyMatcher() matchers.Matcher {
+	return matchers.Like(make([]byte, 1))
 }
 
-func getSnykRequestIdMatcher() dsl.Matcher {
-	return dsl.Regex("fc763eba-0905-41c5-a27f-3934ab26786c", uuidMatcher)
+func getSnykRequestIdMatcher() matchers.Matcher {
+	return matchers.Regex("fc763eba-0905-41c5-a27f-3934ab26786c", uuidMatcher)
 }
 
 func TestSnykCodeClientPact_LocalCodeEngine(t *testing.T) {
 	setupPact(t)
 
-	defer pact.Teardown()
-
-	pact.AddInteraction().UponReceiving("Get filters").WithRequest(dsl.Request{
+	pact.AddInteraction().UponReceiving("Get filters").WithCompleteRequest(consumer.Request{
 		Method: "GET",
-		Path:   dsl.String("/filters"),
-		Headers: dsl.MapMatcher{
-			"Content-Type":    dsl.String("application/json"),
+		Path:   matchers.String("/filters"),
+		Headers: matchers.MapMatcher{
+			"Content-Type":    matchers.String("application/json"),
 			"snyk-request-id": getSnykRequestIdMatcher(),
 		},
-	}).WillRespondWith(dsl.Response{
+	}).WithCompleteResponse(consumer.Response{
 		Status: 200,
-		Headers: dsl.MapMatcher{
-			"Content-Type": dsl.String("application/json"),
+		Headers: matchers.MapMatcher{
+			"Content-Type": matchers.String("application/json"),
 		},
-		Body: dsl.Match(deepcode.FiltersResponse{}),
+		Body: matchers.MatchV2(deepcode.FiltersResponse{}),
 	})
 
-	test := func() error {
+	test := func(config consumer.MockServerConfig) error {
+		client := getDeepCodeClient(t, fmt.Sprintf("%s:%d", config.Host, config.Port))
 		if _, err := client.GetFilters(context.Background()); err != nil {
 			return err
 		}
 		return nil
 	}
 
-	err := pact.Verify(test)
+	err := pact.ExecuteTest(t, test)
 
 	assert.NoError(t, err)
 }

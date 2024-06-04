@@ -16,7 +16,7 @@ $(TOOLS_BIN)/golangci-lint:
 $(TOOLS_BIN)/go:
 	mkdir -p ${TOOLS_BIN}/go
 	@cat tools.go | grep _ | awk -F'"' '{print $$2}' | xargs -tI % sh -c 'GOBIN=${TOOLS_BIN}/go go install %'
-	@${TOOLS_BIN}/go/pact-go -l DEBUG install
+	@GOBIN=${TOOLS_BIN}/go ${TOOLS_BIN}/go/pact-go -l DEBUG install -d /tmp
 
 .PHONY: format
 format:

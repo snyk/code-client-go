@@ -8,7 +8,6 @@ require (
 	github.com/golang/mock v1.6.0
 	github.com/google/uuid v1.6.0
 	github.com/oapi-codegen/runtime v1.0.0
-	github.com/pact-foundation/pact-go v1.8.0
 	github.com/pact-foundation/pact-go/v2 v2.0.5
 	github.com/pkg/errors v0.9.1
 	github.com/puzpuzpuz/xsync v1.5.2

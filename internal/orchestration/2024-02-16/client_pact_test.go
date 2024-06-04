@@ -60,10 +60,7 @@ var (
 	}{
 		LimitScanToFiles: &[]string{"fileA", "fileB"},
 	}
-)
 
-// Common test data
-var (
 	pact       *consumer.V2HTTPMockProvider
 	httpClient v20240216.HttpRequestDoer
 )
@@ -203,6 +200,7 @@ func TestOrchestrationClientPact(t *testing.T) {
 
 		test := func(config consumer.MockServerConfig) error {
 			client, err := v20240216.NewClientWithResponses(fmt.Sprintf("http://localhost:%d", config.Port), v20240216.WithHTTPClient(httpClient))
+			require.NoError(t, err)
 			_, err = client.GetScanWorkspaceJobForUserWithResponse(
 				context.Background(),
 				uuid.MustParse(orgUUID),
@@ -243,7 +241,6 @@ func getResponseBodyMatcher() matchers.Matcher {
 func setupPact(t *testing.T) {
 	t.Helper()
 
-	// Proactively start service to get access to the port
 	config := consumer.MockHTTPProviderConfig{
 		Consumer: consumerName,
 		Provider: pactProvider,

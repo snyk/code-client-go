@@ -163,6 +163,7 @@ func (a *analysisOrchestrator) CreateWorkspace(ctx context.Context, orgId string
 			BundleId:      bundleHash,
 			RepositoryUri: repositoryTarget.GetRepositoryUrl(),
 			WorkspaceType: "file_bundle_workspace",
+			RootFolderId:  target.GetPath(),
 		}),
 			Type: "workspace",
 		}),

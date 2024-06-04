@@ -25,60 +25,59 @@ import (
 	"testing"
 
 	"github.com/google/uuid"
-	"github.com/pact-foundation/pact-go/dsl"
+	"github.com/pact-foundation/pact-go/v2/consumer"
+	"github.com/pact-foundation/pact-go/v2/matchers"
 	"github.com/rs/zerolog"
 	"github.com/stretchr/testify/require"
 
 	codeClientHTTP "github.com/snyk/code-client-go/http"
+	v20240216 "github.com/snyk/code-client-go/internal/orchestration/2024-02-16"
 	"github.com/snyk/code-client-go/internal/util/testutil"
 	v20240514 "github.com/snyk/code-client-go/internal/workspace/2024-05-14"
 	workspaces "github.com/snyk/code-client-go/internal/workspace/2024-05-14/workspaces"
 )
 
 const (
-	consumer     = "code-client-go"
+	consumerName = "code-client-go"
 	pactDir      = "./pacts"
 	pactProvider = "WorkspaceApi"
 
-	orgUUID     = "e7ea34c9-de0f-422c-bf2c-4654c2e2da90"
-	requestId   = "b6ea34c9-de0f-422c-bf2c-4654c2e2da90"
-	uuidMatcher = "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}"
+	orgUUID   = "e7ea34c9-de0f-422c-bf2c-4654c2e2da90"
+	requestId = "b6ea34c9-de0f-422c-bf2c-4654c2e2da90"
+	uuidRegex = "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}"
 )
 
 // Common test data
-var pact dsl.Pact
-var client *v20240514.ClientWithResponses
+var (
+	pact       *consumer.V2HTTPMockProvider
+	httpClient v20240216.HttpRequestDoer
+)
 
 func TestWorkspaceClientPact(t *testing.T) {
 	setupPact(t)
-	defer pact.Teardown()
-
-	defer func() {
-		if err := pact.WritePact(); err != nil {
-			t.Fatal(err)
-		}
-	}()
 
 	// https://snyk.roadie.so/catalog/default/api/workspace-service_2024-05-14_experimental
 	t.Run("Create workspace", func(t *testing.T) {
-		pact.AddInteraction().Given("New workspace").UponReceiving("Create workspace").WithRequest(dsl.Request{
+		pact.AddInteraction().Given("New workspace").UponReceiving("Create workspace").WithCompleteRequest(consumer.Request{
 			Method: "POST",
-			Path:   dsl.String(fmt.Sprintf("/orgs/%s/workspaces", orgUUID)),
-			Query: dsl.MapMatcher{
-				"version": dsl.String("2024-05-14~experimental"),
+			Path:   matchers.String(fmt.Sprintf("/orgs/%s/workspaces", orgUUID)),
+			Query: matchers.MapMatcher{
+				"version": matchers.String("2024-05-14~experimental"),
 			},
 			Headers: getHeaderMatcher(),
 			Body:    getBodyMatcher(),
-		}).WillRespondWith(dsl.Response{
+		}).WithCompleteResponse(consumer.Response{
 			Status: 200,
-			Headers: dsl.MapMatcher{
-				"Content-Type": dsl.String("application/vnd.api+json"),
+			Headers: matchers.MapMatcher{
+				"Content-Type": matchers.String("application/vnd.api+json"),
 			},
-			Body: dsl.Match(workspaces.WorkspacePostResponse{}),
+			Body: matchers.MatchV2(workspaces.WorkspacePostResponse{}),
 		})
 
-		test := func() error {
-			_, err := client.CreateWorkspaceWithApplicationVndAPIPlusJSONBodyWithResponse(
+		test := func(config consumer.MockServerConfig) error {
+			client, err := v20240514.NewClientWithResponses(fmt.Sprintf("http://localhost:%d", config.Port), v20240514.WithHTTPClient(httpClient))
+			require.NoError(t, err)
+			_, err = client.CreateWorkspaceWithApplicationVndAPIPlusJSONBodyWithResponse(
 				context.Background(),
 				uuid.MustParse(orgUUID),
 				&v20240514.CreateWorkspaceParams{
@@ -115,7 +114,7 @@ func TestWorkspaceClientPact(t *testing.T) {
 			return nil
 		}
 
-		err := pact.Verify(test)
+		err := pact.ExecuteTest(t, test)
 
 		if err != nil {
 			t.Fatalf("Error on verify: %v", err)
@@ -126,21 +125,18 @@ func TestWorkspaceClientPact(t *testing.T) {
 func setupPact(t *testing.T) {
 	t.Helper()
 
-	// Proactively start service to get access to the port
-	pact = dsl.Pact{
-		Consumer: consumer,
+	config := consumer.MockHTTPProviderConfig{
+		Consumer: consumerName,
 		Provider: pactProvider,
 		PactDir:  pactDir,
 	}
-
-	pact.Setup(true)
-
-	restApi := fmt.Sprintf("http://localhost:%d", pact.Server.Port)
+	var err error
+	pact, err = consumer.NewV2Pact(config)
 
 	logger := zerolog.New(zerolog.NewTestWriter(t))
 	instrumentor := testutil.NewTestInstrumentor()
 	errorReporter := testutil.NewTestErrorReporter()
-	httpClient := codeClientHTTP.NewHTTPClient(
+	httpClient = codeClientHTTP.NewHTTPClient(
 		func() *http.Client {
 			return http.DefaultClient
 		},
@@ -149,21 +145,19 @@ func setupPact(t *testing.T) {
 		codeClientHTTP.WithErrorReporter(errorReporter),
 		codeClientHTTP.WithLogger(&logger),
 	)
-	var err error
-	client, err = v20240514.NewClientWithResponses(restApi, v20240514.WithHTTPClient(httpClient))
 	require.NoError(t, err)
 }
 
-func getHeaderMatcher() dsl.MapMatcher {
-	return dsl.MapMatcher{
+func getHeaderMatcher() matchers.MapMatcher {
+	return matchers.MapMatcher{
 		"Snyk-Request-Id": getSnykRequestIdMatcher(),
 	}
 }
 
-func getSnykRequestIdMatcher() dsl.Matcher {
-	return dsl.Regex("fc763eba-0905-41c5-a27f-3934ab26786c", uuidMatcher)
+func getSnykRequestIdMatcher() matchers.Matcher {
+	return matchers.Regex("fc763eba-0905-41c5-a27f-3934ab26786c", uuidRegex)
 }
 
-func getBodyMatcher() dsl.Matcher {
-	return dsl.Like(make([]byte, 1))
+func getBodyMatcher() matchers.Matcher {
+	return matchers.Like(make([]byte, 1))
 }
