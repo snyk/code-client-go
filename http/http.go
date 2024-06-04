@@ -144,6 +144,7 @@ func (s *httpClient) httpCall(req *http.Request) (*http.Response, error) {
 		req.Body = reqBody
 		log.Debug().Msg("SEND TO REMOTE")
 	}
+
 	response, err := s.httpClientFactory().Do(req)
 	req.Body = copyReqBody
 	if response != nil {

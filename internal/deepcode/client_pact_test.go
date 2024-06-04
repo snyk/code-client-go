@@ -69,7 +69,7 @@ func TestSnykCodeClientPact(t *testing.T) {
 		})
 
 		test := func(config consumer.MockServerConfig) error {
-			client := getDeepCodeClient(t, fmt.Sprintf("%s:%d", config.Host, config.Port))
+			client := getDeepCodeClient(t, getLocalMockserver(config))
 			files := make(map[string]string)
 			files[path1] = util.Hash([]byte(content))
 			bundleHash, missingFiles, err := client.CreateBundle(context.Background(), files)
@@ -111,7 +111,7 @@ func TestSnykCodeClientPact(t *testing.T) {
 		})
 
 		test := func(config consumer.MockServerConfig) error {
-			client := getDeepCodeClient(t, fmt.Sprintf("%s:%d", config.Host, config.Port))
+			client := getDeepCodeClient(t, getLocalMockserver(config))
 			files := make(map[string]string)
 			files[path1] = util.Hash([]byte(content))
 			_, _, err := client.CreateBundle(context.Background(), files)
@@ -147,7 +147,7 @@ func TestSnykCodeClientPact(t *testing.T) {
 		})
 
 		test := func(config consumer.MockServerConfig) error {
-			client := getDeepCodeClient(t, fmt.Sprintf("%s:%d", config.Host, config.Port))
+			client := getDeepCodeClient(t, getLocalMockserver(config))
 			filesExtend := createTestExtendMap()
 			var removedFiles []string
 
@@ -190,7 +190,7 @@ func TestSnykCodeClientPact(t *testing.T) {
 		})
 
 		test := func(config consumer.MockServerConfig) error {
-			client := getDeepCodeClient(t, fmt.Sprintf("%s:%d", config.Host, config.Port))
+			client := getDeepCodeClient(t, getLocalMockserver(config))
 			if _, err := client.GetFilters(context.Background()); err != nil {
 				return err
 			}
@@ -202,6 +202,10 @@ func TestSnykCodeClientPact(t *testing.T) {
 
 		assert.NoError(t, err)
 	})
+}
+
+func getLocalMockserver(config consumer.MockServerConfig) string {
+	return fmt.Sprintf("http://%s:%d", config.Host, config.Port)
 }
 
 func setupPact(t *testing.T) {
@@ -225,7 +229,7 @@ func getDeepCodeClient(t *testing.T, snykCodeApiUrl string) deepcode.DeepcodeCli
 		func() *http.Client {
 			return http.DefaultClient
 		},
-		codeClientHTTP.WithRetryCount(3),
+		codeClientHTTP.WithRetryCount(1),
 		codeClientHTTP.WithInstrumentor(instrumentor),
 		codeClientHTTP.WithErrorReporter(errorReporter),
 		codeClientHTTP.WithLogger(newLogger(t)),
@@ -275,7 +279,7 @@ func TestSnykCodeClientPact_LocalCodeEngine(t *testing.T) {
 	})
 
 	test := func(config consumer.MockServerConfig) error {
-		client := getDeepCodeClient(t, fmt.Sprintf("%s:%d", config.Host, config.Port))
+		client := getDeepCodeClient(t, getLocalMockserver(config))
 		if _, err := client.GetFilters(context.Background()); err != nil {
 			return err
 		}

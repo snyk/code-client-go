@@ -83,6 +83,7 @@ func TestWorkspaceClientPact(t *testing.T) {
 				&v20240514.CreateWorkspaceParams{
 					Version:       "2024-05-14~experimental",
 					SnykRequestId: uuid.MustParse(requestId),
+					ContentType:   "application/vnd.api+json",
 				},
 				v20240514.CreateWorkspaceApplicationVndAPIPlusJSONRequestBody{
 					Data: struct {
@@ -140,7 +141,7 @@ func setupPact(t *testing.T) {
 		func() *http.Client {
 			return http.DefaultClient
 		},
-		codeClientHTTP.WithRetryCount(3),
+		codeClientHTTP.WithRetryCount(1),
 		codeClientHTTP.WithInstrumentor(instrumentor),
 		codeClientHTTP.WithErrorReporter(errorReporter),
 		codeClientHTTP.WithLogger(&logger),
@@ -151,6 +152,7 @@ func setupPact(t *testing.T) {
 func getHeaderMatcher() matchers.MapMatcher {
 	return matchers.MapMatcher{
 		"Snyk-Request-Id": getSnykRequestIdMatcher(),
+		"Content-Type":    matchers.S("application/vnd.api+json"),
 	}
 }
 
@@ -159,5 +161,5 @@ func getSnykRequestIdMatcher() matchers.Matcher {
 }
 
 func getBodyMatcher() matchers.Matcher {
-	return matchers.Like(make([]byte, 1))
+	return matchers.MatchV2(v20240514.CreateWorkspaceApplicationVndAPIPlusJSONRequestBody{})
 }

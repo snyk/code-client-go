@@ -164,7 +164,7 @@
       "providerState": "Scan ID",
       "request": {
         "method": "GET",
-        "path": "/orgs/e7ea34c9-de0f-422c-bf2c-4654c2e2da90/scans/dc0d9f32-3081-4694-8052-1f4465b4ff43",
+        "path": "/orgs/e7ea34c9-de0f-422c-bf2c-4654c2e2da90/scans/5be49f72-a11f-4670-9657-5f5a9c92cdd7",
         "query": "version=2024-02-16%7eexperimental"
       },
       "response": {
