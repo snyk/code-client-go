@@ -105,7 +105,6 @@ func NewAnalysisOrchestrator(
 	httpClient codeClientHTTP.HTTPClient,
 	options ...OptionFunc,
 ) AnalysisOrchestrator {
-
 	nopLogger := zerolog.Nop()
 	flow := scans.Flow{}
 	_ = flow.UnmarshalJSON([]byte(`{"name": "ide_test"}`))
