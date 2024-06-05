@@ -38,7 +38,7 @@ import (
 	"github.com/snyk/code-client-go/scan"
 )
 
-func Test_SmokeScan_HTTPS(t *testing.T) {
+func Test_SmokeScan_HTTPS_IDE(t *testing.T) {
 	if os.Getenv("SMOKE_TESTS") != "true" {
 		t.Skip()
 	}
@@ -78,6 +78,63 @@ func Test_SmokeScan_HTTPS(t *testing.T) {
 		codeClient.WithLogger(&logger),
 		codeClient.WithInstrumentor(instrumentor),
 		codeClient.WithErrorReporter(errorReporter),
+	)
+
+	// let's have a requestID that does not change
+	span := instrumentor.StartSpan(context.Background(), "UploadAndAnalyze")
+	defer span.Finish()
+
+	response, bundleHash, scanErr := codeScanner.UploadAndAnalyze(span.Context(), uuid.New().String(), target, files, map[string]bool{})
+	require.NoError(t, scanErr)
+	require.NotEmpty(t, bundleHash)
+	require.NotNil(t, response)
+	require.Greater(t, len(response.Sarif.Runs), 0)
+	require.Greater(t, len(response.Sarif.Runs[0].Results), 0)
+	require.Greater(t, len(response.Sarif.Runs[0].Results[0].Locations), 0)
+	require.NotNil(t, response.Sarif.Runs[0].Results[0].Locations[0].PhysicalLocation.ArtifactLocation.URI)
+}
+
+func Test_SmokeScan_HTTPS_CLI(t *testing.T) {
+	if os.Getenv("SMOKE_TESTS") != "true" {
+		t.Skip()
+	}
+	var cloneTargetDir, err = testutil.SetupCustomTestRepo(t, "https://github.com/snyk-labs/nodejs-goof", "0336589", "", "")
+	assert.NoError(t, err)
+
+	target, err := scan.NewRepositoryTarget(cloneTargetDir)
+	assert.NoError(t, err)
+
+	if err != nil {
+		t.Fatal(err, "Couldn't setup test repo")
+	}
+	files := sliceToChannel([]string{filepath.Join(cloneTargetDir, "app.js"), filepath.Join(cloneTargetDir, "utils.js")})
+
+	logger := zerolog.New(os.Stdout).Level(zerolog.TraceLevel)
+	instrumentor := testutil.NewTestInstrumentor()
+	errorReporter := testutil.NewTestErrorReporter()
+	config := testutil.NewTestConfig()
+	httpClient := codeClientHTTP.NewHTTPClient(
+		func() *http.Client {
+			client := http.Client{
+				Timeout:   time.Duration(180) * time.Second,
+				Transport: TestAuthRoundTripper{http.DefaultTransport},
+			}
+			return &client
+		},
+		codeClientHTTP.WithRetryCount(3),
+		codeClientHTTP.WithLogger(&logger),
+		codeClientHTTP.WithInstrumentor(instrumentor),
+	)
+	trackerFactory := scan.NewNoopTrackerFactory()
+
+	codeScanner := codeClient.NewCodeScanner(
+		config,
+		httpClient,
+		codeClient.WithTrackerFactory(trackerFactory),
+		codeClient.WithLogger(&logger),
+		codeClient.WithInstrumentor(instrumentor),
+		codeClient.WithErrorReporter(errorReporter),
+		codeClient.WithFlow("cli_test"),
 	)
 
 	// let's have a requestID that does not change
