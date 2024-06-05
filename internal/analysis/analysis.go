@@ -145,19 +145,18 @@ func (a *analysisOrchestrator) CreateWorkspace(ctx context.Context, orgId string
 		return "", fmt.Errorf("target is nil")
 	}
 
-	repositoryTarget, ok := target.(*scan.RepositoryTarget)
-	if !ok || repositoryTarget.GetRepositoryUrl() == "" {
-		err := fmt.Errorf("workspace is not a repository, cannot scan")
-		a.errorReporter.CaptureError(err, observability.ErrorReporterOptions{ErrorDiagnosticPath: target.GetPath()})
-		return "", err
+	repositoryTargetPath := target.GetPath()
+	var repositoryTargetURL string
+	if repositoryTarget, ok := target.(*scan.RepositoryTarget); ok {
+		repositoryTargetPath, repositoryTargetURL = repositoryTarget.GetPath(), repositoryTarget.GetRepositoryUrl()
 	}
 
 	host := a.host(true)
-	a.logger.Info().Str("host", host).Str("path", repositoryTarget.GetPath()).Str("repositoryUri", repositoryTarget.GetRepositoryUrl()).Msg("creating workspace")
+	a.logger.Info().Str("host", host).Str("path", repositoryTargetPath).Str("repositoryUri", repositoryTargetURL).Msg("creating workspace")
 
 	workspace, err := workspaceClient.NewClientWithResponses(host, workspaceClient.WithHTTPClient(a.httpClient))
 	if err != nil {
-		a.errorReporter.CaptureError(err, observability.ErrorReporterOptions{ErrorDiagnosticPath: repositoryTarget.GetPath()})
+		a.errorReporter.CaptureError(err, observability.ErrorReporterOptions{ErrorDiagnosticPath: repositoryTargetPath})
 		return "", fmt.Errorf("failed to connect to the workspace API %w", err)
 	}
 
@@ -195,7 +194,7 @@ func (a *analysisOrchestrator) CreateWorkspace(ctx context.Context, orgId string
 			WorkspaceType workspaces.WorkspacePostRequestDataAttributesWorkspaceType
 		}{
 			BundleId:      bundleHash,
-			RepositoryUri: repositoryTarget.GetRepositoryUrl(),
+			RepositoryUri: repositoryTargetURL,
 			WorkspaceType: "file_bundle_workspace",
 			RootFolderId:  target.GetPath(),
 		}),
