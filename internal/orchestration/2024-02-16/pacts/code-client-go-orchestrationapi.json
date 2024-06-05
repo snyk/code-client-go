@@ -22,7 +22,7 @@
               "workspace_id": "fc763eba-0905-41c5-a27f-3934ab26786c",
               "workspace_url": "http://workspace-service/workspaces/fc763eba-0905-41c5-a27f-3934ab26786c"
             },
-            "type": "ide"
+            "type": "workspace"
           }
         },
         "headers": {
@@ -99,7 +99,7 @@
               "workspace_id": "fc763eba-0905-41c5-a27f-3934ab26786c",
               "workspace_url": "http://workspace-service/workspaces/fc763eba-0905-41c5-a27f-3934ab26786c"
             },
-            "type": "ide"
+            "type": "workspace"
           }
         },
         "headers": {
@@ -164,7 +164,7 @@
       "providerState": "Scan ID",
       "request": {
         "method": "GET",
-        "path": "/orgs/e7ea34c9-de0f-422c-bf2c-4654c2e2da90/scans/5be49f72-a11f-4670-9657-5f5a9c92cdd7",
+        "path": "/orgs/e7ea34c9-de0f-422c-bf2c-4654c2e2da90/scans/c4a998ce-be47-4bca-b470-6a1f88becdda",
         "query": "version=2024-02-16%7eexperimental"
       },
       "response": {
