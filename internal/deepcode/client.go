@@ -22,13 +22,14 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/snyk/code-client-go/config"
-	"github.com/snyk/code-client-go/internal/util/encoding"
 	"io"
 	"net/http"
 	"net/url"
 	"regexp"
 	"strconv"
+
+	"github.com/snyk/code-client-go/config"
+	"github.com/snyk/code-client-go/internal/util/encoding"
 
 	"github.com/rs/zerolog"
 
@@ -295,5 +296,5 @@ func (s *deepcodeClient) checkResponseCode(r *http.Response) error {
 	if r.StatusCode >= 200 && r.StatusCode <= 299 {
 		return nil
 	}
-	return fmt.Errorf("Unexpected response code: %s", r.Status)
+	return fmt.Errorf("unexpected response code: %s (%s)", r.Status, r.Body)
 }

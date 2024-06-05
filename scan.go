@@ -19,13 +19,16 @@ package codeclient
 
 import (
 	"context"
+
 	"github.com/pkg/errors"
 	"github.com/rs/zerolog"
+
 	"github.com/snyk/code-client-go/config"
 	codeClientHTTP "github.com/snyk/code-client-go/http"
 	"github.com/snyk/code-client-go/internal/analysis"
 	"github.com/snyk/code-client-go/internal/bundle"
 	"github.com/snyk/code-client-go/internal/deepcode"
+	scans "github.com/snyk/code-client-go/internal/orchestration/2024-02-16/scans"
 	"github.com/snyk/code-client-go/observability"
 	"github.com/snyk/code-client-go/sarif"
 	"github.com/snyk/code-client-go/scan"
@@ -40,6 +43,7 @@ type codeScanner struct {
 	trackerFactory       scan.TrackerFactory
 	logger               *zerolog.Logger
 	config               config.Config
+	flow                 string
 }
 
 type CodeScanner interface {
@@ -59,6 +63,12 @@ type OptionFunc func(*codeScanner)
 func WithInstrumentor(instrumentor observability.Instrumentor) OptionFunc {
 	return func(c *codeScanner) {
 		c.instrumentor = instrumentor
+	}
+}
+
+func WithFlow(flow string) OptionFunc {
+	return func(c *codeScanner) {
+		c.flow = flow
 	}
 }
 
@@ -98,6 +108,7 @@ func NewCodeScanner(
 		logger:         &nopLogger,
 		instrumentor:   instrumentor,
 		trackerFactory: trackerFactory,
+		flow:           string(scans.IdeTest),
 	}
 
 	for _, option := range options {
@@ -108,7 +119,14 @@ func NewCodeScanner(
 	deepcodeClient := deepcode.NewDeepcodeClient(scanner.config, httpClient, scanner.logger, scanner.instrumentor, scanner.errorReporter)
 	bundleManager := bundle.NewBundleManager(deepcodeClient, scanner.logger, scanner.instrumentor, scanner.errorReporter, scanner.trackerFactory)
 	scanner.bundleManager = bundleManager
-	analysisOrchestrator := analysis.NewAnalysisOrchestrator(scanner.config, scanner.logger, httpClient, scanner.instrumentor, scanner.errorReporter, scanner.trackerFactory)
+	analysisOrchestrator := analysis.NewAnalysisOrchestrator(
+		scanner.config,
+		httpClient,
+		analysis.WithInstrumentor(scanner.instrumentor),
+		analysis.WithErrorReporter(scanner.errorReporter),
+		analysis.WithTrackerFactory(scanner.trackerFactory),
+		analysis.WithFlow(scanner.flow),
+	)
 	scanner.analysisOrchestrator = analysisOrchestrator
 
 	return scanner
@@ -196,8 +214,12 @@ func (c *codeScanner) UploadAndAnalyze(
 			return nil, bundleHash, nil
 		}
 	}
+	var limitToFiles []string
+	for file := range changedFiles {
+		limitToFiles = append(limitToFiles, file)
+	}
+	response, err := c.analysisOrchestrator.RunIncrementalAnalysis(ctx, c.config.Organization(), b.GetRootPath(), workspaceId, limitToFiles)
 
-	response, err := c.analysisOrchestrator.RunAnalysis(ctx, c.config.Organization(), b.GetRootPath(), workspaceId)
 	if ctx.Err() != nil {
 		c.logger.Info().Msg("Canceling Code scan - Code scanner received cancellation signal")
 		return nil, bundleHash, nil

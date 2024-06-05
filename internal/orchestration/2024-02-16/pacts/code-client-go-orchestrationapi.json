@@ -2,27 +2,31 @@
   "consumer": {
     "name": "code-client-go"
   },
-  "provider": {
-    "name": "OrchestrationApi"
-  },
   "interactions": [
     {
-      "description": "Trigger scan",
-      "providerState": "New scan",
+      "description": "Trigger new incremental scan",
+      "providerState": "New incremental scan",
       "request": {
-        "method": "POST",
-        "path": "/orgs/e7ea34c9-de0f-422c-bf2c-4654c2e2da90/scans",
-        "query": "version=2024-02-16%7Eexperimental",
         "body": {
           "data": {
             "attributes": {
               "flow": {
-                "name": "cli_test"
+                "name": "ide_test"
               },
+              "scan_options": {
+                "limit_scan_to_files": [
+                  "fileA",
+                  "fileA"
+                ]
+              },
+              "workspace_id": "fc763eba-0905-41c5-a27f-3934ab26786c",
               "workspace_url": "http://workspace-service/workspaces/fc763eba-0905-41c5-a27f-3934ab26786c"
             },
-            "type": "cli"
+            "type": "workspace"
           }
+        },
+        "headers": {
+          "Content-Type": "application/vnd.api+json"
         },
         "matchingRules": {
           "$.body": {
@@ -34,17 +38,24 @@
           "$.body.data.attributes": {
             "match": "type"
           },
+          "$.body.data.attributes.scan_options.limit_scan_to_files": {
+            "match": "type",
+            "min": 2
+          },
+          "$.body.data.attributes.workspace_id": {
+            "match": "regex",
+            "regex": "[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}"
+          },
           "$.body.data.attributes.workspace_url": {
             "match": "regex",
             "regex": "^.+[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}"
           }
-        }
+        },
+        "method": "POST",
+        "path": "/orgs/e7ea34c9-de0f-422c-bf2c-4654c2e2da90/scans",
+        "query": "version=2024-02-16%7eexperimental"
       },
       "response": {
-        "status": 201,
-        "headers": {
-          "Content-Type": "application/vnd.api+json"
-        },
         "body": {
           "data": {
             "attributes": {
@@ -53,6 +64,9 @@
             },
             "type": "workspace"
           }
+        },
+        "headers": {
+          "Content-Type": "application/vnd.api+json"
         },
         "matchingRules": {
           "$.body": {
@@ -68,7 +82,81 @@
             "match": "regex",
             "regex": "^([\\+-]?\\d{4}(?!\\d{2}\\b))((-?)((0[1-9]|1[0-2])(\\3([12]\\d|0[1-9]|3[01]))?|W([0-4]\\d|5[0-2])(-?[1-7])?|(00[1-9]|0[1-9]\\d|[12]\\d{2}|3([0-5]\\d|6[1-6])))([T\\s]((([01]\\d|2[0-3])((:?)[0-5]\\d)?|24\\:?00)([\\.,]\\d+(?!:))?)?(\\17[0-5]\\d([\\.,]\\d+)?)?([zZ]|([\\+-])([01]\\d|2[0-3]):?([0-5]\\d)?)?)?)?$"
           }
-        }
+        },
+        "status": 201
+      }
+    },
+    {
+      "description": "Trigger scan",
+      "providerState": "New scan",
+      "request": {
+        "body": {
+          "data": {
+            "attributes": {
+              "flow": {
+                "name": "ide_test"
+              },
+              "workspace_id": "fc763eba-0905-41c5-a27f-3934ab26786c",
+              "workspace_url": "http://workspace-service/workspaces/fc763eba-0905-41c5-a27f-3934ab26786c"
+            },
+            "type": "workspace"
+          }
+        },
+        "headers": {
+          "Content-Type": "application/vnd.api+json"
+        },
+        "matchingRules": {
+          "$.body": {
+            "match": "type"
+          },
+          "$.body.data": {
+            "match": "type"
+          },
+          "$.body.data.attributes": {
+            "match": "type"
+          },
+          "$.body.data.attributes.workspace_id": {
+            "match": "regex",
+            "regex": "[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}"
+          },
+          "$.body.data.attributes.workspace_url": {
+            "match": "regex",
+            "regex": "^.+[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}"
+          }
+        },
+        "method": "POST",
+        "path": "/orgs/e7ea34c9-de0f-422c-bf2c-4654c2e2da90/scans",
+        "query": "version=2024-02-16%7eexperimental"
+      },
+      "response": {
+        "body": {
+          "data": {
+            "attributes": {
+              "created_at": "2000-02-01T12:30:00Z",
+              "status": "success"
+            },
+            "type": "workspace"
+          }
+        },
+        "headers": {
+          "Content-Type": "application/vnd.api+json"
+        },
+        "matchingRules": {
+          "$.body": {
+            "match": "type"
+          },
+          "$.body.data": {
+            "match": "type"
+          },
+          "$.body.data.attributes": {
+            "match": "type"
+          },
+          "$.body.data.attributes.created_at": {
+            "match": "regex",
+            "regex": "^([\\+-]?\\d{4}(?!\\d{2}\\b))((-?)((0[1-9]|1[0-2])(\\3([12]\\d|0[1-9]|3[01]))?|W([0-4]\\d|5[0-2])(-?[1-7])?|(00[1-9]|0[1-9]\\d|[12]\\d{2}|3([0-5]\\d|6[1-6])))([T\\s]((([01]\\d|2[0-3])((:?)[0-5]\\d)?|24\\:?00)([\\.,]\\d+(?!:))?)?(\\17[0-5]\\d([\\.,]\\d+)?)?([zZ]|([\\+-])([01]\\d|2[0-3]):?([0-5]\\d)?)?)?)?$"
+          }
+        },
+        "status": 201
       }
     },
     {
@@ -76,88 +164,39 @@
       "providerState": "Scan ID",
       "request": {
         "method": "GET",
-        "path": "/orgs/e7ea34c9-de0f-422c-bf2c-4654c2e2da90/scans/9c6ec15d-4d21-4a9b-9de8-b53672446ee3",
-        "query": "version=2024-02-16%7Eexperimental"
+        "path": "/orgs/e7ea34c9-de0f-422c-bf2c-4654c2e2da90/scans/c4a998ce-be47-4bca-b470-6a1f88becdda",
+        "query": "version=2024-02-16%7eexperimental"
       },
       "response": {
-        "status": 201,
-        "headers": {
-          "Content-Type": "application/json"
-        },
         "body": {
           "data": {
             "attributes": {
-              "components": [
-                {
-                  "created_at": {
-                  },
-                  "findings_url": "string",
-                  "id": "string",
-                  "name": "string",
-                  "type": "string"
-                }
-              ],
-              "created_at": {
-              },
-              "status": "string"
+              "components": null,
+              "created_at": "0001-01-01T00:00:00Z",
+              "status": ""
             },
-            "id": [
-              1
-            ],
-            "type": "string"
-          },
-          "jsonapi": {
-            "version": "string"
-          },
-          "links": {
-            "self": {
-            }
+            "id": "00000000-0000-0000-0000-000000000000",
+            "type": ""
           }
         },
-        "matchingRules": {
-          "$.body.data.attributes.components": {
-            "min": 1
-          },
-          "$.body.data.attributes.components[*].*": {
-            "match": "type"
-          },
-          "$.body.data.attributes.components[*].findings_url": {
-            "match": "type"
-          },
-          "$.body.data.attributes.components[*].id": {
-            "match": "type"
-          },
-          "$.body.data.attributes.components[*].name": {
-            "match": "type"
-          },
-          "$.body.data.attributes.components[*].type": {
-            "match": "type"
-          },
-          "$.body.data.attributes.status": {
-            "match": "type"
-          },
-          "$.body.data.id": {
-            "min": 1
-          },
-          "$.body.data.id[*].*": {
-            "match": "type"
-          },
-          "$.body.data.id[*]": {
-            "match": "type"
-          },
-          "$.body.data.type": {
-            "match": "type"
-          },
-          "$.body.jsonapi.version": {
-            "match": "type"
-          }
-        }
+        "headers": {
+          "Content-Type": " application/vnd.api+json"
+        },
+        "status": 201
       }
     }
   ],
   "metadata": {
+    "pactRust": {
+      "ffi": "0.4.16",
+      "mockserver": "1.2.5",
+      "models": "1.1.19"
+    },
     "pactSpecification": {
       "version": "2.0.0"
     }
+  },
+  "provider": {
+    "name": "OrchestrationApi"
   }
 }

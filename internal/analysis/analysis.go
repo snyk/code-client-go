@@ -25,7 +25,6 @@ import (
 	"io"
 	"net/http"
 	"strings"
-
 	"time"
 
 	"github.com/google/uuid"
@@ -37,8 +36,8 @@ import (
 	codeClientHTTP "github.com/snyk/code-client-go/http"
 	orchestrationClient "github.com/snyk/code-client-go/internal/orchestration/2024-02-16"
 	scans "github.com/snyk/code-client-go/internal/orchestration/2024-02-16/scans"
-	workspaceClient "github.com/snyk/code-client-go/internal/workspace/2024-03-12"
-	workspaces "github.com/snyk/code-client-go/internal/workspace/2024-03-12/workspaces"
+	workspaceClient "github.com/snyk/code-client-go/internal/workspace/2024-05-14"
+	workspaces "github.com/snyk/code-client-go/internal/workspace/2024-05-14/workspaces"
 	"github.com/snyk/code-client-go/observability"
 	"github.com/snyk/code-client-go/sarif"
 	"github.com/snyk/code-client-go/scan"
@@ -48,6 +47,7 @@ import (
 type AnalysisOrchestrator interface {
 	CreateWorkspace(ctx context.Context, orgId string, requestId string, path scan.Target, bundleHash string) (string, error)
 	RunAnalysis(ctx context.Context, orgId string, rootPath string, workspaceId string) (*sarif.SarifResponse, error)
+	RunIncrementalAnalysis(ctx context.Context, orgId string, rootPath string, workspaceId string, limitToFiles []string) (*sarif.SarifResponse, error)
 }
 
 type analysisOrchestrator struct {
@@ -58,9 +58,34 @@ type analysisOrchestrator struct {
 	trackerFactory   scan.TrackerFactory
 	config           config.Config
 	timeoutInSeconds time.Duration
+	flow             scans.Flow
 }
 
 type OptionFunc func(*analysisOrchestrator)
+
+func WithInstrumentor(instrumentor observability.Instrumentor) func(*analysisOrchestrator) {
+	return func(a *analysisOrchestrator) {
+		a.instrumentor = instrumentor
+	}
+}
+
+func WithErrorReporter(errorReporter observability.ErrorReporter) func(*analysisOrchestrator) {
+	return func(a *analysisOrchestrator) {
+		a.errorReporter = errorReporter
+	}
+}
+
+func WithLogger(logger *zerolog.Logger) func(*analysisOrchestrator) {
+	return func(a *analysisOrchestrator) {
+		a.logger = logger
+	}
+}
+
+func WithTrackerFactory(factory scan.TrackerFactory) func(*analysisOrchestrator) {
+	return func(a *analysisOrchestrator) {
+		a.trackerFactory = factory
+	}
+}
 
 func WithTimeoutInSeconds(timeoutInSeconds time.Duration) func(*analysisOrchestrator) {
 	return func(a *analysisOrchestrator) {
@@ -68,24 +93,33 @@ func WithTimeoutInSeconds(timeoutInSeconds time.Duration) func(*analysisOrchestr
 	}
 }
 
+func WithFlow(flow string) func(*analysisOrchestrator) {
+	return func(a *analysisOrchestrator) {
+		a.flow = scans.Flow{}
+		_ = a.flow.UnmarshalJSON([]byte(fmt.Sprintf(`{"name": "%s"}`, flow)))
+	}
+}
+
 func NewAnalysisOrchestrator(
 	config config.Config,
-	logger *zerolog.Logger,
 	httpClient codeClientHTTP.HTTPClient,
-	instrumentor observability.Instrumentor,
-	errorReporter observability.ErrorReporter,
-	trackerFactory scan.TrackerFactory,
 	options ...OptionFunc,
 ) AnalysisOrchestrator {
+	nopLogger := zerolog.Nop()
+	flow := scans.Flow{}
+	_ = flow.UnmarshalJSON([]byte(fmt.Sprintf(`{"name": "%s"}`, scans.IdeTest)))
+
 	a := &analysisOrchestrator{
 		httpClient:       httpClient,
-		instrumentor:     instrumentor,
-		errorReporter:    errorReporter,
-		logger:           logger,
-		trackerFactory:   trackerFactory,
 		config:           config,
+		instrumentor:     observability.NewInstrumentor(),
+		trackerFactory:   scan.NewNoopTrackerFactory(),
+		errorReporter:    observability.NewErrorReporter(&nopLogger),
+		logger:           &nopLogger,
 		timeoutInSeconds: 120 * time.Second,
+		flow:             flow,
 	}
+
 	for _, option := range options {
 		option(a)
 	}
@@ -128,7 +162,7 @@ func (a *analysisOrchestrator) CreateWorkspace(ctx context.Context, orgId string
 	}
 
 	workspaceResponse, err := workspace.CreateWorkspaceWithApplicationVndAPIPlusJSONBodyWithResponse(ctx, orgUUID, &workspaceClient.CreateWorkspaceParams{
-		Version:       "2024-03-12~experimental",
+		Version:       "2024-05-14~experimental",
 		SnykRequestId: uuid.MustParse(requestId),
 		ContentType:   "application/vnd.api+json",
 		UserAgent:     "cli",
@@ -137,6 +171,7 @@ func (a *analysisOrchestrator) CreateWorkspace(ctx context.Context, orgId string
 			Attributes struct {
 				BundleId      string                                                     `json:"bundle_id"`
 				RepositoryUri string                                                     `json:"repository_uri"`
+				RootFolderId  string                                                     `json:"root_folder_id"`
 				WorkspaceType workspaces.WorkspacePostRequestDataAttributesWorkspaceType `json:"workspace_type"`
 			} `json:"attributes"`
 			Type workspaces.WorkspacePostRequestDataType `json:"type"`
@@ -144,21 +179,25 @@ func (a *analysisOrchestrator) CreateWorkspace(ctx context.Context, orgId string
 			Attributes struct {
 				BundleId      string                                                     `json:"bundle_id"`
 				RepositoryUri string                                                     `json:"repository_uri"`
+				RootFolderId  string                                                     `json:"root_folder_id"`
 				WorkspaceType workspaces.WorkspacePostRequestDataAttributesWorkspaceType `json:"workspace_type"`
 			}
 			Type workspaces.WorkspacePostRequestDataType
 		}{Attributes: struct {
 			BundleId      string                                                     `json:"bundle_id"`
 			RepositoryUri string                                                     `json:"repository_uri"`
+			RootFolderId  string                                                     `json:"root_folder_id"`
 			WorkspaceType workspaces.WorkspacePostRequestDataAttributesWorkspaceType `json:"workspace_type"`
 		}(struct {
 			BundleId      string
 			RepositoryUri string
+			RootFolderId  string
 			WorkspaceType workspaces.WorkspacePostRequestDataAttributesWorkspaceType
 		}{
 			BundleId:      bundleHash,
 			RepositoryUri: repositoryTarget.GetRepositoryUrl(),
 			WorkspaceType: "file_bundle_workspace",
+			RootFolderId:  target.GetPath(),
 		}),
 			Type: "workspace",
 		}),
@@ -189,6 +228,10 @@ func (a *analysisOrchestrator) CreateWorkspace(ctx context.Context, orgId string
 }
 
 func (a *analysisOrchestrator) RunAnalysis(ctx context.Context, orgId string, rootPath string, workspaceId string) (*sarif.SarifResponse, error) {
+	return a.RunIncrementalAnalysis(ctx, orgId, rootPath, workspaceId, []string{})
+}
+
+func (a *analysisOrchestrator) RunIncrementalAnalysis(ctx context.Context, orgId string, rootPath string, workspaceId string, limitToFiles []string) (*sarif.SarifResponse, error) {
 	method := "analysis.RunAnalysis"
 	logger := a.logger.With().Str("method", method).Logger()
 	logger.Debug().Msg("API: Creating the scan")
@@ -207,7 +250,7 @@ func (a *analysisOrchestrator) RunAnalysis(ctx context.Context, orgId string, ro
 		return nil, fmt.Errorf("failed to create orchestrationClient: %w", err)
 	}
 
-	scanJobId, err := a.triggerScan(ctx, client, org, workspaceId)
+	scanJobId, err := a.triggerScan(ctx, client, org, workspaceId, limitToFiles)
 	if err != nil {
 		tracker.End(fmt.Sprintf("Analysis failed: %v", err))
 		return nil, err
@@ -223,43 +266,58 @@ func (a *analysisOrchestrator) RunAnalysis(ctx context.Context, orgId string, ro
 	return response, nil
 }
 
-func (a *analysisOrchestrator) triggerScan(ctx context.Context, client *orchestrationClient.ClientWithResponses, org uuid.UUID, workspaceId string) (*openapi_types.UUID, error) {
-	flow := scans.Flow{}
-	err := flow.UnmarshalJSON([]byte(`{"name": "cli_test"}`))
-	if err != nil {
-		return nil, fmt.Errorf("failed to create scan request: %w", err)
+func (a *analysisOrchestrator) triggerScan(
+	ctx context.Context,
+	client *orchestrationClient.ClientWithResponses,
+	org uuid.UUID,
+	workspaceId string,
+	limitToFiles []string,
+) (*openapi_types.UUID, error) {
+	workspaceUUID := uuid.MustParse(workspaceId)
+
+	scanOptions := &struct {
+		LimitScanToFiles *[]string `json:"limit_scan_to_files,omitempty"`
+	}{
+		LimitScanToFiles: &limitToFiles,
 	}
+
+	if len(limitToFiles) == 0 {
+		scanOptions = nil
+	}
+
+	data := struct {
+		Attributes struct {
+			Flow        scans.Flow `json:"flow"`
+			ScanOptions *struct {
+				LimitScanToFiles *[]string `json:"limit_scan_to_files,omitempty"`
+			} `json:"scan_options,omitempty"`
+			WorkspaceId  *openapi_types.UUID `json:"workspace_id,omitempty"`
+			WorkspaceUrl string              `json:"workspace_url"`
+		} `json:"attributes"`
+		Id   *openapi_types.UUID           `json:"id,omitempty"`
+		Type scans.PostScanRequestDataType `json:"type"`
+	}{
+		Attributes: struct {
+			Flow        scans.Flow `json:"flow"`
+			ScanOptions *struct {
+				LimitScanToFiles *[]string `json:"limit_scan_to_files,omitempty"`
+			} `json:"scan_options,omitempty"`
+			WorkspaceId  *openapi_types.UUID `json:"workspace_id,omitempty"`
+			WorkspaceUrl string              `json:"workspace_url"`
+		}{
+			Flow:         a.flow,
+			WorkspaceUrl: fmt.Sprintf("http://workspace-service/workspaces/%s", workspaceId),
+			WorkspaceId:  &workspaceUUID,
+			ScanOptions:  scanOptions,
+		},
+		Type: "workspace",
+	}
+
 	createScanResponse, err := client.CreateScanWorkspaceJobForUserWithApplicationVndAPIPlusJSONBodyWithResponse(
 		ctx,
 		org,
 		&orchestrationClient.CreateScanWorkspaceJobForUserParams{Version: "2024-02-16~experimental"},
-		orchestrationClient.CreateScanWorkspaceJobForUserApplicationVndAPIPlusJSONRequestBody{Data: struct {
-			Attributes struct {
-				Flow         scans.Flow `json:"flow"`
-				WorkspaceUrl string     `json:"workspace_url"`
-			} `json:"attributes"`
-			Id   *openapi_types.UUID           `json:"id,omitempty"`
-			Type scans.PostScanRequestDataType `json:"type"`
-		}(struct {
-			Attributes struct {
-				Flow         scans.Flow `json:"flow"`
-				WorkspaceUrl string     `json:"workspace_url"`
-			}
-			Id   *openapi_types.UUID
-			Type scans.PostScanRequestDataType
-		}{
-			Attributes: struct {
-				Flow         scans.Flow `json:"flow"`
-				WorkspaceUrl string     `json:"workspace_url"`
-			}(struct {
-				Flow         scans.Flow
-				WorkspaceUrl string
-			}{
-				Flow:         flow,
-				WorkspaceUrl: fmt.Sprintf("http://workspace-service/workspaces/%s", workspaceId),
-			}),
-			Type: "workspace",
-		})})
+		orchestrationClient.CreateScanWorkspaceJobForUserApplicationVndAPIPlusJSONRequestBody{Data: data})
 
 	if err != nil {
 		return nil, fmt.Errorf("failed to trigger scan: %w", err)

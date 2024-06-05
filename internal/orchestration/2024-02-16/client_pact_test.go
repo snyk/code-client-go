@@ -21,13 +21,16 @@ package v20240216_test
 import (
 	"context"
 	"fmt"
-	v20240216 "github.com/snyk/code-client-go/internal/orchestration/2024-02-16"
 	"net/http"
 	"testing"
 
+	"github.com/pact-foundation/pact-go/v2/consumer"
+	"github.com/pact-foundation/pact-go/v2/matchers"
+
+	v20240216 "github.com/snyk/code-client-go/internal/orchestration/2024-02-16"
+
 	"github.com/google/uuid"
 	openapi_types "github.com/oapi-codegen/runtime/types"
-	"github.com/pact-foundation/pact-go/dsl"
 	"github.com/rs/zerolog"
 	"github.com/stretchr/testify/require"
 
@@ -37,101 +40,140 @@ import (
 )
 
 const (
-	consumer     = "code-client-go"
+	consumerName = "code-client-go"
 	pactDir      = "./pacts"
 	pactProvider = "OrchestrationApi"
 
-	orgUUID     = "e7ea34c9-de0f-422c-bf2c-4654c2e2da90"
-	workspaceId = "b6ea34c9-de0f-422c-bf2c-4654c2e2da90"
-	uuidMatcher = "^.+[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}"
+	orgUUID       = "e7ea34c9-de0f-422c-bf2c-4654c2e2da90"
+	workspaceId   = "b6ea34c9-de0f-422c-bf2c-4654c2e2da90"
+	uuidRegex     = "[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}"
+	uuidTailRegex = "^.+" + uuidRegex
 )
 
-// Common test data
-var pact dsl.Pact
-var client *v20240216.ClientWithResponses
+var (
+	workspaceUUID = uuid.MustParse(workspaceId)
+	scanOptions   *struct {
+		LimitScanToFiles *[]string `json:"limit_scan_to_files,omitempty"`
+	}
+	scanOptionsIncrementalScan = &struct {
+		LimitScanToFiles *[]string `json:"limit_scan_to_files,omitempty"`
+	}{
+		LimitScanToFiles: &[]string{"fileA", "fileB"},
+	}
+
+	pact       *consumer.V2HTTPMockProvider
+	httpClient v20240216.HttpRequestDoer
+)
 
 func TestOrchestrationClientPact(t *testing.T) {
 	setupPact(t)
-	defer pact.Teardown()
 
-	defer func() {
-		if err := pact.WritePact(); err != nil {
-			t.Fatal(err)
-		}
-	}()
+	flow := scans.Flow{}
+	flowErr := flow.UnmarshalJSON([]byte(`{"name": "ide_test"}`))
+	require.NoError(t, flowErr)
+
+	createScanData := struct {
+		Attributes struct {
+			Flow        scans.Flow `json:"flow"`
+			ScanOptions *struct {
+				LimitScanToFiles *[]string `json:"limit_scan_to_files,omitempty"`
+			} `json:"scan_options,omitempty"`
+			WorkspaceId  *openapi_types.UUID `json:"workspace_id,omitempty"`
+			WorkspaceUrl string              `json:"workspace_url"`
+		} `json:"attributes"`
+		Id   *openapi_types.UUID           `json:"id,omitempty"`
+		Type scans.PostScanRequestDataType `json:"type"`
+	}{
+		Attributes: struct {
+			Flow        scans.Flow `json:"flow"`
+			ScanOptions *struct {
+				LimitScanToFiles *[]string `json:"limit_scan_to_files,omitempty"`
+			} `json:"scan_options,omitempty"`
+			WorkspaceId  *openapi_types.UUID `json:"workspace_id,omitempty"`
+			WorkspaceUrl string              `json:"workspace_url"`
+		}{
+			Flow:         flow,
+			WorkspaceUrl: fmt.Sprintf("http://workspace-service/workspaces/%s", workspaceId),
+			WorkspaceId:  &workspaceUUID,
+			ScanOptions:  scanOptions,
+		},
+		Type: "workspace",
+	}
 
 	// https://snyk.roadie.so/catalog/default/api/orchestration-service_2024-02-16_experimental
 	t.Run("Create scan", func(t *testing.T) {
-		pact.AddInteraction().Given("New scan").UponReceiving("Trigger scan").WithRequest(dsl.Request{
+		pact.AddInteraction().Given("New scan").UponReceiving("Trigger scan").WithCompleteRequest(consumer.Request{
 			Method: "POST",
-			Path:   dsl.String(fmt.Sprintf("/orgs/%s/scans", orgUUID)),
-			Query: dsl.MapMatcher{
-				"version": dsl.String("2024-02-16~experimental"),
+			Path:   matchers.String(fmt.Sprintf("/orgs/%s/scans", orgUUID)),
+			Query: matchers.MapMatcher{
+				"version": matchers.String("2024-02-16~experimental"),
 			},
 			Headers: getHeaderMatcher(),
 			Body:    getBodyMatcher(),
-		}).WillRespondWith(dsl.Response{
-			Status: 201,
-			Headers: dsl.MapMatcher{
-				"Content-Type": dsl.String("application/vnd.api+json"),
-			},
-			Body: dsl.Like(map[string]interface{}{
-				"data": dsl.Like(map[string]interface{}{
-					"attributes": dsl.Like(map[string]interface{}{
-						"created_at": dsl.Timestamp(),
-						"status":     dsl.String("success"),
-					}),
-					"type": dsl.String("workspace"),
-				}),
-			}),
+		}).WithCompleteResponse(consumer.Response{
+			Status:  201,
+			Headers: getResponseHeaderMatcher(),
+			Body:    getResponseBodyMatcher(),
 		})
 
-		flow := scans.Flow{}
-		err := flow.UnmarshalJSON([]byte(`{"name": "cli_test"}`))
-		require.NoError(t, err)
-
-		test := func() error {
+		test := func(config consumer.MockServerConfig) error {
+			client, err := v20240216.NewClientWithResponses(fmt.Sprintf("http://localhost:%d", config.Port), v20240216.WithHTTPClient(httpClient))
+			require.NoError(t, err)
 			_, err = client.CreateScanWorkspaceJobForUserWithApplicationVndAPIPlusJSONBodyWithResponse(
 				context.Background(),
 				uuid.MustParse(orgUUID),
 				&v20240216.CreateScanWorkspaceJobForUserParams{
 					Version: "2024-02-16~experimental",
 				},
-				v20240216.CreateScanWorkspaceJobForUserApplicationVndAPIPlusJSONRequestBody{
-					Data: struct {
-						Attributes struct {
-							Flow         scans.Flow `json:"flow"`
-							WorkspaceUrl string     `json:"workspace_url"`
-						} `json:"attributes"`
-						Id   *openapi_types.UUID           `json:"id,omitempty"`
-						Type scans.PostScanRequestDataType `json:"type"`
-					}(struct {
-						Attributes struct {
-							Flow         scans.Flow `json:"flow"`
-							WorkspaceUrl string     `json:"workspace_url"`
-						}
-						Id   *openapi_types.UUID
-						Type scans.PostScanRequestDataType
-					}{
-						Attributes: struct {
-							Flow         scans.Flow `json:"flow"`
-							WorkspaceUrl string     `json:"workspace_url"`
-						}(struct {
-							Flow         scans.Flow
-							WorkspaceUrl string
-						}{
-							Flow:         flow,
-							WorkspaceUrl: fmt.Sprintf("http://workspace-service/workspaces/%s", workspaceId),
-						}),
-						Type: "cli",
-					})})
+				v20240216.CreateScanWorkspaceJobForUserApplicationVndAPIPlusJSONRequestBody{Data: createScanData})
 			if err != nil {
 				return err
 			}
 			return nil
 		}
 
-		err = pact.Verify(test)
+		err := pact.ExecuteTest(t, test)
+
+		if err != nil {
+			t.Fatalf("Error on verify: %v", err)
+		}
+	})
+
+	t.Run("Create incremental scan", func(t *testing.T) {
+		pact.AddInteraction().Given("New incremental scan").UponReceiving("Trigger new incremental scan").WithCompleteRequest(consumer.Request{
+			Method: "POST",
+			Path:   matchers.String(fmt.Sprintf("/orgs/%s/scans", orgUUID)),
+			Query: matchers.MapMatcher{
+				"version": matchers.String("2024-02-16~experimental"),
+			},
+			Headers: getHeaderMatcher(),
+			Body:    getBodyMatcherForIncrementalScan(),
+		}).WithCompleteResponse(consumer.Response{
+			Status:  201,
+			Headers: getResponseHeaderMatcher(),
+			Body:    getResponseBodyMatcher(),
+		})
+
+		data := createScanData
+		data.Attributes.ScanOptions = scanOptionsIncrementalScan
+
+		test := func(config consumer.MockServerConfig) error {
+			client, err := v20240216.NewClientWithResponses(fmt.Sprintf("http://localhost:%d", config.Port), v20240216.WithHTTPClient(httpClient))
+			require.NoError(t, err)
+			_, err = client.CreateScanWorkspaceJobForUserWithApplicationVndAPIPlusJSONBodyWithResponse(
+				context.Background(),
+				uuid.MustParse(orgUUID),
+				&v20240216.CreateScanWorkspaceJobForUserParams{
+					Version: "2024-02-16~experimental",
+				},
+				v20240216.CreateScanWorkspaceJobForUserApplicationVndAPIPlusJSONRequestBody{Data: data})
+			if err != nil {
+				return err
+			}
+			return nil
+		}
+
+		err := pact.ExecuteTest(t, test)
 
 		if err != nil {
 			t.Fatalf("Error on verify: %v", err)
@@ -141,23 +183,25 @@ func TestOrchestrationClientPact(t *testing.T) {
 	t.Run("Get scan", func(t *testing.T) {
 		id := uuid.New()
 
-		pact.AddInteraction().Given("Scan ID").UponReceiving("Retrieve scan").WithRequest(dsl.Request{
+		pact.AddInteraction().Given("Scan ID").UponReceiving("Retrieve scan").WithCompleteRequest(consumer.Request{
 			Method: "GET",
-			Path:   dsl.String(fmt.Sprintf("/orgs/%s/scans/%s", orgUUID, id.String())),
-			Query: dsl.MapMatcher{
-				"version": dsl.String("2024-02-16~experimental"),
+			Path:   matchers.String(fmt.Sprintf("/orgs/%s/scans/%s", orgUUID, id.String())),
+			Query: matchers.MapMatcher{
+				"version": matchers.String("2024-02-16~experimental"),
 			},
-			Headers: dsl.MapMatcher{},
-		}).WillRespondWith(dsl.Response{
+			Headers: matchers.MapMatcher{},
+		}).WithCompleteResponse(consumer.Response{
 			Status: 201,
-			Headers: dsl.MapMatcher{
-				"Content-Type": dsl.String("application/json"),
+			Headers: matchers.MapMatcher{
+				"Content-Type": matchers.String(" application/vnd.api+json"),
 			},
-			Body: dsl.Match(scans.ScanResultsResponse{}),
+			Body: scans.ScanResultsResponse{},
 		})
 
-		test := func() error {
-			_, err := client.GetScanWorkspaceJobForUserWithResponse(
+		test := func(config consumer.MockServerConfig) error {
+			client, err := v20240216.NewClientWithResponses(fmt.Sprintf("http://localhost:%d", config.Port), v20240216.WithHTTPClient(httpClient))
+			require.NoError(t, err)
+			_, err = client.GetScanWorkspaceJobForUserWithResponse(
 				context.Background(),
 				uuid.MustParse(orgUUID),
 				id,
@@ -168,7 +212,7 @@ func TestOrchestrationClientPact(t *testing.T) {
 			return nil
 		}
 
-		err := pact.Verify(test)
+		err := pact.ExecuteTest(t, test)
 
 		if err != nil {
 			t.Fatalf("Error on verify: %v", err)
@@ -176,24 +220,41 @@ func TestOrchestrationClientPact(t *testing.T) {
 	})
 }
 
+func getResponseHeaderMatcher() matchers.MapMatcher {
+	return matchers.MapMatcher{
+		"Content-Type": matchers.String("application/vnd.api+json"),
+	}
+}
+
+func getResponseBodyMatcher() matchers.Matcher {
+	return matchers.Like(map[string]interface{}{
+		"data": matchers.Like(map[string]interface{}{
+			"attributes": matchers.Like(map[string]interface{}{
+				"created_at": matchers.Timestamp(),
+				"status":     matchers.String("success"),
+			}),
+			"type": matchers.String("workspace"),
+		}),
+	})
+}
+
 func setupPact(t *testing.T) {
 	t.Helper()
 
-	// Proactively start service to get access to the port
-	pact = dsl.Pact{
-		Consumer: consumer,
+	config := consumer.MockHTTPProviderConfig{
+		Consumer: consumerName,
 		Provider: pactProvider,
 		PactDir:  pactDir,
 	}
+	var err error
+	pact, err = consumer.NewV2Pact(config)
 
-	pact.Setup(true)
-
-	restApi := fmt.Sprintf("http://localhost:%d", pact.Server.Port)
+	require.NoError(t, err)
 
 	logger := zerolog.New(zerolog.NewTestWriter(t))
 	instrumentor := testutil.NewTestInstrumentor()
 	errorReporter := testutil.NewTestErrorReporter()
-	httpClient := codeClientHTTP.NewHTTPClient(
+	httpClient = codeClientHTTP.NewHTTPClient(
 		func() *http.Client {
 			return http.DefaultClient
 		},
@@ -202,29 +263,56 @@ func setupPact(t *testing.T) {
 		codeClientHTTP.WithErrorReporter(errorReporter),
 		codeClientHTTP.WithLogger(&logger),
 	)
-	var err error
-	client, err = v20240216.NewClientWithResponses(restApi, v20240216.WithHTTPClient(httpClient))
 	require.NoError(t, err)
 }
 
-func getHeaderMatcher() dsl.MapMatcher {
-	return dsl.MapMatcher{}
+func getHeaderMatcher() matchers.MapMatcher {
+	return matchers.MapMatcher{
+		"Content-Type": matchers.S("application/vnd.api+json"),
+	}
 }
 
-func getBodyMatcher() dsl.Matcher {
-	return dsl.Like(map[string]interface{}{
-		"data": dsl.Like(map[string]interface{}{
-			"attributes": dsl.Like(map[string]interface{}{
-				"flow": dsl.MapMatcher{
-					"name": dsl.String("cli_test"),
+func getBodyMatcher() matchers.Matcher {
+	return matchers.Like(map[string]interface{}{
+		"data": matchers.Like(map[string]interface{}{
+			"attributes": matchers.Like(map[string]interface{}{
+				"flow": matchers.MapMatcher{
+					"name": matchers.String(scans.IdeTest),
 				},
+				"workspace_id":  getWorkspaceUUIDMatcher(),
 				"workspace_url": getWorkspaceIDMatcher(),
 			}),
-			"type": dsl.String("cli"),
+			"type": matchers.String("workspace"),
 		}),
 	})
 }
 
-func getWorkspaceIDMatcher() dsl.Matcher {
-	return dsl.Regex("http://workspace-service/workspaces/fc763eba-0905-41c5-a27f-3934ab26786c", uuidMatcher)
+func getBodyMatcherForIncrementalScan() matchers.Matcher {
+	return matchers.Like(map[string]interface{}{
+		"data": matchers.Like(map[string]interface{}{
+			"attributes": matchers.Like(map[string]interface{}{
+				"flow": matchers.MapMatcher{
+					"name": matchers.String(scans.IdeTest),
+				},
+				"scan_options": matchers.MapMatcher{
+					"limit_scan_to_files": getIncrementalScanOptionsMatcher(),
+				},
+				"workspace_id":  getWorkspaceUUIDMatcher(),
+				"workspace_url": getWorkspaceIDMatcher(),
+			}),
+			"type": matchers.String("workspace"),
+		}),
+	})
+}
+
+func getIncrementalScanOptionsMatcher() matchers.Matcher {
+	return matchers.ArrayMinLike("fileA", 2)
+}
+
+func getWorkspaceIDMatcher() matchers.Matcher {
+	return matchers.Regex("http://workspace-service/workspaces/fc763eba-0905-41c5-a27f-3934ab26786c", uuidTailRegex)
+}
+
+func getWorkspaceUUIDMatcher() matchers.Matcher {
+	return matchers.Regex("fc763eba-0905-41c5-a27f-3934ab26786c", uuidRegex)
 }

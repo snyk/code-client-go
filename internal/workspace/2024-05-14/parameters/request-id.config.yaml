@@ -1,6 +1,6 @@
-package: v20240312
+package: v20240514
 generate:
   models: true
 output-options:
   skip-prune: true
-output: common/common.go
+output: parameters/request-id.go

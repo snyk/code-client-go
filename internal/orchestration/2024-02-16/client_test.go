@@ -4,11 +4,13 @@ import (
 	"bytes"
 	"context"
 	"errors"
-	openapi_types "github.com/oapi-codegen/runtime/types"
-	externalRef2 "github.com/snyk/code-client-go/internal/orchestration/2024-02-16/scans"
 	"io"
 	"net/http"
 	"testing"
+
+	openapi_types "github.com/oapi-codegen/runtime/types"
+
+	scans "github.com/snyk/code-client-go/internal/orchestration/2024-02-16/scans"
 
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
@@ -71,29 +73,26 @@ func TestOrchestration_CreateScanWorkspaceJobForUserWithApplicationVndAPIPlusJSO
 		&orchestrationClient.CreateScanWorkspaceJobForUserParams{Version: "2024-02-16~experimental"},
 		orchestrationClient.CreateScanWorkspaceJobForUserApplicationVndAPIPlusJSONRequestBody{Data: struct {
 			Attributes struct {
-				Flow         externalRef2.Flow `json:"flow"`
-				WorkspaceUrl string            `json:"workspace_url"`
+				Flow scans.Flow `json:"flow"`
+
+				// ScanOptions Additional options for the scan
+				ScanOptions *struct {
+					// LimitScanToFiles The findings will be limited to a subset of files only.
+					LimitScanToFiles *[]string `json:"limit_scan_to_files,omitempty"`
+				} `json:"scan_options,omitempty"`
+
+				// WorkspaceId ID of the workspace to be scanned. We are migrating from URL to the ID - please send both fields until we can drop the URL.
+				WorkspaceId *openapi_types.UUID `json:"workspace_id,omitempty"`
+
+				// WorkspaceUrl The URI of the workspace to be scanned as returned by the workspace service.
+				WorkspaceUrl string `json:"workspace_url"`
 			} `json:"attributes"`
-			Id   *openapi_types.UUID                  `json:"id,omitempty"`
-			Type externalRef2.PostScanRequestDataType `json:"type"`
-		}(struct {
-			Attributes struct {
-				Flow         externalRef2.Flow `json:"flow"`
-				WorkspaceUrl string            `json:"workspace_url"`
-			}
-			Id   *openapi_types.UUID
-			Type externalRef2.PostScanRequestDataType
+			Id   *openapi_types.UUID           `json:"id,omitempty"`
+			Type scans.PostScanRequestDataType `json:"type"`
 		}{
-			Attributes: struct {
-				Flow         externalRef2.Flow `json:"flow"`
-				WorkspaceUrl string            `json:"workspace_url"`
-			}(struct {
-				Flow         externalRef2.Flow
-				WorkspaceUrl string
-			}{}),
 			Id:   &id,
 			Type: "cli",
-		})})
+		}})
 	require.NoError(t, err)
 	require.NotNil(t, response)
 	require.Equal(t, 201, response.StatusCode())
@@ -131,29 +130,25 @@ func TestOrchestration_CreateScanWorkspaceJobForUserWithApplicationVndAPIPlusJSO
 		&orchestrationClient.CreateScanWorkspaceJobForUserParams{Version: "2024-02-16~experimental"},
 		orchestrationClient.CreateScanWorkspaceJobForUserApplicationVndAPIPlusJSONRequestBody{Data: struct {
 			Attributes struct {
-				Flow         externalRef2.Flow `json:"flow"`
-				WorkspaceUrl string            `json:"workspace_url"`
+				Flow scans.Flow `json:"flow"`
+				// ScanOptions Additional options for the scan
+				ScanOptions *struct {
+					// LimitScanToFiles The findings will be limited to a subset of files only.
+					LimitScanToFiles *[]string `json:"limit_scan_to_files,omitempty"`
+				} `json:"scan_options,omitempty"`
+
+				// WorkspaceId ID of the workspace to be scanned. We are migrating from URL to the ID - please send both fields until we can drop the URL.
+				WorkspaceId *openapi_types.UUID `json:"workspace_id,omitempty"`
+
+				// WorkspaceUrl The URI of the workspace to be scanned as returned by the workspace service.
+				WorkspaceUrl string `json:"workspace_url"`
 			} `json:"attributes"`
-			Id   *openapi_types.UUID                  `json:"id,omitempty"`
-			Type externalRef2.PostScanRequestDataType `json:"type"`
-		}(struct {
-			Attributes struct {
-				Flow         externalRef2.Flow `json:"flow"`
-				WorkspaceUrl string            `json:"workspace_url"`
-			}
-			Id   *openapi_types.UUID
-			Type externalRef2.PostScanRequestDataType
+			Id   *openapi_types.UUID           `json:"id,omitempty"`
+			Type scans.PostScanRequestDataType `json:"type"`
 		}{
-			Attributes: struct {
-				Flow         externalRef2.Flow `json:"flow"`
-				WorkspaceUrl string            `json:"workspace_url"`
-			}(struct {
-				Flow         externalRef2.Flow
-				WorkspaceUrl string
-			}{}),
 			Id:   &id,
 			Type: "cli",
-		})})
+		}})
 	require.NoError(t, err)
 	require.NotNil(t, response)
 	require.Equal(t, http.StatusNotFound, response.StatusCode())
@@ -179,29 +174,26 @@ func TestOrchestration_CreateScanWorkspaceJobForUserWithApplicationVndAPIPlusJSO
 		&orchestrationClient.CreateScanWorkspaceJobForUserParams{Version: "2024-02-16~experimental"},
 		orchestrationClient.CreateScanWorkspaceJobForUserApplicationVndAPIPlusJSONRequestBody{Data: struct {
 			Attributes struct {
-				Flow         externalRef2.Flow `json:"flow"`
-				WorkspaceUrl string            `json:"workspace_url"`
+				Flow scans.Flow `json:"flow"`
+
+				// ScanOptions Additional options for the scan
+				ScanOptions *struct {
+					// LimitScanToFiles The findings will be limited to a subset of files only.
+					LimitScanToFiles *[]string `json:"limit_scan_to_files,omitempty"`
+				} `json:"scan_options,omitempty"`
+
+				// WorkspaceId ID of the workspace to be scanned. We are migrating from URL to the ID - please send both fields until we can drop the URL.
+				WorkspaceId *openapi_types.UUID `json:"workspace_id,omitempty"`
+
+				// WorkspaceUrl The URI of the workspace to be scanned as returned by the workspace service.
+				WorkspaceUrl string `json:"workspace_url"`
 			} `json:"attributes"`
-			Id   *openapi_types.UUID                  `json:"id,omitempty"`
-			Type externalRef2.PostScanRequestDataType `json:"type"`
-		}(struct {
-			Attributes struct {
-				Flow         externalRef2.Flow `json:"flow"`
-				WorkspaceUrl string            `json:"workspace_url"`
-			}
-			Id   *openapi_types.UUID
-			Type externalRef2.PostScanRequestDataType
+			Id   *openapi_types.UUID           `json:"id,omitempty"`
+			Type scans.PostScanRequestDataType `json:"type"`
 		}{
-			Attributes: struct {
-				Flow         externalRef2.Flow `json:"flow"`
-				WorkspaceUrl string            `json:"workspace_url"`
-			}(struct {
-				Flow         externalRef2.Flow
-				WorkspaceUrl string
-			}{}),
 			Id:   &id,
 			Type: "cli",
-		})})
+		}})
 	require.Error(t, err)
 	doer.AssertExpectations(t)
 }
@@ -251,7 +243,7 @@ func TestOrchestration_GetScanWorkspaceJobForUserWithResponse_Success(t *testing
 	require.NoError(t, err)
 	require.NotNil(t, response)
 	require.Equal(t, http.StatusOK, response.StatusCode())
-	require.Equal(t, externalRef2.ScanJobResultsAttributesStatusInProgress, response.ApplicationvndApiJSON200.Data.Attributes.Status)
+	require.Equal(t, scans.ScanJobResultsAttributesStatusInProgress, response.ApplicationvndApiJSON200.Data.Attributes.Status)
 	doer.AssertExpectations(t)
 }
 

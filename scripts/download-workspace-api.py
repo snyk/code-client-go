@@ -6,10 +6,14 @@ from utils import formatSpecWithComponents
 from utils import formatSpecWithParameters
 from utils import replaceInFile
 
-WORKSPACE_API_VERSION = "2024-03-12"
-WORKSPACE_COMMIT_SHA = "cfd737cd917ab2c63840bd112d9eb2c9a9c101f6"
+WORKSPACE_API_VERSION = "2024-05-14"
+WORKSPACE_COMMIT_SHA = "2d8bd3b"
 
 mkDir(f"./internal/workspace/{WORKSPACE_API_VERSION}")
+mkDir(f"./internal/workspace/{WORKSPACE_API_VERSION}/common")
+mkDir(f"./internal/workspace/{WORKSPACE_API_VERSION}/links")
+mkDir(f"./internal/workspace/{WORKSPACE_API_VERSION}/parameters")
+mkDir(f"./internal/workspace/{WORKSPACE_API_VERSION}/workspaces")
 
 # Download the Common spec
 saveGitHubFile("sweater-comb", "components/common.yaml", f"./internal/workspace/{WORKSPACE_API_VERSION}/common/common.yaml", "main")

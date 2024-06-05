@@ -2,31 +2,24 @@
   "consumer": {
     "name": "code-client-go"
   },
-  "provider": {
-    "name": "SnykCodeApi"
-  },
   "interactions": [
     {
       "description": "Get filters",
       "request": {
-        "method": "GET",
-        "path": "/filters",
         "headers": {
           "Content-Type": "application/json",
           "snyk-request-id": "fc763eba-0905-41c5-a27f-3934ab26786c"
         },
         "matchingRules": {
-          "$.headers.snyk-request-id": {
+          "$.header['snyk-request-id']": {
             "match": "regex",
             "regex": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}"
           }
-        }
+        },
+        "method": "GET",
+        "path": "/filters"
       },
       "response": {
-        "status": 200,
-        "headers": {
-          "Content-Type": "application/json"
-        },
         "body": {
           "configFiles": [
             "string"
@@ -35,32 +28,173 @@
             "string"
           ]
         },
+        "headers": {
+          "Content-Type": "application/json"
+        },
         "matchingRules": {
           "$.body.configFiles": {
+            "match": "type",
             "min": 1
-          },
-          "$.body.configFiles[*].*": {
-            "match": "type"
           },
           "$.body.configFiles[*]": {
             "match": "type"
           },
           "$.body.extensions": {
+            "match": "type",
             "min": 1
-          },
-          "$.body.extensions[*].*": {
-            "match": "type"
           },
           "$.body.extensions[*]": {
             "match": "type"
           }
-        }
+        },
+        "status": 200
+      }
+    },
+    {
+      "description": "Extend bundle",
+      "providerState": "Existing bundle",
+      "request": {
+        "headers": {
+          "Content-Encoding": "gzip",
+          "Content-Type": "application/octet-stream",
+          "snyk-org-name": "00000000-0000-0000-0000-000000000023",
+          "snyk-request-id": "fc763eba-0905-41c5-a27f-3934ab26786c"
+        },
+        "matchingRules": {
+          "$.header['snyk-org-name']": {
+            "match": "regex",
+            "regex": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}"
+          },
+          "$.header['snyk-request-id']": {
+            "match": "regex",
+            "regex": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}"
+          },
+          "$.path": {
+            "match": "regex",
+            "regex": "/bundle/[A-Fa-f0-9]{64}"
+          }
+        },
+        "method": "PUT",
+        "path": "/bundle/faa6b7161c14f933ef4ca79a18ad9283eab362d5e6d3a977125eb95b37c377d8"
+      },
+      "response": {
+        "body": {
+          "bundleHash": "string",
+          "missingFiles": [
+            "string"
+          ]
+        },
+        "headers": {
+          "Content-Type": "application/json"
+        },
+        "matchingRules": {
+          "$.body.bundleHash": {
+            "match": "type"
+          },
+          "$.body.missingFiles": {
+            "match": "type",
+            "min": 1
+          },
+          "$.body.missingFiles[*]": {
+            "match": "type"
+          }
+        },
+        "status": 200
+      }
+    },
+    {
+      "description": "Create bundle",
+      "providerState": "New bundle",
+      "request": {
+        "headers": {
+          "Content-Encoding": "gzip",
+          "Content-Type": "application/octet-stream",
+          "snyk-org-name": "00000000-0000-0000-0000-000000000023",
+          "snyk-request-id": "fc763eba-0905-41c5-a27f-3934ab26786c"
+        },
+        "matchingRules": {
+          "$.header['snyk-org-name']": {
+            "match": "regex",
+            "regex": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}"
+          },
+          "$.header['snyk-request-id']": {
+            "match": "regex",
+            "regex": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}"
+          }
+        },
+        "method": "POST",
+        "path": "/bundle"
+      },
+      "response": {
+        "body": {
+          "bundleHash": "string",
+          "missingFiles": [
+            "string"
+          ]
+        },
+        "headers": {
+          "Content-Type": "application/json"
+        },
+        "matchingRules": {
+          "$.body.bundleHash": {
+            "match": "type"
+          },
+          "$.body.missingFiles": {
+            "match": "type",
+            "min": 1
+          },
+          "$.body.missingFiles[*]": {
+            "match": "type"
+          }
+        },
+        "status": 200
+      }
+    },
+    {
+      "description": "Create bundle",
+      "providerState": "New bundle and invalid token",
+      "request": {
+        "headers": {
+          "Content-Encoding": "gzip",
+          "Content-Type": "application/octet-stream",
+          "snyk-org-name": "00000000-0000-0000-0000-000000000023",
+          "snyk-request-id": "fc763eba-0905-41c5-a27f-3934ab26786c"
+        },
+        "matchingRules": {
+          "$.header['snyk-org-name']": {
+            "match": "regex",
+            "regex": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}"
+          },
+          "$.header['snyk-request-id']": {
+            "match": "regex",
+            "regex": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}"
+          }
+        },
+        "method": "POST",
+        "path": "/bundle"
+      },
+      "response": {
+        "body": {
+          "message": "Invalid auth token provided"
+        },
+        "headers": {
+          "Content-Type": "application/json; charset=utf-8"
+        },
+        "status": 401
       }
     }
   ],
   "metadata": {
+    "pactRust": {
+      "ffi": "0.4.16",
+      "mockserver": "1.2.5",
+      "models": "1.1.19"
+    },
     "pactSpecification": {
       "version": "2.0.0"
     }
+  },
+  "provider": {
+    "name": "SnykCodeApi"
   }
 }

@@ -1,10 +1,10 @@
-package v20240312
+package v20240514
 
 import (
 	"context"
 	"io"
 
-	externalRef2 "github.com/snyk/code-client-go/internal/workspace/2024-03-12/parameters"
+	externalRef2 "github.com/snyk/code-client-go/internal/workspace/2024-05-14/parameters"
 )
 
 //go:generate mockgen -destination=mocks/workspace.go -source=workspace.go -package mocks

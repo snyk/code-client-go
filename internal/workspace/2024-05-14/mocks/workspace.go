@@ -10,8 +10,8 @@ import (
 	reflect "reflect"
 
 	gomock "github.com/golang/mock/gomock"
-	v20240312 "github.com/snyk/code-client-go/internal/workspace/2024-03-12"
-	v202403120 "github.com/snyk/code-client-go/internal/workspace/2024-03-12/parameters"
+	v20240514 "github.com/snyk/code-client-go/internal/workspace/2024-05-14"
+	v202405140 "github.com/snyk/code-client-go/internal/workspace/2024-05-14/parameters"
 )
 
 // MockWorkspace is a mock of Workspace interface.
@@ -38,14 +38,14 @@ func (m *MockWorkspace) EXPECT() *MockWorkspaceMockRecorder {
 }
 
 // CreateWorkspaceWithApplicationVndAPIPlusJSONBodyWithResponse mocks base method.
-func (m *MockWorkspace) CreateWorkspaceWithApplicationVndAPIPlusJSONBodyWithResponse(ctx context.Context, orgId v202403120.OrgId, params *v20240312.CreateWorkspaceParams, body v20240312.CreateWorkspaceApplicationVndAPIPlusJSONRequestBody, reqEditors ...v20240312.RequestEditorFn) (*v20240312.CreateWorkspaceResponse, error) {
+func (m *MockWorkspace) CreateWorkspaceWithApplicationVndAPIPlusJSONBodyWithResponse(ctx context.Context, orgId v202405140.OrgId, params *v20240514.CreateWorkspaceParams, body v20240514.CreateWorkspaceApplicationVndAPIPlusJSONRequestBody, reqEditors ...v20240514.RequestEditorFn) (*v20240514.CreateWorkspaceResponse, error) {
 	m.ctrl.T.Helper()
 	varargs := []interface{}{ctx, orgId, params, body}
 	for _, a := range reqEditors {
 		varargs = append(varargs, a)
 	}
 	ret := m.ctrl.Call(m, "CreateWorkspaceWithApplicationVndAPIPlusJSONBodyWithResponse", varargs...)
-	ret0, _ := ret[0].(*v20240312.CreateWorkspaceResponse)
+	ret0, _ := ret[0].(*v20240514.CreateWorkspaceResponse)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -58,14 +58,14 @@ func (mr *MockWorkspaceMockRecorder) CreateWorkspaceWithApplicationVndAPIPlusJSO
 }
 
 // CreateWorkspaceWithBodyWithResponse mocks base method.
-func (m *MockWorkspace) CreateWorkspaceWithBodyWithResponse(ctx context.Context, orgId v202403120.OrgId, params *v20240312.CreateWorkspaceParams, contentType string, body io.Reader, reqEditors ...v20240312.RequestEditorFn) (*v20240312.CreateWorkspaceResponse, error) {
+func (m *MockWorkspace) CreateWorkspaceWithBodyWithResponse(ctx context.Context, orgId v202405140.OrgId, params *v20240514.CreateWorkspaceParams, contentType string, body io.Reader, reqEditors ...v20240514.RequestEditorFn) (*v20240514.CreateWorkspaceResponse, error) {
 	m.ctrl.T.Helper()
 	varargs := []interface{}{ctx, orgId, params, contentType, body}
 	for _, a := range reqEditors {
 		varargs = append(varargs, a)
 	}
 	ret := m.ctrl.Call(m, "CreateWorkspaceWithBodyWithResponse", varargs...)
-	ret0, _ := ret[0].(*v20240312.CreateWorkspaceResponse)
+	ret0, _ := ret[0].(*v20240514.CreateWorkspaceResponse)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }

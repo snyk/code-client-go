@@ -100,7 +100,13 @@ func Test_UploadAndAnalyze(t *testing.T) {
 
 			mockAnalysisOrchestrator := mockAnalysis.NewMockAnalysisOrchestrator(ctrl)
 			mockAnalysisOrchestrator.EXPECT().CreateWorkspace(gomock.Any(), "4a72d1db-b465-4764-99e1-ecedad03b06a", "b372d1db-b465-4764-99e1-ecedad03b06a", target, "testBundleHash").Return("c172d1db-b465-4764-99e1-ecedad03b06a", nil)
-			mockAnalysisOrchestrator.EXPECT().RunAnalysis(gomock.Any(), "4a72d1db-b465-4764-99e1-ecedad03b06a", "testRootPath", "c172d1db-b465-4764-99e1-ecedad03b06a").Return(&sarif.SarifResponse{Status: "COMPLETE"}, nil)
+			mockAnalysisOrchestrator.EXPECT().RunIncrementalAnalysis(
+				gomock.Any(),
+				"4a72d1db-b465-4764-99e1-ecedad03b06a",
+				"testRootPath",
+				"c172d1db-b465-4764-99e1-ecedad03b06a",
+				gomock.Any(),
+			).Return(&sarif.SarifResponse{Status: "COMPLETE"}, nil)
 
 			codeScanner := codeclient.NewCodeScanner(
 				mockConfig,

@@ -74,7 +74,7 @@ func TestAnalysis_CreateWorkspace(t *testing.T) {
 	mockHTTPClient.EXPECT().Do(
 		mock.MatchedBy(func(i interface{}) bool {
 			req := i.(*http.Request)
-			return req.URL.String() == "http://localhost/hidden/orgs/4a72d1db-b465-4764-99e1-ecedad03b06a/workspaces?version=2024-03-12~experimental" &&
+			return req.URL.String() == "http://localhost/hidden/orgs/4a72d1db-b465-4764-99e1-ecedad03b06a/workspaces?version=2024-05-14~experimental" &&
 				req.Method == "POST" &&
 				req.Header.Get("Content-Type") == "application/vnd.api+json" &&
 				req.Header.Get("Snyk-Request-Id") == "b372d1db-b465-4764-99e1-ecedad03b06a" &&
@@ -91,7 +91,14 @@ func TestAnalysis_CreateWorkspace(t *testing.T) {
 	target, err := scan.NewRepositoryTarget("../../")
 	assert.NoError(t, err)
 
-	analysisOrchestrator := analysis.NewAnalysisOrchestrator(mockConfig, &logger, mockHTTPClient, mockInstrumentor, mockErrorReporter, mockTrackerFactory)
+	analysisOrchestrator := analysis.NewAnalysisOrchestrator(
+		mockConfig,
+		mockHTTPClient,
+		analysis.WithLogger(&logger),
+		analysis.WithInstrumentor(mockInstrumentor),
+		analysis.WithTrackerFactory(mockTrackerFactory),
+		analysis.WithErrorReporter(mockErrorReporter),
+	)
 	_, err = analysisOrchestrator.CreateWorkspace(
 		context.Background(),
 		"4a72d1db-b465-4764-99e1-ecedad03b06a",
@@ -112,7 +119,15 @@ func TestAnalysis_CreateWorkspace_NotARepository(t *testing.T) {
 	target, err := scan.NewRepositoryTarget(repoDir)
 	assert.ErrorContains(t, err, "open local repository")
 
-	analysisOrchestrator := analysis.NewAnalysisOrchestrator(mockConfig, &logger, mockHTTPClient, mockInstrumentor, mockErrorReporter, mockTrackerFactory)
+	analysisOrchestrator := analysis.NewAnalysisOrchestrator(
+		mockConfig,
+		mockHTTPClient,
+		analysis.WithLogger(&logger),
+		analysis.WithInstrumentor(mockInstrumentor),
+		analysis.WithTrackerFactory(mockTrackerFactory),
+		analysis.WithErrorReporter(mockErrorReporter),
+	)
+
 	_, err = analysisOrchestrator.CreateWorkspace(
 		context.Background(),
 		"4a72d1db-b465-4764-99e1-ecedad03b06a",
@@ -132,7 +147,7 @@ func TestAnalysis_CreateWorkspace_Failure(t *testing.T) {
 	mockHTTPClient.EXPECT().Do(
 		mock.MatchedBy(func(i interface{}) bool {
 			req := i.(*http.Request)
-			return req.URL.String() == "http://localhost/hidden/orgs/4a72d1db-b465-4764-99e1-ecedad03b06a/workspaces?version=2024-03-12~experimental" &&
+			return req.URL.String() == "http://localhost/hidden/orgs/4a72d1db-b465-4764-99e1-ecedad03b06a/workspaces?version=2024-05-14~experimental" &&
 				req.Method == "POST" &&
 				req.Header.Get("Content-Type") == "application/vnd.api+json" &&
 				req.Header.Get("Snyk-Request-Id") == "b372d1db-b465-4764-99e1-ecedad03b06a" &&
@@ -149,7 +164,15 @@ func TestAnalysis_CreateWorkspace_Failure(t *testing.T) {
 	target, err := scan.NewRepositoryTarget("../../")
 	assert.NoError(t, err)
 
-	analysisOrchestrator := analysis.NewAnalysisOrchestrator(mockConfig, &logger, mockHTTPClient, mockInstrumentor, mockErrorReporter, mockTrackerFactory)
+	analysisOrchestrator := analysis.NewAnalysisOrchestrator(
+		mockConfig,
+		mockHTTPClient,
+		analysis.WithLogger(&logger),
+		analysis.WithInstrumentor(mockInstrumentor),
+		analysis.WithTrackerFactory(mockTrackerFactory),
+		analysis.WithErrorReporter(mockErrorReporter),
+	)
+
 	_, err = analysisOrchestrator.CreateWorkspace(
 		context.Background(),
 		"4a72d1db-b465-4764-99e1-ecedad03b06a",
@@ -202,7 +225,7 @@ func TestAnalysis_CreateWorkspace_KnownErrors(t *testing.T) {
 			mockHTTPClient := httpmocks.NewMockHTTPClient(ctrl)
 			mockHTTPClient.EXPECT().Do(mock.MatchedBy(func(i interface{}) bool {
 				req := i.(*http.Request)
-				return req.URL.String() == "http://localhost/hidden/orgs/4a72d1db-b465-4764-99e1-ecedad03b06a/workspaces?version=2024-03-12~experimental" &&
+				return req.URL.String() == "http://localhost/hidden/orgs/4a72d1db-b465-4764-99e1-ecedad03b06a/workspaces?version=2024-05-14~experimental" &&
 					req.Method == "POST"
 			})).Times(1).Return(&http.Response{
 				StatusCode: tc.expectedStatus,
@@ -227,7 +250,15 @@ func TestAnalysis_CreateWorkspace_KnownErrors(t *testing.T) {
 			target, err := scan.NewRepositoryTarget("../../")
 			assert.NoError(t, err)
 
-			analysisOrchestrator := analysis.NewAnalysisOrchestrator(mockConfig, &logger, mockHTTPClient, mockInstrumentor, mockErrorReporter, mockTrackerFactory)
+			analysisOrchestrator := analysis.NewAnalysisOrchestrator(
+				mockConfig,
+				mockHTTPClient,
+				analysis.WithLogger(&logger),
+				analysis.WithInstrumentor(mockInstrumentor),
+				analysis.WithTrackerFactory(mockTrackerFactory),
+				analysis.WithErrorReporter(mockErrorReporter),
+			)
+
 			_, err = analysisOrchestrator.CreateWorkspace(
 				context.Background(),
 				"4a72d1db-b465-4764-99e1-ecedad03b06a",
@@ -282,7 +313,15 @@ func TestAnalysis_RunAnalysis(t *testing.T) {
 		Body:       io.NopCloser(bytes.NewReader(fakeResponse)),
 	}, nil)
 
-	analysisOrchestrator := analysis.NewAnalysisOrchestrator(mockConfig, &logger, mockHTTPClient, mockInstrumentor, mockErrorReporter, mockTrackerFactory)
+	analysisOrchestrator := analysis.NewAnalysisOrchestrator(
+		mockConfig,
+		mockHTTPClient,
+		analysis.WithLogger(&logger),
+		analysis.WithInstrumentor(mockInstrumentor),
+		analysis.WithTrackerFactory(mockTrackerFactory),
+		analysis.WithErrorReporter(mockErrorReporter),
+	)
+
 	analysis.WithTimeoutInSeconds(120 * time.Second)
 	actual, err := analysisOrchestrator.RunAnalysis(context.Background(), "b6fc8954-5918-45ce-bc89-54591815ce1b", "rootPath", "c172d1db-b465-4764-99e1-ecedad03b06a")
 
@@ -302,7 +341,15 @@ func TestAnalysis_RunAnalysis_TriggerFunctionError(t *testing.T) {
 			req.Method == "POST"
 	})).Times(1).Return(nil, errors.New("error"))
 
-	analysisOrchestrator := analysis.NewAnalysisOrchestrator(mockConfig, &logger, mockHTTPClient, mockInstrumentor, mockErrorReporter, mockTrackerFactory)
+	analysisOrchestrator := analysis.NewAnalysisOrchestrator(
+		mockConfig,
+		mockHTTPClient,
+		analysis.WithLogger(&logger),
+		analysis.WithInstrumentor(mockInstrumentor),
+		analysis.WithTrackerFactory(mockTrackerFactory),
+		analysis.WithErrorReporter(mockErrorReporter),
+	)
+
 	_, err := analysisOrchestrator.RunAnalysis(context.Background(), "b6fc8954-5918-45ce-bc89-54591815ce1b", "rootPath", "c172d1db-b465-4764-99e1-ecedad03b06a")
 	assert.ErrorContains(t, err, "error")
 }
@@ -360,7 +407,15 @@ func TestAnalysis_RunAnalysis_TriggerFunctionErrorCodes(t *testing.T) {
 					req.Method == "POST"
 			})).Times(1).Return(nil, errors.New(strconv.Itoa(tc.expectedStatus)))
 
-			analysisOrchestrator := analysis.NewAnalysisOrchestrator(mockConfig, &logger, mockHTTPClient, mockInstrumentor, mockErrorReporter, mockTrackerFactory)
+			analysisOrchestrator := analysis.NewAnalysisOrchestrator(
+				mockConfig,
+				mockHTTPClient,
+				analysis.WithLogger(&logger),
+				analysis.WithInstrumentor(mockInstrumentor),
+				analysis.WithTrackerFactory(mockTrackerFactory),
+				analysis.WithErrorReporter(mockErrorReporter),
+			)
+
 			_, err := analysisOrchestrator.RunAnalysis(context.Background(), "b6fc8954-5918-45ce-bc89-54591815ce1b", "rootPath", "c172d1db-b465-4764-99e1-ecedad03b06a")
 			assert.ErrorContains(t, err, tc.expectedError)
 		})
@@ -391,7 +446,15 @@ func TestAnalysis_RunAnalysis_PollingFunctionError(t *testing.T) {
 			req.Method == "GET"
 	})).Times(1).Return(nil, errors.New("error"))
 
-	analysisOrchestrator := analysis.NewAnalysisOrchestrator(mockConfig, &logger, mockHTTPClient, mockInstrumentor, mockErrorReporter, mockTrackerFactory)
+	analysisOrchestrator := analysis.NewAnalysisOrchestrator(
+		mockConfig,
+		mockHTTPClient,
+		analysis.WithLogger(&logger),
+		analysis.WithInstrumentor(mockInstrumentor),
+		analysis.WithTrackerFactory(mockTrackerFactory),
+		analysis.WithErrorReporter(mockErrorReporter),
+	)
+
 	_, err := analysisOrchestrator.RunAnalysis(context.Background(), "b6fc8954-5918-45ce-bc89-54591815ce1b", "rootPath", "c172d1db-b465-4764-99e1-ecedad03b06a")
 	assert.ErrorContains(t, err, "error")
 }
@@ -461,7 +524,15 @@ func TestAnalysis_RunAnalysis_PollingFunctionErrorCodes(t *testing.T) {
 					req.Method == "GET"
 			})).Times(1).Return(nil, errors.New(strconv.Itoa(tc.expectedStatus)))
 
-			analysisOrchestrator := analysis.NewAnalysisOrchestrator(mockConfig, &logger, mockHTTPClient, mockInstrumentor, mockErrorReporter, mockTrackerFactory)
+			analysisOrchestrator := analysis.NewAnalysisOrchestrator(
+				mockConfig,
+				mockHTTPClient,
+				analysis.WithLogger(&logger),
+				analysis.WithInstrumentor(mockInstrumentor),
+				analysis.WithTrackerFactory(mockTrackerFactory),
+				analysis.WithErrorReporter(mockErrorReporter),
+			)
+
 			_, err := analysisOrchestrator.RunAnalysis(context.Background(), "b6fc8954-5918-45ce-bc89-54591815ce1b", "rootPath", "c172d1db-b465-4764-99e1-ecedad03b06a")
 			assert.ErrorContains(t, err, tc.expectedError)
 		})
@@ -498,15 +569,17 @@ func TestAnalysis_RunAnalysis_PollingFunctionTimeout(t *testing.T) {
 		},
 		Body: io.NopCloser(bytes.NewReader([]byte(`{"data":{"attributes": {"status": "in_progress"}, "id": "a6fb2742-b67f-4dc3-bb27-42b67f1dc344"}}`))),
 	}, nil)
+
 	analysisOrchestrator := analysis.NewAnalysisOrchestrator(
 		mockConfig,
-		&logger,
 		mockHTTPClient,
-		mockInstrumentor,
-		mockErrorReporter,
-		mockTrackerFactory,
+		analysis.WithLogger(&logger),
+		analysis.WithInstrumentor(mockInstrumentor),
+		analysis.WithTrackerFactory(mockTrackerFactory),
+		analysis.WithErrorReporter(mockErrorReporter),
 		analysis.WithTimeoutInSeconds(1*time.Second),
 	)
+
 	_, err := analysisOrchestrator.RunAnalysis(context.Background(), "b6fc8954-5918-45ce-bc89-54591815ce1b", "rootPath", "c172d1db-b465-4764-99e1-ecedad03b06a")
 	assert.ErrorContains(t, err, "Snyk Code analysis timed out")
 }
@@ -547,7 +620,15 @@ func TestAnalysis_RunAnalysis_GetFindingsError(t *testing.T) {
 			req.Method == "GET"
 	})).Times(1).Return(nil, errors.New("error"))
 
-	analysisOrchestrator := analysis.NewAnalysisOrchestrator(mockConfig, &logger, mockHTTPClient, mockInstrumentor, mockErrorReporter, mockTrackerFactory)
+	analysisOrchestrator := analysis.NewAnalysisOrchestrator(
+		mockConfig,
+		mockHTTPClient,
+		analysis.WithLogger(&logger),
+		analysis.WithInstrumentor(mockInstrumentor),
+		analysis.WithTrackerFactory(mockTrackerFactory),
+		analysis.WithErrorReporter(mockErrorReporter),
+	)
+
 	_, err := analysisOrchestrator.RunAnalysis(context.Background(), "b6fc8954-5918-45ce-bc89-54591815ce1b", "rootPath", "c172d1db-b465-4764-99e1-ecedad03b06a")
 	require.ErrorContains(t, err, "error")
 }
@@ -590,7 +671,15 @@ func TestAnalysis_RunAnalysis_GetFindingsNotSuccessful(t *testing.T) {
 		Body:       io.NopCloser(bytes.NewReader([]byte{})),
 	}, nil)
 
-	analysisOrchestrator := analysis.NewAnalysisOrchestrator(mockConfig, &logger, mockHTTPClient, mockInstrumentor, mockErrorReporter, mockTrackerFactory)
+	analysisOrchestrator := analysis.NewAnalysisOrchestrator(
+		mockConfig,
+		mockHTTPClient,
+		analysis.WithLogger(&logger),
+		analysis.WithInstrumentor(mockInstrumentor),
+		analysis.WithTrackerFactory(mockTrackerFactory),
+		analysis.WithErrorReporter(mockErrorReporter),
+	)
+
 	_, err := analysisOrchestrator.RunAnalysis(context.Background(), "b6fc8954-5918-45ce-bc89-54591815ce1b", "rootPath", "c172d1db-b465-4764-99e1-ecedad03b06a")
 	require.ErrorContains(t, err, "failed to retrieve findings from findings URL")
 }

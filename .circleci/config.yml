@@ -55,7 +55,7 @@ jobs:
           name: Install tools
           command: make tools
       - run:
-          name: Run smoke tests
+          name: Run contract tests
           command: make contract-test
   build:
     executor: default

@@ -65,3 +65,18 @@ func (mr *MockAnalysisOrchestratorMockRecorder) RunAnalysis(ctx, orgId, rootPath
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RunAnalysis", reflect.TypeOf((*MockAnalysisOrchestrator)(nil).RunAnalysis), ctx, orgId, rootPath, workspaceId)
 }
+
+// RunIncrementalAnalysis mocks base method.
+func (m *MockAnalysisOrchestrator) RunIncrementalAnalysis(ctx context.Context, orgId, rootPath, workspaceId string, limitToFiles []string) (*sarif.SarifResponse, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "RunIncrementalAnalysis", ctx, orgId, rootPath, workspaceId, limitToFiles)
+	ret0, _ := ret[0].(*sarif.SarifResponse)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// RunIncrementalAnalysis indicates an expected call of RunIncrementalAnalysis.
+func (mr *MockAnalysisOrchestratorMockRecorder) RunIncrementalAnalysis(ctx, orgId, rootPath, workspaceId, limitToFiles interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RunIncrementalAnalysis", reflect.TypeOf((*MockAnalysisOrchestrator)(nil).RunIncrementalAnalysis), ctx, orgId, rootPath, workspaceId, limitToFiles)
+}

@@ -1,0 +1,105 @@
+{
+  "consumer": {
+    "name": "code-client-go"
+  },
+  "interactions": [
+    {
+      "description": "Create workspace",
+      "providerState": "New workspace",
+      "request": {
+        "body": {
+          "data": {
+            "attributes": {
+              "bundle_id": "string",
+              "repository_uri": "string",
+              "root_folder_id": "string",
+              "workspace_type": "string"
+            },
+            "type": "string"
+          }
+        },
+        "headers": {
+          "Content-Type": "application/vnd.api+json",
+          "Snyk-Request-Id": "fc763eba-0905-41c5-a27f-3934ab26786c"
+        },
+        "matchingRules": {
+          "$.body.data.attributes.bundle_id": {
+            "match": "type"
+          },
+          "$.body.data.attributes.repository_uri": {
+            "match": "type"
+          },
+          "$.body.data.attributes.root_folder_id": {
+            "match": "type"
+          },
+          "$.body.data.attributes.workspace_type": {
+            "match": "type"
+          },
+          "$.body.data.type": {
+            "match": "type"
+          },
+          "$.header['Snyk-Request-Id']": {
+            "match": "regex",
+            "regex": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}"
+          }
+        },
+        "method": "POST",
+        "path": "/orgs/e7ea34c9-de0f-422c-bf2c-4654c2e2da90/workspaces",
+        "query": "version=2024-05-14%7eexperimental"
+      },
+      "response": {
+        "body": {
+          "data": {
+            "id": [
+              1
+            ],
+            "type": "string"
+          },
+          "jsonapi": {
+            "version": "string"
+          },
+          "links": {
+            "self": {
+              "href": "string"
+            }
+          }
+        },
+        "headers": {
+          "Content-Type": "application/vnd.api+json"
+        },
+        "matchingRules": {
+          "$.body.data.id": {
+            "match": "type",
+            "min": 1
+          },
+          "$.body.data.id[*]": {
+            "match": "type"
+          },
+          "$.body.data.type": {
+            "match": "type"
+          },
+          "$.body.jsonapi.version": {
+            "match": "type"
+          },
+          "$.body.links.self.href": {
+            "match": "type"
+          }
+        },
+        "status": 200
+      }
+    }
+  ],
+  "metadata": {
+    "pactRust": {
+      "ffi": "0.4.16",
+      "mockserver": "1.2.5",
+      "models": "1.1.19"
+    },
+    "pactSpecification": {
+      "version": "2.0.0"
+    }
+  },
+  "provider": {
+    "name": "WorkspaceApi"
+  }
+}

@@ -5,22 +5,18 @@ GOARCH = $(shell go env GOARCH)
 TOOLS_BIN := $(shell pwd)/.bin
 
 OVERRIDE_GOCI_LINT_V := v1.55.2
-PACT_V := 2.4.2
-
-SHELL:=env PATH=$(TOOLS_BIN)/go:$(TOOLS_BIN)/pact/bin:$(PATH) $(SHELL)
+SHELL:=env PATH=$(TOOLS_BIN)/go:$(PATH) $(SHELL)
 
 ## tools: Install required tooling.
 .PHONY: tools
-tools: $(TOOLS_BIN)/golangci-lint $(TOOLS_BIN)/go $(TOOLS_BIN)/pact/bin/pact
+tools: $(TOOLS_BIN)/golangci-lint $(TOOLS_BIN)/go
 $(TOOLS_BIN)/golangci-lint:
 	@curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/$(OVERRIDE_GOCI_LINT_V)/install.sh | sh -s -- -b $(TOOLS_BIN)/ $(OVERRIDE_GOCI_LINT_V)
 
 $(TOOLS_BIN)/go:
 	mkdir -p ${TOOLS_BIN}/go
 	@cat tools.go | grep _ | awk -F'"' '{print $$2}' | xargs -tI % sh -c 'GOBIN=${TOOLS_BIN}/go go install %'
-
-$(TOOLS_BIN)/pact/bin/pact:
-	cd $(TOOLS_BIN); curl -fsSL https://raw.githubusercontent.com/pact-foundation/pact-ruby-standalone/v$(PACT_V)/install.sh | PACT_CLI_VERSION=v$(PACT_V) bash
+	@GOBIN=${TOOLS_BIN}/go ${TOOLS_BIN}/go/pact-go -l DEBUG install -d /tmp
 
 .PHONY: format
 format:
@@ -45,6 +41,7 @@ build:
 clean:
 	@echo "Cleaning up..."
 	@GOOS=$(GOOS) GOARCH=$(GOARCH) go clean -testcache
+	@rm -rf $(TOOLS_BIN)
 
 .PHONY: test
 test: 
@@ -57,7 +54,7 @@ testv:
 	@go test -v
 
 .PHONY: contract-test
-contract-test: $(TOOLS_BIN)/pact
+contract-test: $(TOOLS_BIN)
 	@echo "Contract testing..."
 	@go test -tags=CONTRACT ./...
 
