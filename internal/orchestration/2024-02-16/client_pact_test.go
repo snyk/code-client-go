@@ -282,7 +282,7 @@ func getBodyMatcher() matchers.Matcher {
 				"workspace_id":  getWorkspaceUUIDMatcher(),
 				"workspace_url": getWorkspaceIDMatcher(),
 			}),
-			"type": matchers.String("ide"),
+			"type": matchers.String("workspace"),
 		}),
 	})
 }
@@ -300,7 +300,7 @@ func getBodyMatcherForIncrementalScan() matchers.Matcher {
 				"workspace_id":  getWorkspaceUUIDMatcher(),
 				"workspace_url": getWorkspaceIDMatcher(),
 			}),
-			"type": matchers.String("ide"),
+			"type": matchers.String("workspace"),
 		}),
 	})
 }

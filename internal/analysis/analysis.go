@@ -58,9 +58,34 @@ type analysisOrchestrator struct {
 	trackerFactory   scan.TrackerFactory
 	config           config.Config
 	timeoutInSeconds time.Duration
+	flow             scans.Flow
 }
 
 type OptionFunc func(*analysisOrchestrator)
+
+func WithInstrumentor(instrumentor observability.Instrumentor) func(*analysisOrchestrator) {
+	return func(a *analysisOrchestrator) {
+		a.instrumentor = instrumentor
+	}
+}
+
+func WithErrorReporter(errorReporter observability.ErrorReporter) func(*analysisOrchestrator) {
+	return func(a *analysisOrchestrator) {
+		a.errorReporter = errorReporter
+	}
+}
+
+func WithLogger(logger *zerolog.Logger) func(*analysisOrchestrator) {
+	return func(a *analysisOrchestrator) {
+		a.logger = logger
+	}
+}
+
+func WithTrackerFactory(factory scan.TrackerFactory) func(*analysisOrchestrator) {
+	return func(a *analysisOrchestrator) {
+		a.trackerFactory = factory
+	}
+}
 
 func WithTimeoutInSeconds(timeoutInSeconds time.Duration) func(*analysisOrchestrator) {
 	return func(a *analysisOrchestrator) {
@@ -68,24 +93,34 @@ func WithTimeoutInSeconds(timeoutInSeconds time.Duration) func(*analysisOrchestr
 	}
 }
 
+func WithFlow(flow string) func(*analysisOrchestrator) {
+	return func(a *analysisOrchestrator) {
+		a.flow = scans.Flow{}
+		_ = a.flow.UnmarshalJSON([]byte(fmt.Sprintf(`{"name": %s}`, flow)))
+	}
+}
+
 func NewAnalysisOrchestrator(
 	config config.Config,
-	logger *zerolog.Logger,
 	httpClient codeClientHTTP.HTTPClient,
-	instrumentor observability.Instrumentor,
-	errorReporter observability.ErrorReporter,
-	trackerFactory scan.TrackerFactory,
 	options ...OptionFunc,
 ) AnalysisOrchestrator {
+
+	nopLogger := zerolog.Nop()
+	flow := scans.Flow{}
+	_ = flow.UnmarshalJSON([]byte(`{"name": "ide_test"}`))
+
 	a := &analysisOrchestrator{
 		httpClient:       httpClient,
-		instrumentor:     instrumentor,
-		errorReporter:    errorReporter,
-		logger:           logger,
-		trackerFactory:   trackerFactory,
 		config:           config,
+		instrumentor:     observability.NewInstrumentor(),
+		trackerFactory:   scan.NewNoopTrackerFactory(),
+		errorReporter:    observability.NewErrorReporter(&nopLogger),
+		logger:           &nopLogger,
 		timeoutInSeconds: 120 * time.Second,
+		flow:             flow,
 	}
+
 	for _, option := range options {
 		option(a)
 	}
@@ -241,12 +276,6 @@ func (a *analysisOrchestrator) triggerScan(
 ) (*openapi_types.UUID, error) {
 	workspaceUUID := uuid.MustParse(workspaceId)
 
-	flow := scans.Flow{}
-	err := flow.UnmarshalJSON([]byte(`{"name": "ide_test"}`))
-	if err != nil {
-		return nil, errors.Wrap(err, "cannot create test flow element")
-	}
-
 	scanOptions := &struct {
 		LimitScanToFiles *[]string `json:"limit_scan_to_files,omitempty"`
 	}{
@@ -277,7 +306,7 @@ func (a *analysisOrchestrator) triggerScan(
 			WorkspaceId  *openapi_types.UUID `json:"workspace_id,omitempty"`
 			WorkspaceUrl string              `json:"workspace_url"`
 		}{
-			Flow:         flow,
+			Flow:         a.flow,
 			WorkspaceUrl: fmt.Sprintf("http://workspace-service/workspaces/%s", workspaceId),
 			WorkspaceId:  &workspaceUUID,
 			ScanOptions:  scanOptions,
