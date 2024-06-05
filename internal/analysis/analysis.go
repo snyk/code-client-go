@@ -111,7 +111,8 @@ func (a *analysisOrchestrator) CreateWorkspace(ctx context.Context, orgId string
 		return "", fmt.Errorf("target is nil")
 	}
 
-	var repositoryTargetPath, repositoryTargetURL string
+	repositoryTargetPath := target.GetPath()
+	var repositoryTargetURL string
 	if repositoryTarget, ok := target.(*scan.RepositoryTarget); ok {
 		repositoryTargetPath, repositoryTargetURL = repositoryTarget.GetPath(), repositoryTarget.GetRepositoryUrl()
 	}
