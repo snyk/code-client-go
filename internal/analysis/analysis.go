@@ -96,7 +96,7 @@ func WithTimeoutInSeconds(timeoutInSeconds time.Duration) func(*analysisOrchestr
 func WithFlow(flow string) func(*analysisOrchestrator) {
 	return func(a *analysisOrchestrator) {
 		a.flow = scans.Flow{}
-		_ = a.flow.UnmarshalJSON([]byte(fmt.Sprintf(`{"name": %s}`, flow)))
+		_ = a.flow.UnmarshalJSON([]byte(fmt.Sprintf(`{"name": "%s"}`, flow)))
 	}
 }
 
