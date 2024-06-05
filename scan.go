@@ -28,6 +28,7 @@ import (
 	"github.com/snyk/code-client-go/internal/analysis"
 	"github.com/snyk/code-client-go/internal/bundle"
 	"github.com/snyk/code-client-go/internal/deepcode"
+	scans "github.com/snyk/code-client-go/internal/orchestration/2024-02-16/scans"
 	"github.com/snyk/code-client-go/observability"
 	"github.com/snyk/code-client-go/sarif"
 	"github.com/snyk/code-client-go/scan"
@@ -107,9 +108,8 @@ func NewCodeScanner(
 		logger:         &nopLogger,
 		instrumentor:   instrumentor,
 		trackerFactory: trackerFactory,
+		flow:           string(scans.IdeTest),
 	}
-
-	scanner.flow = "ide_test"
 
 	for _, option := range options {
 		option(scanner)
@@ -214,8 +214,12 @@ func (c *codeScanner) UploadAndAnalyze(
 			return nil, bundleHash, nil
 		}
 	}
+	var limitToFiles []string
+	for file := range changedFiles {
+		limitToFiles = append(limitToFiles, file)
+	}
+	response, err := c.analysisOrchestrator.RunIncrementalAnalysis(ctx, c.config.Organization(), b.GetRootPath(), workspaceId, limitToFiles)
 
-	response, err := c.analysisOrchestrator.RunAnalysis(ctx, c.config.Organization(), b.GetRootPath(), workspaceId)
 	if ctx.Err() != nil {
 		c.logger.Info().Msg("Canceling Code scan - Code scanner received cancellation signal")
 		return nil, bundleHash, nil

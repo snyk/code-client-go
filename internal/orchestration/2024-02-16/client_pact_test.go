@@ -277,7 +277,7 @@ func getBodyMatcher() matchers.Matcher {
 		"data": matchers.Like(map[string]interface{}{
 			"attributes": matchers.Like(map[string]interface{}{
 				"flow": matchers.MapMatcher{
-					"name": matchers.String("ide_test"),
+					"name": matchers.String(scans.IdeTest),
 				},
 				"workspace_id":  getWorkspaceUUIDMatcher(),
 				"workspace_url": getWorkspaceIDMatcher(),
@@ -292,7 +292,7 @@ func getBodyMatcherForIncrementalScan() matchers.Matcher {
 		"data": matchers.Like(map[string]interface{}{
 			"attributes": matchers.Like(map[string]interface{}{
 				"flow": matchers.MapMatcher{
-					"name": matchers.String("ide_test"),
+					"name": matchers.String(scans.IdeTest),
 				},
 				"scan_options": matchers.MapMatcher{
 					"limit_scan_to_files": getIncrementalScanOptionsMatcher(),

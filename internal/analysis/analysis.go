@@ -107,7 +107,7 @@ func NewAnalysisOrchestrator(
 ) AnalysisOrchestrator {
 	nopLogger := zerolog.Nop()
 	flow := scans.Flow{}
-	_ = flow.UnmarshalJSON([]byte(`{"name": "ide_test"}`))
+	_ = flow.UnmarshalJSON([]byte(fmt.Sprintf(`{"name": "%s"}`, scans.IdeTest)))
 
 	a := &analysisOrchestrator{
 		httpClient:       httpClient,

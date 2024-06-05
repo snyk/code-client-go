@@ -34,6 +34,7 @@ import (
 
 	codeClient "github.com/snyk/code-client-go"
 	codeClientHTTP "github.com/snyk/code-client-go/http"
+	scans "github.com/snyk/code-client-go/internal/orchestration/2024-02-16/scans"
 	"github.com/snyk/code-client-go/internal/util/testutil"
 	"github.com/snyk/code-client-go/scan"
 )
@@ -134,7 +135,7 @@ func Test_SmokeScan_HTTPS_CLI(t *testing.T) {
 		codeClient.WithLogger(&logger),
 		codeClient.WithInstrumentor(instrumentor),
 		codeClient.WithErrorReporter(errorReporter),
-		codeClient.WithFlow("cli_test"),
+		codeClient.WithFlow(string(scans.CliTest)),
 	)
 
 	// let's have a requestID that does not change
