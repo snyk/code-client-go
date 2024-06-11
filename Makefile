@@ -5,13 +5,16 @@ GOARCH = $(shell go env GOARCH)
 TOOLS_BIN := $(shell pwd)/.bin
 
 OVERRIDE_GOCI_LINT_V := v1.55.2
-SHELL:=env PATH=$(TOOLS_BIN)/go:$(PATH) $(SHELL)
+SHELL:=env PATH=$(TOOLS_BIN)/go:$(TOOLS_BIN)/pact/bin:$(PATH) $(SHELL)
 
 ## tools: Install required tooling.
 .PHONY: tools
 tools: $(TOOLS_BIN)/golangci-lint $(TOOLS_BIN)/go
 $(TOOLS_BIN)/golangci-lint:
 	@curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/$(OVERRIDE_GOCI_LINT_V)/install.sh | sh -s -- -b $(TOOLS_BIN)/ $(OVERRIDE_GOCI_LINT_V)
+
+$(TOOLS_BIN)/pact-broker:
+	@cd $(TOOLS_BIN); curl -fsSL https://raw.githubusercontent.com/pact-foundation/pact-ruby-standalone/master/install.sh | PACT_CLI_VERSION=v2.4.4 bash; cd ../
 
 $(TOOLS_BIN)/go:
 	mkdir -p ${TOOLS_BIN}/go
@@ -64,7 +67,7 @@ contract-test: $(TOOLS_BIN)
 	@go test -tags=contract ./...
 
 .PHONY: publish-contract
-publish-contract:
+publish-contract: $(TOOLS_BIN)/pact-broker
 	./scripts/publish-contract.sh
 
 .PHONY: generate
