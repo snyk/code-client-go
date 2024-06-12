@@ -10,50 +10,46 @@
         "body": {
           "data": {
             "attributes": {
-              "bundle_id": "string",
-              "repository_uri": "string",
-              "root_folder_id": "string",
-              "workspace_type": "string"
+              "bundle_id": "sampleYnVuZGxlSWQK",
+              "repository_uri": "https://url.invalid/code-client-go.git",
+              "root_folder_id": "",
+              "workspace_type": "file_bundle_workspace"
             },
-            "type": "string"
+            "type": "workspace"
           }
         },
         "headers": {
+          "Authorization": "Bearer fc763eba-0905-41c5-a27f-3934ab26786c",
           "Content-Type": "application/vnd.api+json",
-          "Snyk-Request-Id": "fc763eba-0905-41c5-a27f-3934ab26786c"
+          "Snyk-Request-Id": "fc763eba-0905-41c5-a27f-3934ab26786c",
+          "User-Agent": "go-http-client/1.1"
         },
         "matchingRules": {
-          "$.body.data.attributes.bundle_id": {
+          "$.body": {
             "match": "type"
           },
-          "$.body.data.attributes.repository_uri": {
-            "match": "type"
-          },
-          "$.body.data.attributes.root_folder_id": {
-            "match": "type"
-          },
-          "$.body.data.attributes.workspace_type": {
-            "match": "type"
-          },
-          "$.body.data.type": {
-            "match": "type"
+          "$.header.Authorization": {
+            "match": "regex",
+            "regex": "^Bearer [0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}"
           },
           "$.header['Snyk-Request-Id']": {
             "match": "regex",
             "regex": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}"
+          },
+          "$.header['User-Agent']": {
+            "match": "regex",
+            "regex": ".*"
           }
         },
         "method": "POST",
-        "path": "/orgs/e7ea34c9-de0f-422c-bf2c-4654c2e2da90/workspaces",
+        "path": "/hidden/orgs/e7ea34c9-de0f-422c-bf2c-4654c2e2da90/workspaces",
         "query": "version=2024-05-14%7eexperimental"
       },
       "response": {
         "body": {
           "data": {
-            "id": [
-              1
-            ],
-            "type": "string"
+            "id": "9c2c14da-7035-4280-bafb-d3e874ebd4af",
+            "type": "file_bundle_workspace"
           },
           "jsonapi": {
             "version": "string"
@@ -65,17 +61,10 @@
           }
         },
         "headers": {
-          "Content-Type": "application/vnd.api+json"
+          "Content-Type": "application/vnd.api+json; charset=utf-8"
         },
         "matchingRules": {
-          "$.body.data.id": {
-            "match": "type",
-            "min": 1
-          },
-          "$.body.data.id[*]": {
-            "match": "type"
-          },
-          "$.body.data.type": {
+          "$.body.data": {
             "match": "type"
           },
           "$.body.jsonapi.version": {
@@ -85,7 +74,7 @@
             "match": "type"
           }
         },
-        "status": 200
+        "status": 201
       }
     }
   ],
@@ -100,6 +89,6 @@
     }
   },
   "provider": {
-    "name": "WorkspaceApi"
+    "name": "workspace-service"
   }
 }

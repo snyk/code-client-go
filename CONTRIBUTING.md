@@ -86,9 +86,9 @@ make contract-test
 These tests use `pact` and the name of each test should start with `TestPact`. The contracts end up in [https://snyk-dev.pactflow.io/](https://snyk-dev.pactflow.io/).
 
 If writing contract tests, use the test implementations in [./internal/util/testutil](./internal/util/testutil) and
-make sure that at the top of each file is the following line `//go:build CONTRACT`.
+make sure that at the top of each file is the following line `//go:build contract`.
 
-These tests are used then in the CI/CD as a gate for the PR.
+These tests are used then in the CI/CD as a gate for the PR and for the release process in `main`.
 
 ### Smoke tests
 
@@ -192,7 +192,13 @@ Do not hold onto your changes for too long. Commit and push frequently and creat
 We use a [GitHub Action](https://github.com/marketplace/actions/conventional-release-labels) to generate labels which are then used to generate the release notes when merging the PR.
 The title of the PR is what is used to generate the labels.
 
+The following steps run in the CI/CD of a PR and gate the merge:
+![](PR pipeline.jpg)
+
 ## Merging PRs
 
 We use a [GitHub Action](https://github.com/marketplace/actions/semver-conventional-commits) to compute the version based on conventional commit messages, push a tag with the computed version, then use
 the [GitHub Release CLI](https://cli.github.com/manual/gh_release_create) to generate release notes based on labels.
+
+The following steps run in the CI/CD of the `main` branch and gate the release:
+![](main pipeline.png)

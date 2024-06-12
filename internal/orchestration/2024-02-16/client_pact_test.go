@@ -1,4 +1,4 @@
-//go:build CONTRACT
+//go:build contract
 
 /*
  * © 2022-2024 Snyk Limited
@@ -23,6 +23,7 @@ import (
 	"fmt"
 	"net/http"
 	"testing"
+	"time"
 
 	"github.com/pact-foundation/pact-go/v2/consumer"
 	"github.com/pact-foundation/pact-go/v2/matchers"
@@ -42,7 +43,7 @@ import (
 const (
 	consumerName = "code-client-go"
 	pactDir      = "./pacts"
-	pactProvider = "OrchestrationApi"
+	pactProvider = "orchestration-service"
 
 	orgUUID       = "e7ea34c9-de0f-422c-bf2c-4654c2e2da90"
 	workspaceId   = "b6ea34c9-de0f-422c-bf2c-4654c2e2da90"
@@ -256,9 +257,13 @@ func setupPact(t *testing.T) {
 	errorReporter := testutil.NewTestErrorReporter()
 	httpClient = codeClientHTTP.NewHTTPClient(
 		func() *http.Client {
-			return http.DefaultClient
+			client := http.Client{
+				Timeout:   time.Duration(60) * time.Second,
+				Transport: testutil.TestAuthRoundTripper{http.DefaultTransport},
+			}
+			return &client
 		},
-		codeClientHTTP.WithRetryCount(3),
+		codeClientHTTP.WithRetryCount(1),
 		codeClientHTTP.WithInstrumentor(instrumentor),
 		codeClientHTTP.WithErrorReporter(errorReporter),
 		codeClientHTTP.WithLogger(&logger),

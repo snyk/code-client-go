@@ -1,4 +1,4 @@
-//go:build SMOKE
+//go:build smoke
 
 /*
  * © 2024 Snyk Limited All rights reserved.
@@ -19,7 +19,6 @@ package codeclient_test
 
 import (
 	"context"
-	"fmt"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -39,19 +38,13 @@ import (
 	"github.com/snyk/code-client-go/scan"
 )
 
-func Test_SmokeScan_HTTPS_IDE(t *testing.T) {
-	if os.Getenv("SMOKE_TESTS") != "true" {
-		t.Skip()
-	}
+func TestSmoke_Scan_HTTPS(t *testing.T) {
 	var cloneTargetDir, err = testutil.SetupCustomTestRepo(t, "https://github.com/snyk-labs/nodejs-goof", "0336589", "", "")
 	assert.NoError(t, err)
 
 	target, err := scan.NewRepositoryTarget(cloneTargetDir)
 	assert.NoError(t, err)
 
-	if err != nil {
-		t.Fatal(err, "Couldn't setup test repo")
-	}
 	files := sliceToChannel([]string{filepath.Join(cloneTargetDir, "app.js"), filepath.Join(cloneTargetDir, "utils.js")})
 
 	logger := zerolog.New(os.Stdout).Level(zerolog.TraceLevel)
@@ -62,7 +55,7 @@ func Test_SmokeScan_HTTPS_IDE(t *testing.T) {
 		func() *http.Client {
 			client := http.Client{
 				Timeout:   time.Duration(180) * time.Second,
-				Transport: TestAuthRoundTripper{http.DefaultTransport},
+				Transport: testutil.TestAuthRoundTripper{http.DefaultTransport},
 			}
 			return &client
 		},
@@ -96,9 +89,6 @@ func Test_SmokeScan_HTTPS_IDE(t *testing.T) {
 }
 
 func Test_SmokeScan_HTTPS_CLI(t *testing.T) {
-	if os.Getenv("SMOKE_TESTS") != "true" {
-		t.Skip()
-	}
 	var cloneTargetDir, err = testutil.SetupCustomTestRepo(t, "https://github.com/snyk-labs/nodejs-goof", "0336589", "", "")
 	assert.NoError(t, err)
 
@@ -118,7 +108,7 @@ func Test_SmokeScan_HTTPS_CLI(t *testing.T) {
 		func() *http.Client {
 			client := http.Client{
 				Timeout:   time.Duration(180) * time.Second,
-				Transport: TestAuthRoundTripper{http.DefaultTransport},
+				Transport: testutil.TestAuthRoundTripper{http.DefaultTransport},
 			}
 			return &client
 		},
@@ -152,20 +142,13 @@ func Test_SmokeScan_HTTPS_CLI(t *testing.T) {
 	require.NotNil(t, response.Sarif.Runs[0].Results[0].Locations[0].PhysicalLocation.ArtifactLocation.URI)
 }
 
-func Test_SmokeScan_SSH(t *testing.T) {
-	if os.Getenv("SMOKE_TESTS") != "true" {
-		t.Skip()
-	}
+func TestSmoke_Scan_SSH(t *testing.T) {
 	var cloneTargetDir, err = testutil.SetupCustomTestRepo(t, "git@github.com:snyk-labs/nodejs-goof", "0336589", "", "")
 	assert.NoError(t, err)
 
 	target, err := scan.NewRepositoryTarget(cloneTargetDir)
 	assert.NoError(t, err)
 
-	defer func(path string) { _ = os.RemoveAll(path) }(cloneTargetDir)
-	if err != nil {
-		t.Fatal(err, "Couldn't setup test repo")
-	}
 	files := sliceToChannel([]string{filepath.Join(cloneTargetDir, "app.js"), filepath.Join(cloneTargetDir, "utils.js")})
 
 	logger := zerolog.New(os.Stdout)
@@ -176,7 +159,7 @@ func Test_SmokeScan_SSH(t *testing.T) {
 		func() *http.Client {
 			client := http.Client{
 				Timeout:   time.Duration(180) * time.Second,
-				Transport: TestAuthRoundTripper{http.DefaultTransport},
+				Transport: testutil.TestAuthRoundTripper{http.DefaultTransport},
 			}
 			return &client
 		},
@@ -204,13 +187,11 @@ func Test_SmokeScan_SSH(t *testing.T) {
 	require.NotNil(t, response)
 }
 
-func Test_SmokeScan_SubFolder(t *testing.T) {
-	if os.Getenv("SMOKE_TESTS") != "true" {
-		t.Skip()
-	}
+func TestSmoke_Scan_SubFolder(t *testing.T) {
 	currDir, err := os.Getwd()
 	require.NoError(t, err)
 	cloneTargetDir := filepath.Join(currDir, "internal/util")
+
 	target, err := scan.NewRepositoryTarget(cloneTargetDir)
 	assert.NoError(t, err)
 
@@ -224,7 +205,7 @@ func Test_SmokeScan_SubFolder(t *testing.T) {
 		func() *http.Client {
 			client := http.Client{
 				Timeout:   time.Duration(180) * time.Second,
-				Transport: TestAuthRoundTripper{http.DefaultTransport},
+				Transport: testutil.TestAuthRoundTripper{http.DefaultTransport},
 			}
 			return &client
 		},
@@ -250,15 +231,4 @@ func Test_SmokeScan_SubFolder(t *testing.T) {
 	require.NoError(t, scanErr)
 	require.NotEmpty(t, bundleHash)
 	require.NotNil(t, response)
-}
-
-type TestAuthRoundTripper struct {
-	http.RoundTripper
-}
-
-func (tart TestAuthRoundTripper) RoundTrip(req *http.Request) (res *http.Response, e error) {
-	token := os.Getenv("SMOKE_TEST_TOKEN")
-	req.Header.Set("Authorization", fmt.Sprintf("token %s", token))
-	req.Header.Set("session_token", token)
-	return tart.RoundTripper.RoundTrip(req)
 }

@@ -1,4 +1,4 @@
-//go:build CONTRACT
+//go:build contract
 
 /*
  * © 2022-2024 Snyk Limited
@@ -51,7 +51,7 @@ var (
 	pact *consumer.V2HTTPMockProvider
 )
 
-func TestSnykCodeClientPact(t *testing.T) {
+func TestPact_DeepcodeClient(t *testing.T) {
 	setupPact(t)
 
 	t.Run("Create bundle", func(t *testing.T) {
