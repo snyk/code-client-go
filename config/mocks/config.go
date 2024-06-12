@@ -6,6 +6,7 @@ package mocks
 
 import (
 	reflect "reflect"
+	time "time"
 
 	gomock "github.com/golang/mock/gomock"
 )
@@ -73,6 +74,20 @@ func (m *MockConfig) SnykApi() string {
 func (mr *MockConfigMockRecorder) SnykApi() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SnykApi", reflect.TypeOf((*MockConfig)(nil).SnykApi))
+}
+
+// SnykCodeAnalysisTimeout mocks base method.
+func (m *MockConfig) SnykCodeAnalysisTimeout() time.Duration {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "SnykCodeAnalysisTimeout")
+	ret0, _ := ret[0].(time.Duration)
+	return ret0
+}
+
+// SnykCodeAnalysisTimeout indicates an expected call of SnykCodeAnalysisTimeout.
+func (mr *MockConfigMockRecorder) SnykCodeAnalysisTimeout() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SnykCodeAnalysisTimeout", reflect.TypeOf((*MockConfig)(nil).SnykCodeAnalysisTimeout))
 }
 
 // SnykCodeApi mocks base method.

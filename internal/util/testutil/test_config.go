@@ -17,6 +17,7 @@ package testutil
 
 import (
 	"github.com/snyk/code-client-go/config"
+	"time"
 )
 
 type localConfig struct {
@@ -36,6 +37,10 @@ func (l localConfig) SnykCodeApi() string {
 
 func (l localConfig) SnykApi() string {
 	return "https://app.dev.snyk.io/api"
+}
+
+func (l localConfig) SnykCodeAnalysisTimeout() time.Duration {
+	return 120 * time.Second
 }
 
 // NewTestConfig is used in pact testing.

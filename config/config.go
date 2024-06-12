@@ -1,5 +1,7 @@
 package config
 
+import "time"
+
 // Config defines the configurable options for the HTTP client.
 //
 //go:generate mockgen -destination=mocks/config.go -source=config.go -package mocks
@@ -19,4 +21,7 @@ type Config interface {
 
 	// SnykApi returns the Snyk REST API URL configured to run against,
 	SnykApi() string
+
+	// SnykCodeAnalysisTimeout returns the timeout for analysis
+	SnykCodeAnalysisTimeout() time.Duration
 }

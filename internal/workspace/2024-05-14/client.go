@@ -242,6 +242,7 @@ func NewCreateWorkspaceRequestWithBody(server string, orgId externalRef2.OrgId, 
 		}
 
 		req.Header.Set("content-type", headerParam2)
+
 	}
 
 	return req, nil
