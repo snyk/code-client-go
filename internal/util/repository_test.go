@@ -71,34 +71,6 @@ func Test_GetRepositoryUrl_repo_without_credentials(t *testing.T) {
 	assert.Equal(t, expectedRepoUrl, actualUrl)
 }
 
-func Test_GetRepositoryUrl_repo_with_ssh(t *testing.T) {
-	// check out a repo and prepare its config to contain credentials in the URL
-	expectedRepoUrl := "https://github.com/snyk-fixtures/shallow-goof-locked.git"
-
-	repoDir, err := testutil.SetupCustomTestRepo(t, expectedRepoUrl, "master", "", "shallow-goof-locked")
-	require.NoError(t, err)
-
-	repo, err := git.PlainOpenWithOptions(repoDir, &git.PlainOpenOptions{
-		DetectDotGit: true,
-	})
-	require.NoError(t, err)
-
-	config, err := repo.Config()
-	assert.NoError(t, err)
-
-	for i := range config.Remotes["origin"].URLs {
-		config.Remotes["origin"].URLs[i] = "git@github.com:snyk-fixtures/shallow-goof-locked.git"
-	}
-
-	err = repo.SetConfig(config)
-	assert.NoError(t, err)
-
-	// run method under test
-	actualUrl, err := util.GetRepositoryUrl(repoDir)
-	assert.NoError(t, err)
-	assert.Equal(t, expectedRepoUrl, actualUrl)
-}
-
 func Test_GetRepositoryUrl_no_repo(t *testing.T) {
 	repoDir := t.TempDir()
 	actualUrl, err := util.GetRepositoryUrl(repoDir)

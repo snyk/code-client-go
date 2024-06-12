@@ -18,10 +18,8 @@ package util
 
 import (
 	"fmt"
-	"net/url"
-	"strings"
-
 	"github.com/go-git/go-git/v5"
+	"net/url"
 )
 
 func GetRepositoryUrl(path string) (string, error) {
@@ -45,8 +43,6 @@ func GetRepositoryUrl(path string) (string, error) {
 	repoUrl := remote.Config().URLs[0]
 	repoUrl, err = SanitiseCredentials(repoUrl)
 
-	// we need to return an actual URL, not the SSH
-	repoUrl = strings.Replace(repoUrl, "git@github.com:", "https://github.com/", 1)
 	return repoUrl, err
 }
 
