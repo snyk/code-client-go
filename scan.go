@@ -125,6 +125,7 @@ func NewCodeScanner(
 		analysis.WithInstrumentor(scanner.instrumentor),
 		analysis.WithErrorReporter(scanner.errorReporter),
 		analysis.WithTrackerFactory(scanner.trackerFactory),
+		analysis.WithLogger(scanner.logger),
 		analysis.WithFlow(scanner.flow),
 	)
 	scanner.analysisOrchestrator = analysisOrchestrator
@@ -214,11 +215,8 @@ func (c *codeScanner) UploadAndAnalyze(
 			return nil, bundleHash, nil
 		}
 	}
-	var limitToFiles []string
-	for file := range changedFiles {
-		limitToFiles = append(limitToFiles, file)
-	}
-	response, err := c.analysisOrchestrator.RunIncrementalAnalysis(ctx, c.config.Organization(), b.GetRootPath(), workspaceId, limitToFiles)
+
+	response, err := c.analysisOrchestrator.RunIncrementalAnalysis(ctx, c.config.Organization(), b.GetRootPath(), workspaceId, b.GetLimitToFiles())
 
 	if ctx.Err() != nil {
 		c.logger.Info().Msg("Canceling Code scan - Code scanner received cancellation signal")

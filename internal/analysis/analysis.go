@@ -241,7 +241,7 @@ func (a *analysisOrchestrator) RunIncrementalAnalysis(ctx context.Context, orgId
 	org := uuid.MustParse(orgId)
 
 	host := a.host(false)
-	a.logger.Debug().Str("host", host).Str("workspaceId", workspaceId).Msg("starting scan")
+	a.logger.Debug().Str("host", host).Str("workspaceId", workspaceId).Interface("limitToFiles", limitToFiles).Msg("starting scan")
 
 	client, err := orchestrationClient.NewClientWithResponses(host, orchestrationClient.WithHTTPClient(a.httpClient))
 	if err != nil {
