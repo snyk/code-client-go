@@ -105,7 +105,7 @@ func Test_UploadAndAnalyze(t *testing.T) {
 				"4a72d1db-b465-4764-99e1-ecedad03b06a",
 				"testRootPath",
 				"c172d1db-b465-4764-99e1-ecedad03b06a",
-				gomock.Any(),
+				[]string{},
 			).Return(&sarif.SarifResponse{Status: "COMPLETE"}, nil)
 
 			codeScanner := codeclient.NewCodeScanner(
@@ -124,6 +124,43 @@ func Test_UploadAndAnalyze(t *testing.T) {
 			require.NoError(t, err)
 			assert.Equal(t, "COMPLETE", response.Status)
 			assert.Equal(t, "testBundleHash", bundleHash)
+		},
+	)
+
+	t.Run(
+		"should send the changed files to the analysis", func(t *testing.T) {
+			relativeChangedFile := "./nested/folder/nested/file.ts"
+
+			mockBundle := bundle.NewBundle(deepcodeMocks.NewMockDeepcodeClient(ctrl), mockInstrumentor, mockErrorReporter, &logger, "testRootPath", "testBundleHash", files, []string{relativeChangedFile}, []string{})
+			mockBundleManager := bundleMocks.NewMockBundleManager(ctrl)
+			mockBundleManager.EXPECT().Create(gomock.Any(), "b372d1db-b465-4764-99e1-ecedad03b06a", baseDir, gomock.Any(), map[string]bool{}).Return(mockBundle, nil)
+			mockBundleManager.EXPECT().Upload(gomock.Any(), "b372d1db-b465-4764-99e1-ecedad03b06a", mockBundle, files).Return(mockBundle, nil)
+
+			mockAnalysisOrchestrator := mockAnalysis.NewMockAnalysisOrchestrator(ctrl)
+			mockAnalysisOrchestrator.EXPECT().CreateWorkspace(gomock.Any(), "4a72d1db-b465-4764-99e1-ecedad03b06a", "b372d1db-b465-4764-99e1-ecedad03b06a", target, "testBundleHash").Return("c172d1db-b465-4764-99e1-ecedad03b06a", nil)
+			mockAnalysisOrchestrator.EXPECT().RunIncrementalAnalysis(
+				gomock.Any(),
+				"4a72d1db-b465-4764-99e1-ecedad03b06a",
+				"testRootPath",
+				"c172d1db-b465-4764-99e1-ecedad03b06a",
+				[]string{relativeChangedFile},
+			).Return(&sarif.SarifResponse{Status: "COMPLETE"}, nil)
+
+			codeScanner := codeclient.NewCodeScanner(
+				mockConfig,
+				mockHTTPClient,
+				codeclient.WithTrackerFactory(mockTrackerFactory),
+				codeclient.WithInstrumentor(mockInstrumentor),
+				codeclient.WithErrorReporter(mockErrorReporter),
+				codeclient.WithLogger(&logger),
+			)
+
+			response, _, err := codeScanner.
+				WithBundleManager(mockBundleManager).
+				WithAnalysisOrchestrator(mockAnalysisOrchestrator).
+				UploadAndAnalyze(context.Background(), "b372d1db-b465-4764-99e1-ecedad03b06a", target, docs, map[string]bool{})
+			require.NoError(t, err)
+			assert.Equal(t, "COMPLETE", response.Status)
 		},
 	)
 }
