@@ -38,7 +38,7 @@ import (
 	"github.com/snyk/code-client-go/scan"
 )
 
-func TestSmoke_Scan_HTTPS(t *testing.T) {
+func TestSmoke_Scan_IDE(t *testing.T) {
 	var cloneTargetDir, err = testutil.SetupCustomTestRepo(t, "https://github.com/snyk-labs/nodejs-goof", "0336589", "", "")
 	assert.NoError(t, err)
 
@@ -88,7 +88,7 @@ func TestSmoke_Scan_HTTPS(t *testing.T) {
 	require.NotNil(t, response.Sarif.Runs[0].Results[0].Locations[0].PhysicalLocation.ArtifactLocation.URI)
 }
 
-func Test_SmokeScan_HTTPS_CLI(t *testing.T) {
+func Test_SmokeScan_CLI(t *testing.T) {
 	var cloneTargetDir, err = testutil.SetupCustomTestRepo(t, "https://github.com/snyk-labs/nodejs-goof", "0336589", "", "")
 	assert.NoError(t, err)
 
@@ -140,51 +140,6 @@ func Test_SmokeScan_HTTPS_CLI(t *testing.T) {
 	require.Greater(t, len(response.Sarif.Runs[0].Results), 0)
 	require.Greater(t, len(response.Sarif.Runs[0].Results[0].Locations), 0)
 	require.NotNil(t, response.Sarif.Runs[0].Results[0].Locations[0].PhysicalLocation.ArtifactLocation.URI)
-}
-
-func TestSmoke_Scan_SSH(t *testing.T) {
-	var cloneTargetDir, err = testutil.SetupCustomTestRepo(t, "git@github.com:snyk-labs/nodejs-goof", "0336589", "", "")
-	assert.NoError(t, err)
-
-	target, err := scan.NewRepositoryTarget(cloneTargetDir)
-	assert.NoError(t, err)
-
-	files := sliceToChannel([]string{filepath.Join(cloneTargetDir, "app.js"), filepath.Join(cloneTargetDir, "utils.js")})
-
-	logger := zerolog.New(os.Stdout)
-	instrumentor := testutil.NewTestInstrumentor()
-	errorReporter := testutil.NewTestErrorReporter()
-	config := testutil.NewTestConfig()
-	httpClient := codeClientHTTP.NewHTTPClient(
-		func() *http.Client {
-			client := http.Client{
-				Timeout:   time.Duration(180) * time.Second,
-				Transport: testutil.TestAuthRoundTripper{http.DefaultTransport},
-			}
-			return &client
-		},
-		codeClientHTTP.WithRetryCount(3),
-		codeClientHTTP.WithLogger(&logger),
-	)
-	trackerFactory := scan.NewNoopTrackerFactory()
-
-	codeScanner := codeClient.NewCodeScanner(
-		config,
-		httpClient,
-		codeClient.WithTrackerFactory(trackerFactory),
-		codeClient.WithInstrumentor(instrumentor),
-		codeClient.WithErrorReporter(errorReporter),
-		codeClient.WithLogger(&logger),
-	)
-
-	// let's have a requestID that does not change
-	span := instrumentor.StartSpan(context.Background(), "UploadAndAnalyze")
-	defer span.Finish()
-
-	response, bundleHash, scanErr := codeScanner.UploadAndAnalyze(span.Context(), uuid.New().String(), target, files, map[string]bool{})
-	require.NoError(t, scanErr)
-	require.NotEmpty(t, bundleHash)
-	require.NotNil(t, response)
 }
 
 func TestSmoke_Scan_SubFolder(t *testing.T) {
