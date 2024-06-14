@@ -51,14 +51,13 @@ type AnalysisOrchestrator interface {
 }
 
 type analysisOrchestrator struct {
-	httpClient       codeClientHTTP.HTTPClient
-	instrumentor     observability.Instrumentor
-	errorReporter    observability.ErrorReporter
-	logger           *zerolog.Logger
-	trackerFactory   scan.TrackerFactory
-	config           config.Config
-	timeoutInSeconds time.Duration
-	flow             scans.Flow
+	httpClient     codeClientHTTP.HTTPClient
+	instrumentor   observability.Instrumentor
+	errorReporter  observability.ErrorReporter
+	logger         *zerolog.Logger
+	trackerFactory scan.TrackerFactory
+	config         config.Config
+	flow           scans.Flow
 }
 
 type OptionFunc func(*analysisOrchestrator)
@@ -87,12 +86,6 @@ func WithTrackerFactory(factory scan.TrackerFactory) func(*analysisOrchestrator)
 	}
 }
 
-func WithTimeoutInSeconds(timeoutInSeconds time.Duration) func(*analysisOrchestrator) {
-	return func(a *analysisOrchestrator) {
-		a.timeoutInSeconds = timeoutInSeconds
-	}
-}
-
 func WithFlow(flow string) func(*analysisOrchestrator) {
 	return func(a *analysisOrchestrator) {
 		a.flow = scans.Flow{}
@@ -110,14 +103,13 @@ func NewAnalysisOrchestrator(
 	_ = flow.UnmarshalJSON([]byte(fmt.Sprintf(`{"name": "%s"}`, scans.IdeTest)))
 
 	a := &analysisOrchestrator{
-		httpClient:       httpClient,
-		config:           config,
-		instrumentor:     observability.NewInstrumentor(),
-		trackerFactory:   scan.NewNoopTrackerFactory(),
-		errorReporter:    observability.NewErrorReporter(&nopLogger),
-		logger:           &nopLogger,
-		timeoutInSeconds: 120 * time.Second,
-		flow:             flow,
+		httpClient:     httpClient,
+		config:         config,
+		instrumentor:   observability.NewInstrumentor(),
+		trackerFactory: scan.NewNoopTrackerFactory(),
+		errorReporter:  observability.NewErrorReporter(&nopLogger),
+		logger:         &nopLogger,
+		flow:           flow,
 	}
 
 	for _, option := range options {
@@ -354,7 +346,7 @@ func (a *analysisOrchestrator) pollScanForFindings(ctx context.Context, client *
 
 	pollingTicker := time.NewTicker(1 * time.Second)
 	defer pollingTicker.Stop()
-	timeoutTimer := time.NewTimer(a.timeoutInSeconds)
+	timeoutTimer := time.NewTimer(a.config.SnykCodeAnalysisTimeout())
 	defer timeoutTimer.Stop()
 	for {
 		select {
