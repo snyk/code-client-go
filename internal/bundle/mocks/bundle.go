@@ -64,6 +64,20 @@ func (mr *MockBundleMockRecorder) GetFiles() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetFiles", reflect.TypeOf((*MockBundle)(nil).GetFiles))
 }
 
+// GetLimitToFiles mocks base method.
+func (m *MockBundle) GetLimitToFiles() []string {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetLimitToFiles")
+	ret0, _ := ret[0].([]string)
+	return ret0
+}
+
+// GetLimitToFiles indicates an expected call of GetLimitToFiles.
+func (mr *MockBundleMockRecorder) GetLimitToFiles() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetLimitToFiles", reflect.TypeOf((*MockBundle)(nil).GetLimitToFiles))
+}
+
 // GetMissingFiles mocks base method.
 func (m *MockBundle) GetMissingFiles() []string {
 	m.ctrl.T.Helper()

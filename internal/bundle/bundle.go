@@ -31,6 +31,7 @@ type Bundle interface {
 	GetBundleHash() string
 	GetFiles() map[string]deepcode.BundleFile
 	GetMissingFiles() []string
+	GetLimitToFiles() []string
 	GetRootPath() string
 }
 
@@ -82,6 +83,10 @@ func (b *deepCodeBundle) GetFiles() map[string]deepcode.BundleFile {
 
 func (b *deepCodeBundle) GetMissingFiles() []string {
 	return b.missingFiles
+}
+
+func (b *deepCodeBundle) GetLimitToFiles() []string {
+	return b.limitToFiles
 }
 
 func (b *deepCodeBundle) GetRootPath() string {

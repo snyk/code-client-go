@@ -236,7 +236,7 @@ func Test_Create(t *testing.T) {
 		assert.Contains(t, bundle.GetFiles(), relativePath)
 	})
 
-	t.Run("url-encodes files", func(t *testing.T) {
+	t.Run("url-encoded files", func(t *testing.T) {
 		ctrl := gomock.NewController(t)
 		mockSpan := mocks.NewMockSpan(ctrl)
 		mockSpan.EXPECT().Context().AnyTimes()
@@ -287,6 +287,64 @@ func Test_Create(t *testing.T) {
 		require.NoError(t, err)
 		for _, expectedPath := range expectedPaths {
 			assert.Contains(t, bundle.GetFiles(), expectedPath)
+		}
+	})
+
+	t.Run("includes changed files into limit to files", func(t *testing.T) {
+		ctrl := gomock.NewController(t)
+		mockSpan := mocks.NewMockSpan(ctrl)
+		mockSpan.EXPECT().Context().AnyTimes()
+		mockSnykCodeClient := deepcodeMocks.NewMockDeepcodeClient(ctrl)
+		mockSnykCodeClient.EXPECT().GetFilters(gomock.Any()).Return(deepcode.FiltersResponse{
+			ConfigFiles: []string{},
+			Extensions:  []string{".java"},
+		}, nil)
+		mockSnykCodeClient.EXPECT().CreateBundle(gomock.Any(), map[string]string{
+			"path/to/file1.java":            "9c05690c5b8e22df259431c95df33d01267f799de6810382ada1a9ff1b89710e",
+			"path/with%20spaces/file2.java": "9c05690c5b8e22df259431c95df33d01267f799de6810382ada1a9ff1b89710e",
+		}).Times(1)
+		mockInstrumentor := mocks.NewMockInstrumentor(ctrl)
+		mockInstrumentor.EXPECT().StartSpan(gomock.Any(), gomock.Any()).Return(mockSpan).AnyTimes()
+		mockInstrumentor.EXPECT().Finish(gomock.Any()).AnyTimes()
+		mockErrorReporter := mocks.NewMockErrorReporter(ctrl)
+		mockTracker := trackerMocks.NewMockTracker(ctrl)
+		mockTracker.EXPECT().Begin(gomock.Eq("Creating file bundle"), gomock.Eq("Checking and adding files for analysis")).Return()
+		mockTracker.EXPECT().End(gomock.Eq("")).Return()
+		mockTrackerFactory := trackerMocks.NewMockTrackerFactory(ctrl)
+		mockTrackerFactory.EXPECT().GenerateTracker().Return(mockTracker)
+
+		filesRelPaths := []string{
+			"path/to/file1.java",
+			"path/with spaces/file2.java",
+		}
+		expectedPaths := []string{
+			"path/to/file1.java",
+		}
+
+		tempDir := t.TempDir()
+		var filesFullPaths []string
+		for _, fileRelPath := range filesRelPaths {
+			file := filepath.Join(tempDir, fileRelPath)
+			filesFullPaths = append(filesFullPaths, file)
+			_ = os.MkdirAll(filepath.Dir(file), 0700)
+			err := os.WriteFile(file, []byte("some content so the file won't be skipped"), 0600)
+			require.NoError(t, err)
+		}
+
+		var bundleManager = bundle.NewBundleManager(mockSnykCodeClient, newLogger(t), mockInstrumentor, mockErrorReporter, mockTrackerFactory)
+		bundle, err := bundleManager.Create(context.Background(),
+			"testRequestId",
+			tempDir,
+			sliceToChannel(filesFullPaths),
+			map[string]bool{
+				filesFullPaths[0]: true,
+			})
+		require.NoError(t, err)
+		for _, expectedPath := range expectedPaths {
+			assert.Contains(t, bundle.GetFiles(), expectedPath)
+		}
+		for _, expectedPath := range expectedPaths {
+			assert.Contains(t, bundle.GetLimitToFiles(), expectedPath)
 		}
 	})
 }
