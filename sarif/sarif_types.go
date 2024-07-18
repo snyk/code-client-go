@@ -84,8 +84,9 @@ type ResultMessage struct {
 }
 
 type Fingerprints struct {
-	Num0 string `json:"0"`
-	Num1 string `json:"1"`
+	Num0     string `json:"0"`
+	Num1     string `json:"1"`
+	Identity string `json:"identity"`
 }
 
 type ResultProperties struct {
