@@ -43,7 +43,7 @@ type SarifResponse struct {
 	Sarif    SarifDocument   `json:"sarif"`
 }
 
-type region struct {
+type Region struct {
 	StartLine   int `json:"startLine"`
 	EndLine     int `json:"endLine"`
 	StartColumn int `json:"startColumn"`
@@ -57,7 +57,7 @@ type ArtifactLocation struct {
 
 type PhysicalLocation struct {
 	ArtifactLocation ArtifactLocation `json:"artifactLocation"`
-	Region           region           `json:"region"`
+	Region           Region           `json:"region"`
 }
 
 type Location struct {
