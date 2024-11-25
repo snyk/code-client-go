@@ -96,6 +96,11 @@ type ResultProperties struct {
 		Type  string `json:"type"`
 	} `json:"priorityScoreFactors"`
 	IsAutofixable bool `json:"isAutofixable"`
+	Policy        struct {
+		OriginalLevel    string `json:"originalLevel"`
+		OriginalSeverity string `json:"originalSeverity"`
+		Severity         string `json:"severity"`
+	} `json:"snykPolicy/v1"`
 }
 
 type Result struct {
