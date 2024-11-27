@@ -806,7 +806,12 @@
                 "type": "fixExamples"
               }
             ],
-            "isAutofixable": false
+            "isAutofixable": false,
+            "snykPolicy/v1": {
+              "originalLevel": "warning",
+              "originalSeverity": "critical",
+              "severity": "high"
+            }
           }
         }
       ],
