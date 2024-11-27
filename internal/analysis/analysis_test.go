@@ -347,6 +347,10 @@ func TestAnalysis_RunAnalysis(t *testing.T) {
 
 	require.NoError(t, err)
 	assert.Equal(t, "scripts/db/migrations/20230811153738_add_generated_grouping_columns_to_collections_table.ts", actual.Sarif.Runs[0].Results[0].Locations[0].PhysicalLocation.ArtifactLocation.URI)
+
+	t.Run("should default policy to nil if not provided", func(t *testing.T) {
+		assert.Nil(t, actual.Sarif.Runs[0].Results[0].Properties.Policy)
+	})
 }
 
 func TestAnalysis_RunAnalysis_TriggerFunctionError(t *testing.T) {

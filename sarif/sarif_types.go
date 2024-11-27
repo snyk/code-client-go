@@ -89,18 +89,20 @@ type Fingerprints struct {
 	Identity string `json:"identity"`
 }
 
+type Policy struct {
+	OriginalLevel    string `json:"originalLevel"`
+	OriginalSeverity string `json:"originalSeverity"`
+	Severity         string `json:"severity"`
+}
+
 type ResultProperties struct {
 	PriorityScore        int `json:"priorityScore"`
 	PriorityScoreFactors []struct {
 		Label bool   `json:"label"`
 		Type  string `json:"type"`
 	} `json:"priorityScoreFactors"`
-	IsAutofixable bool `json:"isAutofixable"`
-	Policy        struct {
-		OriginalLevel    string `json:"originalLevel"`
-		OriginalSeverity string `json:"originalSeverity"`
-		Severity         string `json:"severity"`
-	} `json:"snykPolicy/v1"`
+	IsAutofixable bool    `json:"isAutofixable"`
+	Policy        *Policy `json:"snykPolicy/v1,omitempty"`
 }
 
 type Result struct {
