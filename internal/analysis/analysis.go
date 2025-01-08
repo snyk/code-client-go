@@ -34,6 +34,7 @@ import (
 
 	"github.com/snyk/code-client-go/config"
 	codeClientHTTP "github.com/snyk/code-client-go/http"
+	v20241221 "github.com/snyk/code-client-go/internal/api/test/2024-12-21"
 	"github.com/snyk/code-client-go/internal/bundle"
 	orchestrationClient "github.com/snyk/code-client-go/internal/orchestration/2024-02-16"
 	scans "github.com/snyk/code-client-go/internal/orchestration/2024-02-16/scans"
@@ -476,5 +477,23 @@ func (a *analysisOrchestrator) host(isHidden bool) string {
 }
 
 func (a *analysisOrchestrator) RunTest(ctx context.Context, orgId string, b bundle.Bundle) (*sarif.SarifResponse, error) {
+	orgUuid := uuid.MustParse(orgId)
+	host := a.host(true)
+	client, err := v20241221.NewClient(host, v20241221.WithHTTPClient(a.httpClient))
+	if err != nil {
+		return nil, err
+	}
+
+	params := v20241221.CreateTestParams{Version: ""}
+	body := v20241221.CreateTestApplicationVndAPIPlusJSONRequestBody{}
+
+	resp, err := client.CreateTestWithApplicationVndAPIPlusJSONBody(ctx, orgUuid, &params, body)
+	if err != nil {
+		return nil, err
+	}
+
+	parsedResponse, err := v20241221.ParseCreateTestResponse(resp)
+	a.logger.Debug().Msg(parsedResponse.Status())
+
 	return nil, fmt.Errorf("not yet implemented")
 }
