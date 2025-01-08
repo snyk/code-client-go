@@ -34,6 +34,7 @@ import (
 
 	"github.com/snyk/code-client-go/config"
 	codeClientHTTP "github.com/snyk/code-client-go/http"
+	"github.com/snyk/code-client-go/internal/bundle"
 	orchestrationClient "github.com/snyk/code-client-go/internal/orchestration/2024-02-16"
 	scans "github.com/snyk/code-client-go/internal/orchestration/2024-02-16/scans"
 	workspaceClient "github.com/snyk/code-client-go/internal/workspace/2024-05-14"
@@ -48,6 +49,8 @@ type AnalysisOrchestrator interface {
 	CreateWorkspace(ctx context.Context, orgId string, requestId string, path scan.Target, bundleHash string) (string, error)
 	RunAnalysis(ctx context.Context, orgId string, rootPath string, workspaceId string) (*sarif.SarifResponse, error)
 	RunIncrementalAnalysis(ctx context.Context, orgId string, rootPath string, workspaceId string, limitToFiles []string) (*sarif.SarifResponse, error)
+
+	RunTest(ctx context.Context, orgId string, b bundle.Bundle) (*sarif.SarifResponse, error)
 }
 
 type analysisOrchestrator struct {
@@ -470,4 +473,8 @@ func (a *analysisOrchestrator) host(isHidden bool) string {
 		path = "hidden"
 	}
 	return fmt.Sprintf("%s/%s", apiUrl, path)
+}
+
+func (a *analysisOrchestrator) RunTest(ctx context.Context, orgId string, b bundle.Bundle) (*sarif.SarifResponse, error) {
+	return nil, fmt.Errorf("not yet implemented")
 }

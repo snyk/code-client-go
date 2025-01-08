@@ -99,13 +99,10 @@ func Test_UploadAndAnalyze(t *testing.T) {
 			mockBundleManager.EXPECT().Upload(gomock.Any(), "b372d1db-b465-4764-99e1-ecedad03b06a", mockBundle, files).Return(mockBundle, nil)
 
 			mockAnalysisOrchestrator := mockAnalysis.NewMockAnalysisOrchestrator(ctrl)
-			mockAnalysisOrchestrator.EXPECT().CreateWorkspace(gomock.Any(), "4a72d1db-b465-4764-99e1-ecedad03b06a", "b372d1db-b465-4764-99e1-ecedad03b06a", target, "testBundleHash").Return("c172d1db-b465-4764-99e1-ecedad03b06a", nil)
-			mockAnalysisOrchestrator.EXPECT().RunIncrementalAnalysis(
+			mockAnalysisOrchestrator.EXPECT().RunTest(
 				gomock.Any(),
 				"4a72d1db-b465-4764-99e1-ecedad03b06a",
-				"testRootPath",
-				"c172d1db-b465-4764-99e1-ecedad03b06a",
-				[]string{},
+				gomock.Any(),
 			).Return(&sarif.SarifResponse{Status: "COMPLETE"}, nil)
 
 			codeScanner := codeclient.NewCodeScanner(
@@ -137,13 +134,10 @@ func Test_UploadAndAnalyze(t *testing.T) {
 			mockBundleManager.EXPECT().Upload(gomock.Any(), "b372d1db-b465-4764-99e1-ecedad03b06a", mockBundle, files).Return(mockBundle, nil)
 
 			mockAnalysisOrchestrator := mockAnalysis.NewMockAnalysisOrchestrator(ctrl)
-			mockAnalysisOrchestrator.EXPECT().CreateWorkspace(gomock.Any(), "4a72d1db-b465-4764-99e1-ecedad03b06a", "b372d1db-b465-4764-99e1-ecedad03b06a", target, "testBundleHash").Return("c172d1db-b465-4764-99e1-ecedad03b06a", nil)
-			mockAnalysisOrchestrator.EXPECT().RunIncrementalAnalysis(
+			mockAnalysisOrchestrator.EXPECT().RunTest(
 				gomock.Any(),
 				"4a72d1db-b465-4764-99e1-ecedad03b06a",
-				"testRootPath",
-				"c172d1db-b465-4764-99e1-ecedad03b06a",
-				[]string{relativeChangedFile},
+				gomock.Any(),
 			).Return(&sarif.SarifResponse{Status: "COMPLETE"}, nil)
 
 			codeScanner := codeclient.NewCodeScanner(

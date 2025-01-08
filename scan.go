@@ -28,7 +28,6 @@ import (
 	"github.com/snyk/code-client-go/internal/analysis"
 	"github.com/snyk/code-client-go/internal/bundle"
 	"github.com/snyk/code-client-go/internal/deepcode"
-	scans "github.com/snyk/code-client-go/internal/orchestration/2024-02-16/scans"
 	"github.com/snyk/code-client-go/observability"
 	"github.com/snyk/code-client-go/sarif"
 	"github.com/snyk/code-client-go/scan"
@@ -108,7 +107,6 @@ func NewCodeScanner(
 		logger:         &nopLogger,
 		instrumentor:   instrumentor,
 		trackerFactory: trackerFactory,
-		flow:           string(scans.IdeTest),
 	}
 
 	for _, option := range options {
@@ -204,19 +202,7 @@ func (c *codeScanner) UploadAndAnalyze(
 		return nil, bundleHash, nil
 	}
 
-	workspaceId, err := c.analysisOrchestrator.CreateWorkspace(ctx, c.config.Organization(), requestId, target, bundleHash)
-	if err != nil {
-		if ctx.Err() == nil { // Only handle errors that are not intentional cancellations
-			msg := "error creating workspace for bundle..."
-			c.errorReporter.CaptureError(errors.Wrap(err, msg), observability.ErrorReporterOptions{ErrorDiagnosticPath: target.GetPath()})
-			return nil, bundleHash, err
-		} else {
-			c.logger.Info().Msg("Canceling Code scan - Code scanner received cancellation signal")
-			return nil, bundleHash, nil
-		}
-	}
-
-	response, err := c.analysisOrchestrator.RunIncrementalAnalysis(ctx, c.config.Organization(), b.GetRootPath(), workspaceId, b.GetLimitToFiles())
+	response, err := c.analysisOrchestrator.RunTest(ctx, c.config.Organization(), b)
 
 	if ctx.Err() != nil {
 		c.logger.Info().Msg("Canceling Code scan - Code scanner received cancellation signal")
