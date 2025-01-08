@@ -87,8 +87,15 @@ generate-mocks: $(TOOLS_BIN)/go/mockgen
 generate-apis: $(TOOLS_BIN)/go/oapi-codegen download-apis
 	@go generate -tags API,!MOCK ./...
 
+.ONESHELL:
+.PHONY: prepare-python-tools
+prepare-python-tools:
+	python3 -m venv apidownloads
+	source apidownloads/bin/activate
+	pip install pycurl pyyaml
+
 .PHONY: download-apis
-download-apis: download-workspace-api download-orchestration-api
+download-apis: download-test-api download-workspace-api download-orchestration-api
 
 .PHONY: download-workspace-api
 download-workspace-api:
@@ -97,6 +104,10 @@ download-workspace-api:
 .PHONY: download-orchestration-api
 download-orchestration-api:
 	./scripts/download-orchestration-api.py
+
+.PHONY: download-test-api
+download-test-api:
+	./scripts/download-test-api.py
 
 .PHONY: help
 help:
