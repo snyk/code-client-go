@@ -88,7 +88,7 @@ generate-apis: $(TOOLS_BIN)/go/oapi-codegen download-apis
 	@go generate -tags API,!MOCK ./...
 
 .PHONY: download-apis
-download-apis: download-test-api download-workspace-api download-orchestration-api
+download-apis: download-test-api
 
 .PHONY: download-workspace-api
 download-workspace-api:
