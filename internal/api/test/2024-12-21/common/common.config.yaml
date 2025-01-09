@@ -1,0 +1,6 @@
+package: v20241221
+generate:
+  models: true
+output-options:
+  skip-prune: true
+output: common/common.go

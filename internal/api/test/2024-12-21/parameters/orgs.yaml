@@ -1,0 +1,10 @@
+components:
+  parameters:
+    OrgId:
+      name: org_id
+      in: path
+      required: true
+      description: Org ID
+      schema:
+        type: string
+        format: uuid

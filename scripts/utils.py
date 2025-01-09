@@ -44,6 +44,7 @@ def saveGitHubFile(gitHubRepo, gitHubFile, localFile, gitHubCommitSha):
 		f.write(base64.b64decode(response["content"]).decode('UTF-8'))
 	curl.close()
 
+# change structure of yaml to support code generator
 def formatSpecWithComponents(file):
 	with open(file, 'r') as f:
 		obj = yaml.safe_load(f)
@@ -52,6 +53,7 @@ def formatSpecWithComponents(file):
 		nestedObj = {'components': obj}
 		yaml.dump(nestedObj, f, sort_keys=False)
 
+# change structure of yaml to support code generator
 def formatSpecWithParameters(file):
 	with open(file, 'r') as f:
 		obj = yaml.safe_load(f)

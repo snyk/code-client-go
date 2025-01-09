@@ -9,6 +9,7 @@ import (
 	reflect "reflect"
 
 	gomock "github.com/golang/mock/gomock"
+	bundle "github.com/snyk/code-client-go/internal/bundle"
 	sarif "github.com/snyk/code-client-go/sarif"
 	scan "github.com/snyk/code-client-go/scan"
 )
@@ -79,4 +80,19 @@ func (m *MockAnalysisOrchestrator) RunIncrementalAnalysis(ctx context.Context, o
 func (mr *MockAnalysisOrchestratorMockRecorder) RunIncrementalAnalysis(ctx, orgId, rootPath, workspaceId, limitToFiles interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RunIncrementalAnalysis", reflect.TypeOf((*MockAnalysisOrchestrator)(nil).RunIncrementalAnalysis), ctx, orgId, rootPath, workspaceId, limitToFiles)
+}
+
+// RunTest mocks base method.
+func (m *MockAnalysisOrchestrator) RunTest(ctx context.Context, orgId string, b bundle.Bundle) (*sarif.SarifResponse, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "RunTest", ctx, orgId, b)
+	ret0, _ := ret[0].(*sarif.SarifResponse)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// RunTest indicates an expected call of RunTest.
+func (mr *MockAnalysisOrchestratorMockRecorder) RunTest(ctx, orgId, b interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RunTest", reflect.TypeOf((*MockAnalysisOrchestrator)(nil).RunTest), ctx, orgId, b)
 }

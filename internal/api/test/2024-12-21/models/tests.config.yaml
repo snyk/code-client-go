@@ -1,0 +1,8 @@
+package: v20241221
+generate:
+  models: true
+output-options:
+  skip-prune: true
+output: models/tests.go
+import-mapping:
+  ../common/common.yaml: github.com/snyk/code-client-go/internal/api/test/2024-12-21/common
