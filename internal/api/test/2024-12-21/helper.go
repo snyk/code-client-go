@@ -4,6 +4,8 @@ import (
 	v20241221 "github.com/snyk/code-client-go/internal/api/test/2024-12-21/models"
 )
 
+const ApiVersion = "2024-12-21"
+
 type CreateTestOption func(*CreateTestApplicationVndAPIPlusJSONRequestBody)
 
 func WithInputBundle(id string, localFilePath string, repoUrl *string) CreateTestOption {

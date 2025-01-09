@@ -46,8 +46,6 @@ import (
 	"github.com/snyk/code-client-go/scan"
 )
 
-const testApiVersion string = "2024-12-21"
-
 //go:generate mockgen -destination=mocks/analysis.go -source=analysis.go -package mocks
 type AnalysisOrchestrator interface {
 	CreateWorkspace(ctx context.Context, orgId string, requestId string, path scan.Target, bundleHash string) (string, error)
@@ -495,7 +493,7 @@ func (a *analysisOrchestrator) RunTest(ctx context.Context, orgId string, b bund
 		return nil, err
 	}
 
-	params := testApi.CreateTestParams{Version: testApiVersion}
+	params := testApi.CreateTestParams{Version: testApi.ApiVersion}
 	body := testApi.NewCreateTestApplicationBody(
 		testApi.WithInputBundle(b.GetBundleHash(), target.GetPath(), repoUrl),
 		testApi.WithScanType(a.testType),
