@@ -53,6 +53,7 @@ type AnalysisOrchestrator interface {
 	RunIncrementalAnalysis(ctx context.Context, orgId string, rootPath string, workspaceId string, limitToFiles []string) (*sarif.SarifResponse, error)
 
 	RunTest(ctx context.Context, orgId string, b bundle.Bundle, target scan.Target) (*sarif.SarifResponse, error)
+	PollTestForFindings(ctx context.Context, client *orchestrationClient.ClientWithResponses, org uuid.UUID, testId openapi_types.UUID) (*sarif.SarifResponse, error)
 }
 
 type analysisOrchestrator struct {
@@ -512,4 +513,81 @@ func (a *analysisOrchestrator) RunTest(ctx context.Context, orgId string, b bund
 	// call poll for test finding
 
 	return nil, fmt.Errorf("not yet implemented")
+}
+
+func (a *analysisOrchestrator) PollTestForFindings(ctx context.Context, client *orchestrationClient.ClientWithResponses, org uuid.UUID, testId openapi_types.UUID) (*sarif.SarifResponse, error) {
+	method := "analysis.pollTestForFindings"
+	logger := a.logger.With().Str("method", method).Logger()
+
+	pollingTicker := time.NewTicker(1 * time.Second)
+	defer pollingTicker.Stop()
+	timeoutTimer := time.NewTimer(a.config.SnykCodeAnalysisTimeout())
+	defer timeoutTimer.Stop()
+	for {
+		select {
+		case <-timeoutTimer.C:
+			msg := "Snyk Code analysis timed out"
+			logger.Error().Str("scanJobId", testId.String()).Msg(msg)
+			return nil, errors.New(msg)
+		case <-pollingTicker.C:
+			findingsUrl, complete, err := a.retrieveTestURL(ctx, client, org, testId)
+			if err != nil {
+				return nil, err
+			}
+			if complete {
+				// TODO fetch findings
+				findings, err := a.retrieveFindings(ctx, testId, findingsUrl)
+				if err != nil {
+					return nil, err
+				}
+				return findings, nil
+			}
+		}
+	}
+}
+
+func (a *analysisOrchestrator) retrieveTestURL(ctx context.Context, client *orchestrationClient.ClientWithResponses, org uuid.UUID, scanJobId openapi_types.UUID) (string, bool, error) {
+	method := "analysis.retrieveTestURL"
+	logger := a.logger.With().Str("method", method).Logger()
+	logger.Debug().Msg("retrieving Test URL")
+
+	httpResponse, err := client.GetScanWorkspaceJobForUserWithResponse(
+		ctx,
+		org,
+		scanJobId,
+		&orchestrationClient.GetScanWorkspaceJobForUserParams{Version: "2024-02-16~experimental"},
+	)
+	if err != nil {
+		logger.Err(err).Str("scanJobId", scanJobId.String()).Msg("error requesting the ScanJobResult")
+		return "", true, err
+	}
+
+	var msg string
+	switch httpResponse.StatusCode() {
+	case 200:
+		scanJobStatus := httpResponse.ApplicationvndApiJSON200.Data.Attributes.Status
+		if scanJobStatus == scans.ScanJobResultsAttributesStatusInProgress {
+			return "", false, nil
+		} else {
+			findingsUrl := ""
+
+			if len(httpResponse.ApplicationvndApiJSON200.Data.Attributes.Components) > 0 && httpResponse.ApplicationvndApiJSON200.Data.Attributes.Components[0].FindingsUrl != nil {
+				findingsUrl = *httpResponse.ApplicationvndApiJSON200.Data.Attributes.Components[0].FindingsUrl
+			}
+			return findingsUrl, true, nil
+		}
+	case 400:
+		msg = httpResponse.ApplicationvndApiJSON400.Errors[0].Detail
+	case 401:
+		msg = httpResponse.ApplicationvndApiJSON401.Errors[0].Detail
+	case 403:
+		msg = httpResponse.ApplicationvndApiJSON403.Errors[0].Detail
+	case 404:
+		msg = httpResponse.ApplicationvndApiJSON404.Errors[0].Detail
+	case 429:
+		msg = httpResponse.ApplicationvndApiJSON429.Errors[0].Detail
+	case 500:
+		msg = httpResponse.ApplicationvndApiJSON500.Errors[0].Detail
+	}
+	return "", true, errors.New(msg)
 }
