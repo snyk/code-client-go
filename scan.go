@@ -202,7 +202,7 @@ func (c *codeScanner) UploadAndAnalyze(
 		return nil, bundleHash, nil
 	}
 
-	response, err := c.analysisOrchestrator.RunTest(ctx, c.config.Organization(), b)
+	response, err := c.analysisOrchestrator.RunTest(ctx, c.config.Organization(), b, target)
 
 	if ctx.Err() != nil {
 		c.logger.Info().Msg("Canceling Code scan - Code scanner received cancellation signal")

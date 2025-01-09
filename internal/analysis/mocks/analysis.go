@@ -83,16 +83,16 @@ func (mr *MockAnalysisOrchestratorMockRecorder) RunIncrementalAnalysis(ctx, orgI
 }
 
 // RunTest mocks base method.
-func (m *MockAnalysisOrchestrator) RunTest(ctx context.Context, orgId string, b bundle.Bundle) (*sarif.SarifResponse, error) {
+func (m *MockAnalysisOrchestrator) RunTest(ctx context.Context, orgId string, b bundle.Bundle, target scan.Target) (*sarif.SarifResponse, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "RunTest", ctx, orgId, b)
+	ret := m.ctrl.Call(m, "RunTest", ctx, orgId, b, target)
 	ret0, _ := ret[0].(*sarif.SarifResponse)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // RunTest indicates an expected call of RunTest.
-func (mr *MockAnalysisOrchestratorMockRecorder) RunTest(ctx, orgId, b interface{}) *gomock.Call {
+func (mr *MockAnalysisOrchestratorMockRecorder) RunTest(ctx, orgId, b, target interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RunTest", reflect.TypeOf((*MockAnalysisOrchestrator)(nil).RunTest), ctx, orgId, b)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RunTest", reflect.TypeOf((*MockAnalysisOrchestrator)(nil).RunTest), ctx, orgId, b, target)
 }
