@@ -505,7 +505,9 @@ func (a *analysisOrchestrator) RunTest(ctx context.Context, orgId string, b bund
 	}
 
 	parsedResponse, err := testApi.ParseCreateTestResponse(resp)
+	defer resp.Body.Close()
 	a.logger.Debug().Msg(parsedResponse.Status())
+	a.logger.Debug().Msg(err.Error())
 
 	// call poll for test finding
 
