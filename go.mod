@@ -5,7 +5,6 @@ go 1.21.0
 toolchain go1.23.2
 
 require (
-	github.com/deepmap/oapi-codegen v1.16.3
 	github.com/go-git/go-git/v5 v5.11.0
 	github.com/golang/mock v1.6.0
 	github.com/google/uuid v1.6.0
