@@ -20,12 +20,14 @@ import (
 	"context"
 	_ "embed"
 	"fmt"
-	"github.com/snyk/code-client-go/sarif"
 	"io"
 	"net/http"
 	"strconv"
 	"testing"
 	"time"
+
+	"github.com/google/uuid"
+	"github.com/snyk/code-client-go/sarif"
 
 	"github.com/golang/mock/gomock"
 	"github.com/pkg/errors"
@@ -37,6 +39,7 @@ import (
 	confMocks "github.com/snyk/code-client-go/config/mocks"
 	httpmocks "github.com/snyk/code-client-go/http/mocks"
 	"github.com/snyk/code-client-go/internal/analysis"
+	orchestrationClient "github.com/snyk/code-client-go/internal/orchestration/2024-02-16"
 	"github.com/snyk/code-client-go/observability/mocks"
 	"github.com/snyk/code-client-go/scan"
 	trackerMocks "github.com/snyk/code-client-go/scan/mocks"
@@ -716,4 +719,41 @@ func TestAnalysis_RunAnalysis_GetFindingsNotSuccessful(t *testing.T) {
 
 	_, err := analysisOrchestrator.RunAnalysis(context.Background(), "b6fc8954-5918-45ce-bc89-54591815ce1b", "rootPath", "c172d1db-b465-4764-99e1-ecedad03b06a")
 	require.ErrorContains(t, err, "failed to retrieve findings from findings URL")
+}
+
+func TestAnalysis_PollTestForFindings(t *testing.T) {
+	mockConfig, mockHTTPClient, mockInstrumentor, mockErrorReporter, mockTracker, mockTrackerFactory, logger := setup(t, nil)
+
+	mockTracker.EXPECT().Begin(gomock.Eq("Snyk Code analysis for rootPath"), gomock.Eq("Retrieving results...")).Return()
+	mockTracker.EXPECT().End(gomock.Eq("Analysis complete.")).Return()
+
+	mockHTTPClient.EXPECT().Do(mock.MatchedBy(func(i interface{}) bool {
+		req := i.(*http.Request)
+		return req.URL.String() == "http://localhost/rest/orgs/b6fc8954-5918-45ce-bc89-54591815ce1b/tests/a6fb2742-b67f-4dc3-bb27-42b67f1dc344?version=2024-02-16~experimental" &&
+			req.Method == "GET"
+	})).Times(1).Return(&http.Response{
+		StatusCode: http.StatusOK,
+		Header: http.Header{
+			"Content-Type": []string{"application/vnd.api+json"},
+		},
+		Body: io.NopCloser(bytes.NewReader([]byte(`{"execution": {"status": "COMPLETED"}}`))),
+	}, nil)
+
+	analysisOrchestrator := analysis.NewAnalysisOrchestrator(
+		mockConfig,
+		mockHTTPClient,
+		analysis.WithLogger(&logger),
+		analysis.WithInstrumentor(mockInstrumentor),
+		analysis.WithTrackerFactory(mockTrackerFactory),
+		analysis.WithErrorReporter(mockErrorReporter),
+	)
+
+	client, err := orchestrationClient.NewClientWithResponses("http://localhost", orchestrationClient.WithHTTPClient(mockHTTPClient))
+	require.NoError(t, err)
+
+	testId := uuid.MustParse("a6fb2742-b67f-4dc3-bb27-42b67f1dc344")
+	orgId := uuid.MustParse("b6fc8954-5918-45ce-bc89-54591815ce1b")
+
+	_, err = analysisOrchestrator.PollTestForFindings(context.Background(), client, orgId, testId)
+	assert.NoError(t, err)
 }
