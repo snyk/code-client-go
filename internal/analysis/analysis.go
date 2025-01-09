@@ -46,6 +46,8 @@ import (
 	"github.com/snyk/code-client-go/scan"
 )
 
+const testApiVersion string = "2024-12-21"
+
 //go:generate mockgen -destination=mocks/analysis.go -source=analysis.go -package mocks
 type AnalysisOrchestrator interface {
 	CreateWorkspace(ctx context.Context, orgId string, requestId string, path scan.Target, bundleHash string) (string, error)
@@ -63,6 +65,7 @@ type analysisOrchestrator struct {
 	trackerFactory scan.TrackerFactory
 	config         config.Config
 	flow           scans.Flow
+	testType       testModels.Scan
 }
 
 type OptionFunc func(*analysisOrchestrator)
@@ -115,6 +118,7 @@ func NewAnalysisOrchestrator(
 		errorReporter:  observability.NewErrorReporter(&nopLogger),
 		logger:         &nopLogger,
 		flow:           flow,
+		testType:       testModels.CodeSecurityCodeQuality,
 	}
 
 	for _, option := range options {
@@ -491,10 +495,10 @@ func (a *analysisOrchestrator) RunTest(ctx context.Context, orgId string, b bund
 		return nil, err
 	}
 
-	params := testApi.CreateTestParams{Version: "???"}
+	params := testApi.CreateTestParams{Version: testApiVersion}
 	body := testApi.NewCreateTestApplicationBody(
 		testApi.WithInputBundle(b.GetBundleHash(), target.GetPath(), repoUrl),
-		testApi.WithScanType(testModels.CodeSecurity),
+		testApi.WithScanType(a.testType),
 	)
 
 	resp, err := client.CreateTestWithApplicationVndAPIPlusJSONBody(ctx, orgUuid, &params, *body)
@@ -504,6 +508,8 @@ func (a *analysisOrchestrator) RunTest(ctx context.Context, orgId string, b bund
 
 	parsedResponse, err := testApi.ParseCreateTestResponse(resp)
 	a.logger.Debug().Msg(parsedResponse.Status())
+
+	// call poll for test finding
 
 	return nil, fmt.Errorf("not yet implemented")
 }
