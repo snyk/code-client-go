@@ -21,6 +21,14 @@ func WithInputBundle(id string, localFilePath string, repoUrl *string) CreateTes
 	}
 }
 
+func WithScanType(t v20241221.Scan) CreateTestOption {
+	return func(body *CreateTestApplicationVndAPIPlusJSONRequestBody) {
+		body.Data.Attributes.Configuration.Scan = struct {
+			ResultType *v20241221.Scan `json:"result_type,omitempty"`
+		}{ResultType: &t}
+	}
+}
+
 func NewCreateTestApplicationBody(options ...CreateTestOption) *CreateTestApplicationVndAPIPlusJSONRequestBody {
 	result := &CreateTestApplicationVndAPIPlusJSONRequestBody{}
 
