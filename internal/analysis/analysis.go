@@ -514,10 +514,13 @@ func (a *analysisOrchestrator) RunTest(ctx context.Context, orgId string, b bund
 
 	a.logger.Debug().Msg(parsedResponse.Status())
 
-	// call poll for test finding
-	if parsedResponse.ApplicationvndApiJSON201 != nil {
+	switch parsedResponse.StatusCode() {
+	case http.StatusCreated:
+		// poll results
 		sarif, err := a.pollTestForFindings(ctx, client, orgUuid, parsedResponse.ApplicationvndApiJSON201.Data.Id)
 		return sarif, err
+	default:
+		return nil, fmt.Errorf(parsedResponse.Status())
 	}
 
 	return nil, fmt.Errorf("not yet implemented")
