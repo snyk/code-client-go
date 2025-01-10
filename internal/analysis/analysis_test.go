@@ -752,6 +752,6 @@ func TestAnalysis_RunAnalysis_GetFindingsNotSuccessful(t *testing.T) {
 // 	testId := uuid.MustParse("a6fb2742-b67f-4dc3-bb27-42b67f1dc344")
 // 	orgId := uuid.MustParse("b6fc8954-5918-45ce-bc89-54591815ce1b")
 
-// 	_, err = analysisOrchestrator.PollTestForFindings(context.Background(), client, orgId, testId)
+// 	_, err = analysisOrchestrator.pollTestForFindings(context.Background(), client, orgId, testId)
 // 	assert.NoError(t, err)
 // }
