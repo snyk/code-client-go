@@ -520,10 +520,8 @@ func (a *analysisOrchestrator) RunTest(ctx context.Context, orgId string, b bund
 		sarif, err := a.pollTestForFindings(ctx, client, orgUuid, parsedResponse.ApplicationvndApiJSON201.Data.Id)
 		return sarif, err
 	default:
-		return nil, fmt.Errorf(parsedResponse.Status())
+		return nil, fmt.Errorf("failed to run test: %s", parsedResponse.Status())
 	}
-
-	return nil, fmt.Errorf("not yet implemented")
 }
 
 func (a *analysisOrchestrator) pollTestForFindings(ctx context.Context, client *testApi.Client, org uuid.UUID, testId openapi_types.UUID) (*sarif.SarifResponse, error) {
