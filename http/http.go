@@ -144,7 +144,6 @@ func (s *httpClient) httpCall(req *http.Request) (*http.Response, error) {
 		resBuf, _ = io.ReadAll(response.Body)
 		copyResBody = io.NopCloser(bytes.NewBuffer(resBuf))
 		response.Body = copyResBody
-	} else {
 	}
 
 	if err != nil {
