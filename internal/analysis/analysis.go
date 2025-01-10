@@ -508,11 +508,11 @@ func (a *analysisOrchestrator) RunTest(ctx context.Context, orgId string, b bund
 	parsedResponse, err := testApi.ParseCreateTestResponse(resp)
 	defer resp.Body.Close()
 	if err != nil {
+		a.logger.Debug().Msg(err.Error())
 		return nil, err
 	}
 
 	a.logger.Debug().Msg(parsedResponse.Status())
-	a.logger.Debug().Msg(err.Error())
 
 	// call poll for test finding
 	if parsedResponse.ApplicationvndApiJSON201 != nil {
@@ -543,7 +543,6 @@ func (a *analysisOrchestrator) pollTestForFindings(ctx context.Context, client *
 				return nil, err
 			}
 			if complete {
-				// TODO fetch findings
 				findings, err := a.retrieveFindings(ctx, testId, findingsUrl)
 				if err != nil {
 					return nil, err
@@ -569,13 +568,13 @@ func (a *analysisOrchestrator) retrieveTestURL(ctx context.Context, client *test
 		logger.Err(err).Str("testId", testId.String()).Msg("error requesting the ScanJobResult")
 		return "", true, err
 	}
+	defer httpResponse.Body.Close()
 
 	parsedResponse, err := testApi.ParseGetTestResultResponse(httpResponse)
 	if err != nil {
 		return "", true, err
 	}
 
-	var msg string
 	switch parsedResponse.StatusCode() {
 	case 200:
 		testAccepted, stateError := parsedResponse.ApplicationvndApiJSON200.Data.Attributes.AsTestAcceptedState()
@@ -586,7 +585,7 @@ func (a *analysisOrchestrator) retrieveTestURL(ctx context.Context, client *test
 		switch string(testAccepted.Execution.Status) {
 		case string(testModels.TestAcceptedStateExecutionStatusAccepted):
 		case string(testModels.TestInProgressStateExecutionStatusInProgress):
-			return "", false, stateError
+			return "", false, nil
 		case string(testModels.TestCompletedStateExecutionStatusCompleted):
 			testCompleted, stateCompleteError := parsedResponse.ApplicationvndApiJSON200.Data.Attributes.AsTestCompletedState()
 			if stateCompleteError != nil {
@@ -595,29 +594,6 @@ func (a *analysisOrchestrator) retrieveTestURL(ctx context.Context, client *test
 			return a.host(true) + testCompleted.Documents.EnrichedSarif, true, nil
 		default:
 		}
-
-		//bodyBytes, err := io.ReadAll(httpResponse.Body)
-		//if err != nil {
-		//	return "", true, err
-		//}
-		//
-		//var responseBody testModels.TestCompletedState
-		//
-		//err = json.Unmarshal(bodyBytes, &responseBody)
-		//if err != nil {
-		//	return "", true, err
-		//}
-		//
-		//if responseBody.Execution.Status == "in_progress" {
-		//	return "", false, nil
-		//}
-		//
-		//findingsUrl := ""
-		//if len(responseBody.Documents.EnrichedSarif) > 0 {
-		//	findingsUrl = responseBody.Documents.EnrichedSarif
-		//}
-		//return findingsUrl, true, nil
-
 	}
-	return "", true, errors.New(msg)
+	return "", false, nil
 }
