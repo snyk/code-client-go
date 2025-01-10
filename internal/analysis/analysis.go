@@ -53,7 +53,6 @@ type AnalysisOrchestrator interface {
 	RunIncrementalAnalysis(ctx context.Context, orgId string, rootPath string, workspaceId string, limitToFiles []string) (*sarif.SarifResponse, error)
 
 	RunTest(ctx context.Context, orgId string, b bundle.Bundle, target scan.Target) (*sarif.SarifResponse, error)
-	PollTestForFindings(ctx context.Context, client *orchestrationClient.ClientWithResponses, org uuid.UUID, testId openapi_types.UUID) (*sarif.SarifResponse, error)
 }
 
 type analysisOrchestrator struct {
@@ -500,6 +499,7 @@ func (a *analysisOrchestrator) RunTest(ctx context.Context, orgId string, b bund
 		testApi.WithScanType(a.testType),
 	)
 
+	// create test
 	resp, err := client.CreateTestWithApplicationVndAPIPlusJSONBody(ctx, orgUuid, &params, *body)
 	if err != nil {
 		return nil, err
@@ -507,16 +507,23 @@ func (a *analysisOrchestrator) RunTest(ctx context.Context, orgId string, b bund
 
 	parsedResponse, err := testApi.ParseCreateTestResponse(resp)
 	defer resp.Body.Close()
+	if err != nil {
+		return nil, err
+	}
+
 	a.logger.Debug().Msg(parsedResponse.Status())
 	a.logger.Debug().Msg(err.Error())
 
 	// call poll for test finding
-	sarif, error := a.PollTestForFindings(ctx, client, orgUuid, parsedResponse.ApplicationvndApiJSON201.Data.Id)
+	if parsedResponse.ApplicationvndApiJSON201 != nil {
+		sarif, err := a.pollTestForFindings(ctx, client, orgUuid, parsedResponse.ApplicationvndApiJSON201.Data.Id)
+		return sarif, err
+	}
 
 	return nil, fmt.Errorf("not yet implemented")
 }
 
-func (a *analysisOrchestrator) PollTestForFindings(ctx context.Context, client *testApi.Client, org uuid.UUID, testId openapi_types.UUID) (*sarif.SarifResponse, error) {
+func (a *analysisOrchestrator) pollTestForFindings(ctx context.Context, client *testApi.Client, org uuid.UUID, testId openapi_types.UUID) (*sarif.SarifResponse, error) {
 	method := "analysis.pollTestForFindings"
 	logger := a.logger.With().Str("method", method).Logger()
 
@@ -547,7 +554,7 @@ func (a *analysisOrchestrator) PollTestForFindings(ctx context.Context, client *
 	}
 }
 
-func (a *analysisOrchestrator) retrieveTestURL(ctx context.Context, client *testApi.Client, org uuid.UUID, testId openapi_types.UUID) (string, bool, error) {
+func (a *analysisOrchestrator) retrieveTestURL(ctx context.Context, client *testApi.Client, org uuid.UUID, testId openapi_types.UUID) (url string, completed bool, err error) {
 	method := "analysis.retrieveTestURL"
 	logger := a.logger.With().Str("method", method).Logger()
 	logger.Debug().Msg("retrieving Test URL")
@@ -556,37 +563,61 @@ func (a *analysisOrchestrator) retrieveTestURL(ctx context.Context, client *test
 		ctx,
 		org,
 		testId,
-		&testApi.GetTestResultParams{Version: "2024-02-16~experimental"},
+		&testApi.GetTestResultParams{Version: testApi.ApiVersion},
 	)
 	if err != nil {
 		logger.Err(err).Str("testId", testId.String()).Msg("error requesting the ScanJobResult")
 		return "", true, err
 	}
 
+	parsedResponse, err := testApi.ParseGetTestResultResponse(httpResponse)
+	if err != nil {
+		return "", true, err
+	}
+
 	var msg string
-	switch httpResponse.StatusCode {
+	switch parsedResponse.StatusCode() {
 	case 200:
-		bodyBytes, err := io.ReadAll(httpResponse.Body)
-		if err != nil {
-			return "", true, err
+		testAccepted, stateError := parsedResponse.ApplicationvndApiJSON200.Data.Attributes.AsTestAcceptedState()
+		if stateError != nil {
+			return "", false, stateError
 		}
 
-		var responseBody testModels.TestCompletedState
-
-		err = json.Unmarshal(bodyBytes, &responseBody)
-		if err != nil {
-			return "", true, err
+		switch string(testAccepted.Execution.Status) {
+		case string(testModels.TestAcceptedStateExecutionStatusAccepted):
+		case string(testModels.TestInProgressStateExecutionStatusInProgress):
+			return "", false, stateError
+		case string(testModels.TestCompletedStateExecutionStatusCompleted):
+			testCompleted, stateCompleteError := parsedResponse.ApplicationvndApiJSON200.Data.Attributes.AsTestCompletedState()
+			if stateCompleteError != nil {
+				return "", false, stateCompleteError
+			}
+			return a.host(true) + testCompleted.Documents.EnrichedSarif, true, nil
+		default:
 		}
 
-		if responseBody.Execution.Status == "in_progress" {
-			return "", false, nil
-		}
+		//bodyBytes, err := io.ReadAll(httpResponse.Body)
+		//if err != nil {
+		//	return "", true, err
+		//}
+		//
+		//var responseBody testModels.TestCompletedState
+		//
+		//err = json.Unmarshal(bodyBytes, &responseBody)
+		//if err != nil {
+		//	return "", true, err
+		//}
+		//
+		//if responseBody.Execution.Status == "in_progress" {
+		//	return "", false, nil
+		//}
+		//
+		//findingsUrl := ""
+		//if len(responseBody.Documents.EnrichedSarif) > 0 {
+		//	findingsUrl = responseBody.Documents.EnrichedSarif
+		//}
+		//return findingsUrl, true, nil
 
-		findingsUrl := ""
-		if len(responseBody.Documents.EnrichedSarif) > 0 {
-			findingsUrl = responseBody.Documents.EnrichedSarif
-		}
-		return findingsUrl, true, nil
 	}
 	return "", true, errors.New(msg)
 }
