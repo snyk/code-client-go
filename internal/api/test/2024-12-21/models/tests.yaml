@@ -104,6 +104,7 @@ components:
             repo_url:
               type: string
               maxLength: 1000
+              pattern: ^((https?|ftp|smtp):\/\/)?(www.)?[a-zA-Z0-9_-]+\.[a-z]+(\/[a-zA-Z0-9#_-]+\/?)*$
               example: https://github.com/test-repo/test-goof
           required:
           - local_file_path
@@ -423,7 +424,7 @@ components:
                         label:
                           type: string
                           description: Arbitrary value up to the user
-                          pattern: ^[a-zA-Z0-9_-]+:[:/?#@&+=%a-zA-Z0-9_.~-]+$
+                          pattern: ^[:/?#@&+=%a-zA-Z0-9_.~-]+$
                       additionalProperties: false
                   additionalProperties: false
                   required:
@@ -476,6 +477,8 @@ components:
       - $ref: '#/components/schemas/TestInProgressState'
       - $ref: '#/components/schemas/TestCompletedState'
       - $ref: '#/components/schemas/TestErrorState'
+      discriminator:
+        propertyName: status
     TestAcceptedState:
       type: object
       properties:
@@ -483,18 +486,13 @@ components:
           type: string
           format: date-time
           description: Timestamp when the test was created
-        execution:
-          type: object
-          properties:
-            status:
-              type: string
-              enum:
-              - accepted
-          required:
-          - status
+        status:
+          type: string
+          enum:
+          - accepted
       required:
       - created_at
-      - execution
+      - status
     TestInProgressState:
       type: object
       properties:
@@ -502,18 +500,13 @@ components:
           type: string
           format: date-time
           description: Timestamp when the test was created
-        execution:
-          type: object
-          properties:
-            status:
-              type: string
-              enum:
-              - in_progress
-          required:
-          - status
+        status:
+          type: string
+          enum:
+          - in_progress
       required:
       - created_at
-      - execution
+      - status
     TestCompletedState:
       type: object
       properties:
@@ -521,15 +514,10 @@ components:
           type: string
           format: date-time
           description: Timestamp when the test was created
-        execution:
-          type: object
-          properties:
-            status:
-              type: string
-              enum:
-              - completed
-          required:
-          - status
+        status:
+          type: string
+          enum:
+          - completed
         result:
           type: object
           properties:
@@ -559,7 +547,7 @@ components:
           - enriched_sarif
       required:
       - created_at
-      - execution
+      - status
       - result
       - documents
     TestErrorState:
@@ -569,15 +557,10 @@ components:
           type: string
           format: date-time
           description: Timestamp when the test was created
-        execution:
-          type: object
-          properties:
-            status:
-              type: string
-              enum:
-              - error
-          required:
-          - status
+        status:
+          type: string
+          enum:
+          - error
         errors:
           type: array
           items:
@@ -610,5 +593,5 @@ components:
             - classification
       required:
       - created_at
-      - execution
+      - status
       - errors

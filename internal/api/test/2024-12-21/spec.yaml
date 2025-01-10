@@ -162,7 +162,7 @@ paths:
             application/vnd.api+json:
               schema:
                 {
-                  $ref: "./models/tests.yaml#/components/schemas/TestResult",
+                  $ref: "./models/tests.yaml#/components/schemas/TestState",
                 }
         "400": { $ref: "./common/common.yaml#/components/responses/400" }
         "401": { $ref: "./common/common.yaml#/components/responses/401" }

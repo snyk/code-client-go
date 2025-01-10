@@ -44,14 +44,9 @@ const (
 	CodeSecurityCodeQuality Scan = "code_security, code_quality"
 )
 
-// Defines values for TestAcceptedStateExecutionStatus.
+// Defines values for TestAcceptedStateStatus.
 const (
-	TestAcceptedStateExecutionStatusAccepted TestAcceptedStateExecutionStatus = "accepted"
-)
-
-// Defines values for TestCompletedStateExecutionStatus.
-const (
-	TestCompletedStateExecutionStatusCompleted TestCompletedStateExecutionStatus = "completed"
+	TestAcceptedStateStatusAccepted TestAcceptedStateStatus = "accepted"
 )
 
 // Defines values for TestCompletedStateResultOutcomeResult.
@@ -60,14 +55,19 @@ const (
 	TestCompletedStateResultOutcomeResultPassed TestCompletedStateResultOutcomeResult = "passed"
 )
 
-// Defines values for TestErrorStateExecutionStatus.
+// Defines values for TestCompletedStateStatus.
 const (
-	TestErrorStateExecutionStatusError TestErrorStateExecutionStatus = "error"
+	TestCompletedStateStatusCompleted TestCompletedStateStatus = "completed"
 )
 
-// Defines values for TestInProgressStateExecutionStatus.
+// Defines values for TestErrorStateStatus.
 const (
-	TestInProgressStateExecutionStatusInProgress TestInProgressStateExecutionStatus = "in_progress"
+	TestErrorStateStatusError TestErrorStateStatus = "error"
+)
+
+// Defines values for TestInProgressStateStatus.
+const (
+	TestInProgressStateStatusInProgress TestInProgressStateStatus = "in_progress"
 )
 
 // Defines values for TestInputBundleType.
@@ -197,14 +197,12 @@ type Scan string
 // TestAcceptedState defines model for TestAcceptedState.
 type TestAcceptedState struct {
 	// CreatedAt Timestamp when the test was created
-	CreatedAt time.Time `json:"created_at"`
-	Execution struct {
-		Status TestAcceptedStateExecutionStatus `json:"status"`
-	} `json:"execution"`
+	CreatedAt time.Time               `json:"created_at"`
+	Status    TestAcceptedStateStatus `json:"status"`
 }
 
-// TestAcceptedStateExecutionStatus defines model for TestAcceptedState.Execution.Status.
-type TestAcceptedStateExecutionStatus string
+// TestAcceptedStateStatus defines model for TestAcceptedState.Status.
+type TestAcceptedStateStatus string
 
 // TestCompletedState defines model for TestCompletedState.
 type TestCompletedState struct {
@@ -214,22 +212,20 @@ type TestCompletedState struct {
 		// EnrichedSarif The location to use for fetching the enriched sarif results
 		EnrichedSarif string `json:"enriched_sarif"`
 	} `json:"documents"`
-	Execution struct {
-		Status TestCompletedStateExecutionStatus `json:"status"`
-	} `json:"execution"`
 	Result struct {
 		Outcome struct {
 			// Result The outcome of the test. passed - the test completed and passed policy gate, failed - the test completed and failed policy gate
 			Result TestCompletedStateResultOutcomeResult `json:"result"`
 		} `json:"outcome"`
 	} `json:"result"`
+	Status TestCompletedStateStatus `json:"status"`
 }
-
-// TestCompletedStateExecutionStatus defines model for TestCompletedState.Execution.Status.
-type TestCompletedStateExecutionStatus string
 
 // TestCompletedStateResultOutcomeResult The outcome of the test. passed - the test completed and passed policy gate, failed - the test completed and failed policy gate
 type TestCompletedStateResultOutcomeResult string
+
+// TestCompletedStateStatus defines model for TestCompletedState.Status.
+type TestCompletedStateStatus string
 
 // TestCoordinates defines model for TestCoordinates.
 type TestCoordinates struct {
@@ -256,25 +252,21 @@ type TestErrorState struct {
 		// Title The high-level description of an error catalog error
 		Title string `json:"title"`
 	} `json:"errors"`
-	Execution struct {
-		Status TestErrorStateExecutionStatus `json:"status"`
-	} `json:"execution"`
+	Status TestErrorStateStatus `json:"status"`
 }
 
-// TestErrorStateExecutionStatus defines model for TestErrorState.Execution.Status.
-type TestErrorStateExecutionStatus string
+// TestErrorStateStatus defines model for TestErrorState.Status.
+type TestErrorStateStatus string
 
 // TestInProgressState defines model for TestInProgressState.
 type TestInProgressState struct {
 	// CreatedAt Timestamp when the test was created
-	CreatedAt time.Time `json:"created_at"`
-	Execution struct {
-		Status TestInProgressStateExecutionStatus `json:"status"`
-	} `json:"execution"`
+	CreatedAt time.Time                 `json:"created_at"`
+	Status    TestInProgressStateStatus `json:"status"`
 }
 
-// TestInProgressStateExecutionStatus defines model for TestInProgressState.Execution.Status.
-type TestInProgressStateExecutionStatus string
+// TestInProgressStateStatus defines model for TestInProgressState.Status.
+type TestInProgressStateStatus string
 
 // TestInputBundle defines model for TestInputBundle.
 type TestInputBundle struct {
@@ -974,6 +966,7 @@ func (t TestState) AsTestAcceptedState() (TestAcceptedState, error) {
 
 // FromTestAcceptedState overwrites any union data inside the TestState as the provided TestAcceptedState
 func (t *TestState) FromTestAcceptedState(v TestAcceptedState) error {
+	v.Status = "TestAcceptedState"
 	b, err := json.Marshal(v)
 	t.union = b
 	return err
@@ -981,6 +974,7 @@ func (t *TestState) FromTestAcceptedState(v TestAcceptedState) error {
 
 // MergeTestAcceptedState performs a merge with any union data inside the TestState, using the provided TestAcceptedState
 func (t *TestState) MergeTestAcceptedState(v TestAcceptedState) error {
+	v.Status = "TestAcceptedState"
 	b, err := json.Marshal(v)
 	if err != nil {
 		return err
@@ -1000,6 +994,7 @@ func (t TestState) AsTestInProgressState() (TestInProgressState, error) {
 
 // FromTestInProgressState overwrites any union data inside the TestState as the provided TestInProgressState
 func (t *TestState) FromTestInProgressState(v TestInProgressState) error {
+	v.Status = "TestInProgressState"
 	b, err := json.Marshal(v)
 	t.union = b
 	return err
@@ -1007,6 +1002,7 @@ func (t *TestState) FromTestInProgressState(v TestInProgressState) error {
 
 // MergeTestInProgressState performs a merge with any union data inside the TestState, using the provided TestInProgressState
 func (t *TestState) MergeTestInProgressState(v TestInProgressState) error {
+	v.Status = "TestInProgressState"
 	b, err := json.Marshal(v)
 	if err != nil {
 		return err
@@ -1026,6 +1022,7 @@ func (t TestState) AsTestCompletedState() (TestCompletedState, error) {
 
 // FromTestCompletedState overwrites any union data inside the TestState as the provided TestCompletedState
 func (t *TestState) FromTestCompletedState(v TestCompletedState) error {
+	v.Status = "TestCompletedState"
 	b, err := json.Marshal(v)
 	t.union = b
 	return err
@@ -1033,6 +1030,7 @@ func (t *TestState) FromTestCompletedState(v TestCompletedState) error {
 
 // MergeTestCompletedState performs a merge with any union data inside the TestState, using the provided TestCompletedState
 func (t *TestState) MergeTestCompletedState(v TestCompletedState) error {
+	v.Status = "TestCompletedState"
 	b, err := json.Marshal(v)
 	if err != nil {
 		return err
@@ -1052,6 +1050,7 @@ func (t TestState) AsTestErrorState() (TestErrorState, error) {
 
 // FromTestErrorState overwrites any union data inside the TestState as the provided TestErrorState
 func (t *TestState) FromTestErrorState(v TestErrorState) error {
+	v.Status = "TestErrorState"
 	b, err := json.Marshal(v)
 	t.union = b
 	return err
@@ -1059,6 +1058,7 @@ func (t *TestState) FromTestErrorState(v TestErrorState) error {
 
 // MergeTestErrorState performs a merge with any union data inside the TestState, using the provided TestErrorState
 func (t *TestState) MergeTestErrorState(v TestErrorState) error {
+	v.Status = "TestErrorState"
 	b, err := json.Marshal(v)
 	if err != nil {
 		return err
@@ -1067,6 +1067,33 @@ func (t *TestState) MergeTestErrorState(v TestErrorState) error {
 	merged, err := runtime.JSONMerge(t.union, b)
 	t.union = merged
 	return err
+}
+
+func (t TestState) Discriminator() (string, error) {
+	var discriminator struct {
+		Discriminator string `json:"status"`
+	}
+	err := json.Unmarshal(t.union, &discriminator)
+	return discriminator.Discriminator, err
+}
+
+func (t TestState) ValueByDiscriminator() (interface{}, error) {
+	discriminator, err := t.Discriminator()
+	if err != nil {
+		return nil, err
+	}
+	switch discriminator {
+	case "TestAcceptedState":
+		return t.AsTestAcceptedState()
+	case "TestCompletedState":
+		return t.AsTestCompletedState()
+	case "TestErrorState":
+		return t.AsTestErrorState()
+	case "TestInProgressState":
+		return t.AsTestInProgressState()
+	default:
+		return nil, errors.New("unknown discriminator value: " + discriminator)
+	}
 }
 
 func (t TestState) MarshalJSON() ([]byte, error) {
