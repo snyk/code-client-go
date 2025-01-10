@@ -577,17 +577,17 @@ func (a *analysisOrchestrator) retrieveTestURL(ctx context.Context, client *test
 
 	switch parsedResponse.StatusCode() {
 	case 200:
-		testAccepted, stateError := parsedResponse.ApplicationvndApiJSON200.Data.Attributes.AsTestAcceptedState()
+		stateDiscriminator, stateError := parsedResponse.ApplicationvndApiJSON200.Discriminator()
 		if stateError != nil {
 			return "", false, stateError
 		}
 
-		switch string(testAccepted.Execution.Status) {
-		case string(testModels.TestAcceptedStateExecutionStatusAccepted):
-		case string(testModels.TestInProgressStateExecutionStatusInProgress):
+		switch stateDiscriminator {
+		case string(testModels.TestAcceptedStateStatusAccepted):
+		case string(testModels.TestInProgressStateStatusInProgress):
 			return "", false, nil
-		case string(testModels.TestCompletedStateExecutionStatusCompleted):
-			testCompleted, stateCompleteError := parsedResponse.ApplicationvndApiJSON200.Data.Attributes.AsTestCompletedState()
+		case string(testModels.TestCompletedStateStatusCompleted):
+			testCompleted, stateCompleteError := parsedResponse.ApplicationvndApiJSON200.AsTestCompletedState()
 			if stateCompleteError != nil {
 				return "", false, stateCompleteError
 			}
