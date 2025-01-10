@@ -511,11 +511,12 @@ func (a *analysisOrchestrator) RunTest(ctx context.Context, orgId string, b bund
 	a.logger.Debug().Msg(err.Error())
 
 	// call poll for test finding
+	sarif, error := a.PollTestForFindings(ctx, client, orgUuid, parsedResponse.ApplicationvndApiJSON201.Data.Id)
 
 	return nil, fmt.Errorf("not yet implemented")
 }
 
-func (a *analysisOrchestrator) PollTestForFindings(ctx context.Context, client *orchestrationClient.ClientWithResponses, org uuid.UUID, testId openapi_types.UUID) (*sarif.SarifResponse, error) {
+func (a *analysisOrchestrator) PollTestForFindings(ctx context.Context, client *testApi.Client, org uuid.UUID, testId openapi_types.UUID) (*sarif.SarifResponse, error) {
 	method := "analysis.pollTestForFindings"
 	logger := a.logger.With().Str("method", method).Logger()
 
@@ -546,48 +547,46 @@ func (a *analysisOrchestrator) PollTestForFindings(ctx context.Context, client *
 	}
 }
 
-func (a *analysisOrchestrator) retrieveTestURL(ctx context.Context, client *orchestrationClient.ClientWithResponses, org uuid.UUID, scanJobId openapi_types.UUID) (string, bool, error) {
+func (a *analysisOrchestrator) retrieveTestURL(ctx context.Context, client *testApi.Client, org uuid.UUID, testId openapi_types.UUID) (string, bool, error) {
 	method := "analysis.retrieveTestURL"
 	logger := a.logger.With().Str("method", method).Logger()
 	logger.Debug().Msg("retrieving Test URL")
 
-	httpResponse, err := client.GetScanWorkspaceJobForUserWithResponse(
+	httpResponse, err := client.GetTestResult(
 		ctx,
 		org,
-		scanJobId,
-		&orchestrationClient.GetScanWorkspaceJobForUserParams{Version: "2024-02-16~experimental"},
+		testId,
+		&testApi.GetTestResultParams{Version: "2024-02-16~experimental"},
 	)
 	if err != nil {
-		logger.Err(err).Str("scanJobId", scanJobId.String()).Msg("error requesting the ScanJobResult")
+		logger.Err(err).Str("testId", testId.String()).Msg("error requesting the ScanJobResult")
 		return "", true, err
 	}
 
 	var msg string
-	switch httpResponse.StatusCode() {
+	switch httpResponse.StatusCode {
 	case 200:
-		scanJobStatus := httpResponse.ApplicationvndApiJSON200.Data.Attributes.Status
-		if scanJobStatus == scans.ScanJobResultsAttributesStatusInProgress {
-			return "", false, nil
-		} else {
-			findingsUrl := ""
-
-			if len(httpResponse.ApplicationvndApiJSON200.Data.Attributes.Components) > 0 && httpResponse.ApplicationvndApiJSON200.Data.Attributes.Components[0].FindingsUrl != nil {
-				findingsUrl = *httpResponse.ApplicationvndApiJSON200.Data.Attributes.Components[0].FindingsUrl
-			}
-			return findingsUrl, true, nil
+		bodyBytes, err := io.ReadAll(httpResponse.Body)
+		if err != nil {
+			return "", true, err
 		}
-	case 400:
-		msg = httpResponse.ApplicationvndApiJSON400.Errors[0].Detail
-	case 401:
-		msg = httpResponse.ApplicationvndApiJSON401.Errors[0].Detail
-	case 403:
-		msg = httpResponse.ApplicationvndApiJSON403.Errors[0].Detail
-	case 404:
-		msg = httpResponse.ApplicationvndApiJSON404.Errors[0].Detail
-	case 429:
-		msg = httpResponse.ApplicationvndApiJSON429.Errors[0].Detail
-	case 500:
-		msg = httpResponse.ApplicationvndApiJSON500.Errors[0].Detail
+
+		var responseBody testModels.TestCompletedState
+
+		err = json.Unmarshal(bodyBytes, &responseBody)
+		if err != nil {
+			return "", true, err
+		}
+
+		if responseBody.Execution.Status == "in_progress" {
+			return "", false, nil
+		}
+
+		findingsUrl := ""
+		if len(responseBody.Documents.EnrichedSarif) > 0 {
+			findingsUrl = responseBody.Documents.EnrichedSarif
+		}
+		return findingsUrl, true, nil
 	}
 	return "", true, errors.New(msg)
 }
