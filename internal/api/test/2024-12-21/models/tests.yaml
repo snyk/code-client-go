@@ -91,6 +91,7 @@ components:
         bundle_id:
           description: A Snyk bundle id
           type: string
+          maxLength: 100
           example: 275af21f-e92b-40aa-8604-ef9b00c9bd8d
         metadata:
           description: Metadata of the input to be tested
@@ -98,9 +99,11 @@ components:
           properties:
             local_file_path:
               type: string
-              description: This can be an actual path or a folder id for IDE
+              maxLength: 512
+              description: This can be an absolute path or a folder id for IDE
             repo_url:
               type: string
+              maxLength: 1000
               example: https://github.com/test-repo/test-goof
           required:
           - local_file_path
@@ -122,10 +125,9 @@ components:
           format: uuid
           example: 275af21f-e92b-40aa-8604-ef9b00c9bd8d
         commit_id:
-          description: Id of the commit to be tested
+          description: SHA of the commit to be tested
           type: string
-          format: uuid
-          example: 386af21f-e92b-40aa-8604-ef9b00c9bd8d
+          example: 024db817148169e6ca9e7f33408cca01002c1dce
       required:
       - type
       - project_id
@@ -406,16 +408,22 @@ components:
                             or stateful (true)
                         project_name:
                           type: string
+                          pattern: ^[?#@&+=%a-zA-Z0-9_.~\/\\:\s-]+$
                         project_id:
                           type: string
                           format: uuid
                         target_name:
                           type: string
+                          pattern: ^[?#@&+=%a-zA-Z0-9_.~\/\\:\s-]+$
                         target_reference:
                           type: string
                           description: A reference for the target's version - can
                             be a git branch or a commit sha
                           example: main
+                        label:
+                          type: string
+                          description: Arbitrary value up to the user
+                          pattern: ^[a-zA-Z0-9_-]+:[:/?#@&+=%a-zA-Z0-9_.~-]+$
                       additionalProperties: false
                   additionalProperties: false
                   required:
@@ -519,7 +527,7 @@ components:
             status:
               type: string
               enum:
-              - in_progress
+              - completed
           required:
           - status
         result:

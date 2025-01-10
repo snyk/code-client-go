@@ -51,7 +51,7 @@ const (
 
 // Defines values for TestCompletedStateExecutionStatus.
 const (
-	TestCompletedStateExecutionStatusInProgress TestCompletedStateExecutionStatus = "in_progress"
+	TestCompletedStateExecutionStatusCompleted TestCompletedStateExecutionStatus = "completed"
 )
 
 // Defines values for TestCompletedStateResultOutcomeResult.
@@ -109,7 +109,7 @@ const (
 
 // Defines values for TestResultCompletedStateState.
 const (
-	Completed TestResultCompletedStateState = "completed"
+	TestResultCompletedStateStateCompleted TestResultCompletedStateState = "completed"
 )
 
 // Defines values for TestResultErrorStateState.
@@ -119,7 +119,7 @@ const (
 
 // Defines values for TestResultInProgressStateState.
 const (
-	InProgress TestResultInProgressStateState = "in_progress"
+	TestResultInProgressStateStateInProgress TestResultInProgressStateState = "in_progress"
 )
 
 // Defines values for TestResultResponseDataType.
@@ -133,6 +133,8 @@ type CreateTestRequestBody struct {
 		Attributes struct {
 			Configuration struct {
 				Output *struct {
+					// Label Arbitrary value up to the user
+					Label       *string             `json:"label,omitempty"`
 					ProjectId   *openapi_types.UUID `json:"project_id,omitempty"`
 					ProjectName *string             `json:"project_name,omitempty"`
 
@@ -281,7 +283,7 @@ type TestInputBundle struct {
 
 	// Metadata Metadata of the input to be tested
 	Metadata struct {
-		// LocalFilePath This can be an actual path or a folder id for IDE
+		// LocalFilePath This can be an absolute path or a folder id for IDE
 		LocalFilePath string  `json:"local_file_path"`
 		RepoUrl       *string `json:"repo_url,omitempty"`
 	} `json:"metadata"`
@@ -293,8 +295,8 @@ type TestInputBundleType string
 
 // TestInputLegacyScmProject defines model for TestInputLegacyScmProject.
 type TestInputLegacyScmProject struct {
-	// CommitId Id of the commit to be tested
-	CommitId openapi_types.UUID `json:"commit_id"`
+	// CommitId SHA of the commit to be tested
+	CommitId string `json:"commit_id"`
 
 	// ProjectId Id of the project to be tested
 	ProjectId openapi_types.UUID            `json:"project_id"`
