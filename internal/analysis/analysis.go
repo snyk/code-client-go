@@ -483,7 +483,7 @@ func (a *analysisOrchestrator) RunTest(ctx context.Context, orgId string, b bund
 	orgUuid := uuid.MustParse(orgId)
 	host := a.host(true)
 	var repoUrl *string = nil
-	if repoTarget, ok := target.(scan.RepositoryTarget); ok {
+	if repoTarget, ok := target.(*scan.RepositoryTarget); ok {
 		tmp := repoTarget.GetRepositoryUrl()
 		repoUrl = &tmp
 	}
@@ -520,6 +520,7 @@ func (a *analysisOrchestrator) RunTest(ctx context.Context, orgId string, b bund
 		sarif, err := a.pollTestForFindings(ctx, client, orgUuid, parsedResponse.ApplicationvndApiJSON201.Data.Id)
 		return sarif, err
 	default:
+
 		return nil, fmt.Errorf("failed to run test: %s", parsedResponse.Status())
 	}
 }

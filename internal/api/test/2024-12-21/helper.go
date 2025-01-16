@@ -33,6 +33,7 @@ func WithScanType(t v20241221.Scan) CreateTestOption {
 
 func NewCreateTestApplicationBody(options ...CreateTestOption) *CreateTestApplicationVndAPIPlusJSONRequestBody {
 	result := &CreateTestApplicationVndAPIPlusJSONRequestBody{}
+	result.Data.Type = v20241221.CreateTestRequestBodyDataTypeTest
 
 	for _, option := range options {
 		option(result)
