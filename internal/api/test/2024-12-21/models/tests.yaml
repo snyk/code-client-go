@@ -100,11 +100,12 @@ components:
             local_file_path:
               type: string
               maxLength: 512
-              description: This can be an absolute path or a folder id for IDE
+              pattern: ^[:/?#@&+=%a-zA-Z0-9_.~-]+$
+              description: This can be a file path or a folder id for IDE
             repo_url:
               type: string
               maxLength: 1000
-              pattern: ^((https?|ftp|smtp):\/\/)?(www.)?[a-zA-Z0-9_-]+\.[a-z]+(\/[a-zA-Z0-9#_-]+\/?)*$
+              pattern: ^((git|ssh|http(s)?)|(git@[\w.-]+))(:(\/\/)?)([\w.@\:/~-]+)(\.git)?(\/)?$
               example: https://github.com/test-repo/test-goof
           required:
           - local_file_path
@@ -518,7 +519,7 @@ components:
           type: string
           enum:
           - completed
-        result:
+        results:
           type: object
           properties:
             outcome:
@@ -534,6 +535,20 @@ components:
                     policy gate
               required:
               - result
+            webui:
+              type: object
+              properties:
+                link:
+                  type: string
+                  description: Link to the asset created in the Snyk web UI
+                project_id:
+                  type: string
+                  format: uuid
+                  description: The ID of the created project in the Snyk web UI
+                snapshot_id:
+                  type: string
+                  format: uuid
+                  description: The ID of the created snapshot in the Snyk web UI
           required:
           - outcome
         documents:
@@ -548,7 +563,7 @@ components:
       required:
       - created_at
       - status
-      - result
+      - results
       - documents
     TestErrorState:
       type: object
@@ -594,4 +609,3 @@ components:
       required:
       - created_at
       - status
-      - errors
