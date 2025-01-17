@@ -363,7 +363,7 @@ func (r CreateTestResponse) StatusCode() int {
 type GetTestResultResponse struct {
 	Body                     []byte
 	HTTPResponse             *http.Response
-	ApplicationvndApiJSON200 *externalRef1.TestState
+	ApplicationvndApiJSON200 *externalRef1.TestResult
 	ApplicationvndApiJSON400 *externalRef0.N400
 	ApplicationvndApiJSON401 *externalRef0.N401
 	ApplicationvndApiJSON403 *externalRef0.N403
@@ -497,7 +497,7 @@ func ParseGetTestResultResponse(rsp *http.Response) (*GetTestResultResponse, err
 
 	switch {
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
-		var dest externalRef1.TestState
+		var dest externalRef1.TestResult
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}

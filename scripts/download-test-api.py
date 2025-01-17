@@ -11,7 +11,7 @@ from utils import formatSpecWithParameters
 from utils import replaceInFile
 
 API_VERSION = "2024-12-21"
-COMMIT_SHA = "ede78a097cbe5a301648703835fddacac22fed41"
+COMMIT_SHA = "e60c07604edf85b0fc771865487a364cd9cc2f54"
 SERVICE = "test-service"
 FOLDER = "test"
 BASELOCALDIR = f"./internal/api/{FOLDER}/{API_VERSION}"

@@ -49,10 +49,10 @@ const (
 	TestAcceptedStateStatusAccepted TestAcceptedStateStatus = "accepted"
 )
 
-// Defines values for TestCompletedStateResultOutcomeResult.
+// Defines values for TestCompletedStateResultsOutcomeResult.
 const (
-	TestCompletedStateResultOutcomeResultFailed TestCompletedStateResultOutcomeResult = "failed"
-	TestCompletedStateResultOutcomeResultPassed TestCompletedStateResultOutcomeResult = "passed"
+	TestCompletedStateResultsOutcomeResultFailed TestCompletedStateResultsOutcomeResult = "failed"
+	TestCompletedStateResultsOutcomeResultPassed TestCompletedStateResultsOutcomeResult = "passed"
 )
 
 // Defines values for TestCompletedStateStatus.
@@ -212,17 +212,27 @@ type TestCompletedState struct {
 		// EnrichedSarif The location to use for fetching the enriched sarif results
 		EnrichedSarif string `json:"enriched_sarif"`
 	} `json:"documents"`
-	Result struct {
+	Results struct {
 		Outcome struct {
 			// Result The outcome of the test. passed - the test completed and passed policy gate, failed - the test completed and failed policy gate
-			Result TestCompletedStateResultOutcomeResult `json:"result"`
+			Result TestCompletedStateResultsOutcomeResult `json:"result"`
 		} `json:"outcome"`
-	} `json:"result"`
+		Webui *struct {
+			// Link Link to the asset created in the Snyk web UI
+			Link *string `json:"link,omitempty"`
+
+			// ProjectId The ID of the created project in the Snyk web UI
+			ProjectId *openapi_types.UUID `json:"project_id,omitempty"`
+
+			// SnapshotId The ID of the created snapshot in the Snyk web UI
+			SnapshotId *openapi_types.UUID `json:"snapshot_id,omitempty"`
+		} `json:"webui,omitempty"`
+	} `json:"results"`
 	Status TestCompletedStateStatus `json:"status"`
 }
 
-// TestCompletedStateResultOutcomeResult The outcome of the test. passed - the test completed and passed policy gate, failed - the test completed and failed policy gate
-type TestCompletedStateResultOutcomeResult string
+// TestCompletedStateResultsOutcomeResult The outcome of the test. passed - the test completed and passed policy gate, failed - the test completed and failed policy gate
+type TestCompletedStateResultsOutcomeResult string
 
 // TestCompletedStateStatus defines model for TestCompletedState.Status.
 type TestCompletedStateStatus string
@@ -236,7 +246,7 @@ type TestCoordinates struct {
 type TestErrorState struct {
 	// CreatedAt Timestamp when the test was created
 	CreatedAt time.Time `json:"created_at"`
-	Errors    []struct {
+	Errors    *[]struct {
 		// Classification A type of error
 		Classification string `json:"classification"`
 
@@ -251,7 +261,7 @@ type TestErrorState struct {
 
 		// Title The high-level description of an error catalog error
 		Title string `json:"title"`
-	} `json:"errors"`
+	} `json:"errors,omitempty"`
 	Status TestErrorStateStatus `json:"status"`
 }
 
@@ -275,7 +285,7 @@ type TestInputBundle struct {
 
 	// Metadata Metadata of the input to be tested
 	Metadata struct {
-		// LocalFilePath This can be an absolute path or a folder id for IDE
+		// LocalFilePath This can be a file path or a folder id for IDE
 		LocalFilePath string  `json:"local_file_path"`
 		RepoUrl       *string `json:"repo_url,omitempty"`
 	} `json:"metadata"`
