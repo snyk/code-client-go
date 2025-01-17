@@ -480,6 +480,9 @@ func (a *analysisOrchestrator) host(isHidden bool) string {
 }
 
 func (a *analysisOrchestrator) RunTest(ctx context.Context, orgId string, b bundle.Bundle, target scan.Target) (*sarif.SarifResponse, error) {
+	tracker := a.trackerFactory.GenerateTracker()
+	tracker.Begin("Snyk Code analysis for "+target.GetPath(), "Retrieving results...")
+
 	orgUuid := uuid.MustParse(orgId)
 	host := a.host(true)
 	var repoUrl *string = nil
@@ -518,6 +521,7 @@ func (a *analysisOrchestrator) RunTest(ctx context.Context, orgId string, b bund
 	case http.StatusCreated:
 		// poll results
 		sarif, err := a.pollTestForFindings(ctx, client, orgUuid, parsedResponse.ApplicationvndApiJSON201.Data.Id)
+		tracker.End("Analysis complete.")
 		return sarif, err
 	default:
 
