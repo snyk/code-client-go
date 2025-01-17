@@ -579,7 +579,7 @@ func (a *analysisOrchestrator) retrieveTestURL(ctx context.Context, client *test
 
 	switch parsedResponse.StatusCode() {
 	case 200:
-		stateDiscriminator, stateError := parsedResponse.ApplicationvndApiJSON200.Discriminator()
+		stateDiscriminator, stateError := parsedResponse.ApplicationvndApiJSON200.Data.Attributes.Discriminator()
 		if stateError != nil {
 			return "", false, stateError
 		}
@@ -589,11 +589,12 @@ func (a *analysisOrchestrator) retrieveTestURL(ctx context.Context, client *test
 		case string(testModels.TestInProgressStateStatusInProgress):
 			return "", false, nil
 		case string(testModels.TestCompletedStateStatusCompleted):
-			testCompleted, stateCompleteError := parsedResponse.ApplicationvndApiJSON200.AsTestCompletedState()
+			testCompleted, stateCompleteError := parsedResponse.ApplicationvndApiJSON200.Data.Attributes.AsTestCompletedState()
 			if stateCompleteError != nil {
 				return "", false, stateCompleteError
 			}
-			return a.host(true) + testCompleted.Documents.EnrichedSarif, true, nil
+
+			return a.host(true) + testCompleted.Documents.EnrichedSarif + "?version=2024-10-15~experimental", true, nil
 		default:
 		}
 	}
