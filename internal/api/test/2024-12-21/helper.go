@@ -5,6 +5,7 @@ import (
 )
 
 const ApiVersion = "2024-12-21"
+const DocumentApiVersion = "2024-10-15~experimental"
 
 type CreateTestOption func(*CreateTestApplicationVndAPIPlusJSONRequestBody)
 

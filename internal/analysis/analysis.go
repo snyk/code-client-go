@@ -433,11 +433,11 @@ func (a *analysisOrchestrator) retrieveFindings(ctx context.Context, scanJobId u
 		return nil, errors.New("do not have a findings URL")
 	}
 	req, err := http.NewRequest(http.MethodGet, findingsUrl, nil)
-	req = req.WithContext(ctx)
-
 	if err != nil {
 		return nil, err
 	}
+	req = req.WithContext(ctx)
+
 	rsp, err := a.httpClient.Do(req)
 	if err != nil {
 		return nil, err
@@ -507,7 +507,10 @@ func (a *analysisOrchestrator) RunTest(ctx context.Context, orgId string, b bund
 	}
 
 	parsedResponse, err := testApi.ParseCreateTestResponse(resp)
-	defer resp.Body.Close()
+	defer func() {
+		closeErr := resp.Body.Close()
+		a.logger.Err(closeErr).Msg("failed to close response body")
+	}()
 	if err != nil {
 		a.logger.Debug().Msg(err.Error())
 		return nil, err
@@ -516,11 +519,11 @@ func (a *analysisOrchestrator) RunTest(ctx context.Context, orgId string, b bund
 	switch parsedResponse.StatusCode() {
 	case http.StatusCreated:
 		// poll results
-		sarif, err := a.pollTestForFindings(ctx, client, orgUuid, parsedResponse.ApplicationvndApiJSON201.Data.Id)
+		result, pollErr := a.pollTestForFindings(ctx, client, orgUuid, parsedResponse.ApplicationvndApiJSON201.Data.Id)
 		tracker.End("Analysis complete.")
-		return sarif, err
+		return result, pollErr
 	default:
-		return nil, fmt.Errorf("failed to run test: %s", parsedResponse.Status())
+		return nil, fmt.Errorf("failed to create test: %s", parsedResponse.Status())
 	}
 }
 
@@ -544,9 +547,9 @@ func (a *analysisOrchestrator) pollTestForFindings(ctx context.Context, client *
 				return nil, err
 			}
 			if complete {
-				findings, err := a.retrieveFindings(ctx, testId, findingsUrl)
-				if err != nil {
-					return nil, err
+				findings, findingsErr := a.retrieveFindings(ctx, testId, findingsUrl)
+				if findingsErr != nil {
+					return nil, findingsErr
 				}
 				return findings, nil
 			}
@@ -567,13 +570,16 @@ func (a *analysisOrchestrator) retrieveTestURL(ctx context.Context, client *test
 	)
 	if err != nil {
 		logger.Err(err).Str("testId", testId.String()).Msg("error requesting the ScanJobResult")
-		return "", true, err
+		return "", false, err
 	}
-	defer httpResponse.Body.Close()
+	defer func() {
+		closeErr := httpResponse.Body.Close()
+		a.logger.Err(closeErr).Msg("failed to close response body")
+	}()
 
 	parsedResponse, err := testApi.ParseGetTestResultResponse(httpResponse)
 	if err != nil {
-		return "", true, err
+		return "", false, err
 	}
 
 	switch parsedResponse.StatusCode() {
@@ -585,6 +591,7 @@ func (a *analysisOrchestrator) retrieveTestURL(ctx context.Context, client *test
 
 		switch stateDiscriminator {
 		case string(testModels.TestAcceptedStateStatusAccepted):
+			return "", false, nil
 		case string(testModels.TestInProgressStateStatusInProgress):
 			return "", false, nil
 		case string(testModels.TestCompletedStateStatusCompleted):
@@ -593,10 +600,12 @@ func (a *analysisOrchestrator) retrieveTestURL(ctx context.Context, client *test
 				return "", false, stateCompleteError
 			}
 
-			return a.host(true) + testCompleted.Documents.EnrichedSarif + "?version=2024-10-15~experimental", true, nil
+			findingsUrl := a.host(true) + testCompleted.Documents.EnrichedSarif + "?version=" + testApi.DocumentApiVersion
+			return findingsUrl, true, nil
 		default:
 			return "", false, fmt.Errorf("unexpected test status \"%s\"", stateDiscriminator)
 		}
+	default:
+		return "", false, fmt.Errorf("unexpected response status \"%d\"", parsedResponse.StatusCode())
 	}
-	return "", false, nil
 }
