@@ -92,10 +92,9 @@ func WithTrackerFactory(factory scan.TrackerFactory) func(*analysisOrchestrator)
 	}
 }
 
-func WithFlow(flow string) func(*analysisOrchestrator) {
+func WithResultType(t testModels.Scan) func(*analysisOrchestrator) {
 	return func(a *analysisOrchestrator) {
-		a.flow = scans.Flow{}
-		_ = a.flow.UnmarshalJSON([]byte(fmt.Sprintf(`{"name": "%s"}`, flow)))
+		a.testType = t
 	}
 }
 
@@ -115,7 +114,6 @@ func NewAnalysisOrchestrator(
 		trackerFactory: scan.NewNoopTrackerFactory(),
 		errorReporter:  observability.NewErrorReporter(&nopLogger),
 		logger:         &nopLogger,
-		flow:           flow,
 		testType:       testModels.CodeSecurityCodeQuality,
 	}
 
@@ -515,8 +513,6 @@ func (a *analysisOrchestrator) RunTest(ctx context.Context, orgId string, b bund
 		return nil, err
 	}
 
-	a.logger.Debug().Msg(parsedResponse.Status())
-
 	switch parsedResponse.StatusCode() {
 	case http.StatusCreated:
 		// poll results
@@ -524,7 +520,6 @@ func (a *analysisOrchestrator) RunTest(ctx context.Context, orgId string, b bund
 		tracker.End("Analysis complete.")
 		return sarif, err
 	default:
-
 		return nil, fmt.Errorf("failed to run test: %s", parsedResponse.Status())
 	}
 }

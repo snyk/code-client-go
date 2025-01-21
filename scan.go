@@ -26,6 +26,7 @@ import (
 	"github.com/snyk/code-client-go/config"
 	codeClientHTTP "github.com/snyk/code-client-go/http"
 	"github.com/snyk/code-client-go/internal/analysis"
+	testModels "github.com/snyk/code-client-go/internal/api/test/2024-12-21/models"
 	"github.com/snyk/code-client-go/internal/bundle"
 	"github.com/snyk/code-client-go/internal/deepcode"
 	"github.com/snyk/code-client-go/observability"
@@ -42,7 +43,7 @@ type codeScanner struct {
 	trackerFactory       scan.TrackerFactory
 	logger               *zerolog.Logger
 	config               config.Config
-	flow                 string
+	resultTypes          testModels.Scan
 }
 
 type CodeScanner interface {
@@ -67,7 +68,13 @@ func WithInstrumentor(instrumentor observability.Instrumentor) OptionFunc {
 
 func WithFlow(flow string) OptionFunc {
 	return func(c *codeScanner) {
-		c.flow = flow
+		switch flow {
+		case "ide_test":
+			c.resultTypes = testModels.CodeSecurityCodeQuality
+			break
+		default:
+			c.resultTypes = testModels.CodeSecurity
+		}
 	}
 }
 
@@ -107,6 +114,7 @@ func NewCodeScanner(
 		logger:         &nopLogger,
 		instrumentor:   instrumentor,
 		trackerFactory: trackerFactory,
+		resultTypes:    testModels.CodeSecurityCodeQuality,
 	}
 
 	for _, option := range options {
@@ -124,7 +132,7 @@ func NewCodeScanner(
 		analysis.WithErrorReporter(scanner.errorReporter),
 		analysis.WithTrackerFactory(scanner.trackerFactory),
 		analysis.WithLogger(scanner.logger),
-		analysis.WithFlow(scanner.flow),
+		analysis.WithResultType(scanner.resultTypes),
 	)
 	scanner.analysisOrchestrator = analysisOrchestrator
 
