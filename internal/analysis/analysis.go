@@ -600,6 +600,7 @@ func (a *analysisOrchestrator) retrieveTestURL(ctx context.Context, client *test
 
 			return a.host(true) + testCompleted.Documents.EnrichedSarif + "?version=2024-10-15~experimental", true, nil
 		default:
+			return "", false, fmt.Errorf("unexpected test status \"%s\"", stateDiscriminator)
 		}
 	}
 	return "", false, nil
