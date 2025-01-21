@@ -71,7 +71,6 @@ func WithFlow(flow string) OptionFunc {
 		switch flow {
 		case "ide_test":
 			c.resultTypes = testModels.CodeSecurityCodeQuality
-			break
 		default:
 			c.resultTypes = testModels.CodeSecurity
 		}
