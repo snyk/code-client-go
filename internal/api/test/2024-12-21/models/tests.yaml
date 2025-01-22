@@ -75,6 +75,7 @@ components:
       - monitor
       - api_monitor
       - sbom_monitor
+      - sbom_test
     Scan:
       type: string
       enum:
@@ -105,7 +106,6 @@ components:
             repo_url:
               type: string
               maxLength: 1000
-              pattern: ^((git|ssh|http(s)?)|(git@[\w.-]+))(:(\/\/)?)([\w.@\:/~-]+)(\.git)?(\/)?$
               example: https://github.com/test-repo/test-goof
           required:
           - local_file_path

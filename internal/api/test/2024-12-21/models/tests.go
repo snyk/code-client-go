@@ -31,6 +31,7 @@ const (
 	PrCheck       Flow = "pr_check"
 	RecurringTest Flow = "recurring_test"
 	SbomMonitor   Flow = "sbom_monitor"
+	SbomTest      Flow = "sbom_test"
 )
 
 // Defines values for PostTestRequestDataType.
