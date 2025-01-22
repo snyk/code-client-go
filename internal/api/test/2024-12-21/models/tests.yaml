@@ -100,13 +100,16 @@ components:
           properties:
             local_file_path:
               type: string
-              maxLength: 512
-              pattern: ^[:/?#@&+=%a-zA-Z0-9_.~-]+$
               description: This can be a file path or a folder id for IDE
             repo_url:
               type: string
               maxLength: 1000
               example: https://github.com/test-repo/test-goof
+            limit_test_to_files:
+              description: The findings will be limited to a subset of files only.
+              type: array
+              items:
+                type: string
           required:
           - local_file_path
       required:

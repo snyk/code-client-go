@@ -286,6 +286,9 @@ type TestInputBundle struct {
 
 	// Metadata Metadata of the input to be tested
 	Metadata struct {
+		// LimitTestToFiles The findings will be limited to a subset of files only.
+		LimitTestToFiles *[]string `json:"limit_test_to_files,omitempty"`
+
 		// LocalFilePath This can be a file path or a folder id for IDE
 		LocalFilePath string  `json:"local_file_path"`
 		RepoUrl       *string `json:"repo_url,omitempty"`
