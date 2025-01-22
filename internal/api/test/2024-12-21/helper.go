@@ -9,15 +9,16 @@ const DocumentApiVersion = "2024-10-15~experimental"
 
 type CreateTestOption func(*CreateTestApplicationVndAPIPlusJSONRequestBody)
 
-func WithInputBundle(id string, localFilePath string, repoUrl *string) CreateTestOption {
+func WithInputBundle(id string, localFilePath string, repoUrl *string, limitTestToFiles []string) CreateTestOption {
 	return func(body *CreateTestApplicationVndAPIPlusJSONRequestBody) {
 		bundleInput := v20241221.TestInputBundle{
 			BundleId: id,
 			Type:     v20241221.Bundle,
 			Metadata: struct {
-				LocalFilePath string  `json:"local_file_path"`
-				RepoUrl       *string `json:"repo_url,omitempty"`
-			}{LocalFilePath: localFilePath, RepoUrl: repoUrl},
+				LimitTestToFiles *[]string `json:"limit_test_to_files,omitempty"`
+				LocalFilePath    string    `json:"local_file_path"`
+				RepoUrl          *string   `json:"repo_url,omitempty"`
+			}{LocalFilePath: localFilePath, RepoUrl: repoUrl, LimitTestToFiles: &limitTestToFiles},
 		}
 
 		body.Data.Attributes.Input.FromTestInputBundle(bundleInput)

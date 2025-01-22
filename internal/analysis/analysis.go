@@ -496,7 +496,7 @@ func (a *analysisOrchestrator) RunTest(ctx context.Context, orgId string, b bund
 
 	params := testApi.CreateTestParams{Version: testApi.ApiVersion}
 	body := testApi.NewCreateTestApplicationBody(
-		testApi.WithInputBundle(b.GetBundleHash(), target.GetPath(), repoUrl),
+		testApi.WithInputBundle(b.GetBundleHash(), target.GetPath(), repoUrl, b.GetLimitToFiles()),
 		testApi.WithScanType(a.testType),
 	)
 
