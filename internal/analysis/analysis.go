@@ -591,7 +591,7 @@ func (a *analysisOrchestrator) retrieveTestURL(ctx context.Context, client *test
 
 		switch stateDiscriminator {
 		case string(testModels.TestAcceptedStateStatusAccepted):
-			return "", false, nil
+			fallthrough
 		case string(testModels.TestInProgressStateStatusInProgress):
 			return "", false, nil
 		case string(testModels.TestCompletedStateStatusCompleted):
