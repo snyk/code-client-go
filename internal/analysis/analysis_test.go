@@ -20,12 +20,13 @@ import (
 	"context"
 	_ "embed"
 	"fmt"
-	"github.com/snyk/code-client-go/sarif"
 	"io"
 	"net/http"
 	"strconv"
 	"testing"
 	"time"
+
+	"github.com/snyk/code-client-go/sarif"
 
 	"github.com/golang/mock/gomock"
 	"github.com/pkg/errors"
@@ -81,7 +82,7 @@ func TestAnalysis_CreateWorkspace(t *testing.T) {
 		mock.MatchedBy(func(i interface{}) bool {
 			req := i.(*http.Request)
 			return req.URL.String() == "http://localhost/hidden/orgs/4a72d1db-b465-4764-99e1-ecedad03b06a/workspaces?version=2024-05-14~experimental" &&
-				req.Method == "POST" &&
+				req.Method == http.MethodPost &&
 				req.Header.Get("Content-Type") == "application/vnd.api+json" &&
 				req.Header.Get("Snyk-Request-Id") == "b372d1db-b465-4764-99e1-ecedad03b06a" &&
 				req.Header.Get("User-Agent") == "cli"
@@ -124,7 +125,7 @@ func TestAnalysis_CreateWorkspace_NotARepository(t *testing.T) {
 		mock.MatchedBy(func(i interface{}) bool {
 			req := i.(*http.Request)
 			return req.URL.String() == "http://localhost/hidden/orgs/4a72d1db-b465-4764-99e1-ecedad03b06a/workspaces?version=2024-05-14~experimental" &&
-				req.Method == "POST" &&
+				req.Method == http.MethodPost &&
 				req.Header.Get("Content-Type") == "application/vnd.api+json" &&
 				req.Header.Get("Snyk-Request-Id") == "b372d1db-b465-4764-99e1-ecedad03b06a" &&
 				req.Header.Get("User-Agent") == "cli"
@@ -170,7 +171,7 @@ func TestAnalysis_CreateWorkspace_Failure(t *testing.T) {
 		mock.MatchedBy(func(i interface{}) bool {
 			req := i.(*http.Request)
 			return req.URL.String() == "http://localhost/hidden/orgs/4a72d1db-b465-4764-99e1-ecedad03b06a/workspaces?version=2024-05-14~experimental" &&
-				req.Method == "POST" &&
+				req.Method == http.MethodPost &&
 				req.Header.Get("Content-Type") == "application/vnd.api+json" &&
 				req.Header.Get("Snyk-Request-Id") == "b372d1db-b465-4764-99e1-ecedad03b06a" &&
 				req.Header.Get("User-Agent") == "cli"
@@ -248,7 +249,7 @@ func TestAnalysis_CreateWorkspace_KnownErrors(t *testing.T) {
 			mockHTTPClient.EXPECT().Do(mock.MatchedBy(func(i interface{}) bool {
 				req := i.(*http.Request)
 				return req.URL.String() == "http://localhost/hidden/orgs/4a72d1db-b465-4764-99e1-ecedad03b06a/workspaces?version=2024-05-14~experimental" &&
-					req.Method == "POST"
+					req.Method == http.MethodPost
 			})).Times(1).Return(&http.Response{
 				StatusCode: tc.expectedStatus,
 				Header: http.Header{
@@ -305,7 +306,7 @@ func TestAnalysis_RunAnalysis(t *testing.T) {
 	mockHTTPClient.EXPECT().Do(mock.MatchedBy(func(i interface{}) bool {
 		req := i.(*http.Request)
 		return req.URL.String() == "http://localhost/rest/orgs/b6fc8954-5918-45ce-bc89-54591815ce1b/scans?version=2024-02-16~experimental" &&
-			req.Method == "POST"
+			req.Method == http.MethodPost
 	})).Times(1).Return(&http.Response{
 		StatusCode: http.StatusCreated,
 		Header: http.Header{
@@ -317,7 +318,7 @@ func TestAnalysis_RunAnalysis(t *testing.T) {
 	mockHTTPClient.EXPECT().Do(mock.MatchedBy(func(i interface{}) bool {
 		req := i.(*http.Request)
 		return req.URL.String() == "http://localhost/rest/orgs/b6fc8954-5918-45ce-bc89-54591815ce1b/scans/a6fb2742-b67f-4dc3-bb27-42b67f1dc344?version=2024-02-16~experimental" &&
-			req.Method == "GET"
+			req.Method == http.MethodGet
 	})).Times(1).Return(&http.Response{
 		StatusCode: http.StatusOK,
 		Header: http.Header{
@@ -329,7 +330,7 @@ func TestAnalysis_RunAnalysis(t *testing.T) {
 	mockHTTPClient.EXPECT().Do(mock.MatchedBy(func(i interface{}) bool {
 		req := i.(*http.Request)
 		return req.URL.String() == "http://findings_url" &&
-			req.Method == "GET"
+			req.Method == http.MethodGet
 	})).Times(1).Return(&http.Response{
 		StatusCode: http.StatusOK,
 		Body:       io.NopCloser(bytes.NewReader(fakeResponse)),
@@ -372,7 +373,7 @@ func TestAnalysis_RunAnalysis_TriggerFunctionError(t *testing.T) {
 	mockHTTPClient.EXPECT().Do(mock.MatchedBy(func(i interface{}) bool {
 		req := i.(*http.Request)
 		return req.URL.String() == "http://localhost/rest/orgs/b6fc8954-5918-45ce-bc89-54591815ce1b/scans?version=2024-02-16~experimental" &&
-			req.Method == "POST"
+			req.Method == http.MethodPost
 	})).Times(1).Return(nil, errors.New("error"))
 
 	analysisOrchestrator := analysis.NewAnalysisOrchestrator(
@@ -438,7 +439,7 @@ func TestAnalysis_RunAnalysis_TriggerFunctionErrorCodes(t *testing.T) {
 			mockHTTPClient.EXPECT().Do(mock.MatchedBy(func(i interface{}) bool {
 				req := i.(*http.Request)
 				return req.URL.String() == "http://localhost/rest/orgs/b6fc8954-5918-45ce-bc89-54591815ce1b/scans?version=2024-02-16~experimental" &&
-					req.Method == "POST"
+					req.Method == http.MethodPost
 			})).Times(1).Return(nil, errors.New(strconv.Itoa(tc.expectedStatus)))
 
 			analysisOrchestrator := analysis.NewAnalysisOrchestrator(
@@ -465,7 +466,7 @@ func TestAnalysis_RunAnalysis_PollingFunctionError(t *testing.T) {
 	mockHTTPClient.EXPECT().Do(mock.MatchedBy(func(i interface{}) bool {
 		req := i.(*http.Request)
 		return req.URL.String() == "http://localhost/rest/orgs/b6fc8954-5918-45ce-bc89-54591815ce1b/scans?version=2024-02-16~experimental" &&
-			req.Method == "POST"
+			req.Method == http.MethodPost
 	})).Times(1).Return(&http.Response{
 		StatusCode: http.StatusCreated,
 		Header: http.Header{
@@ -477,7 +478,7 @@ func TestAnalysis_RunAnalysis_PollingFunctionError(t *testing.T) {
 	mockHTTPClient.EXPECT().Do(mock.MatchedBy(func(i interface{}) bool {
 		req := i.(*http.Request)
 		return req.URL.String() == "http://localhost/rest/orgs/b6fc8954-5918-45ce-bc89-54591815ce1b/scans/a6fb2742-b67f-4dc3-bb27-42b67f1dc344?version=2024-02-16~experimental" &&
-			req.Method == "GET"
+			req.Method == http.MethodGet
 	})).Times(1).Return(nil, errors.New("error"))
 
 	analysisOrchestrator := analysis.NewAnalysisOrchestrator(
@@ -543,7 +544,7 @@ func TestAnalysis_RunAnalysis_PollingFunctionErrorCodes(t *testing.T) {
 			mockHTTPClient.EXPECT().Do(mock.MatchedBy(func(i interface{}) bool {
 				req := i.(*http.Request)
 				return req.URL.String() == "http://localhost/rest/orgs/b6fc8954-5918-45ce-bc89-54591815ce1b/scans?version=2024-02-16~experimental" &&
-					req.Method == "POST"
+					req.Method == http.MethodPost
 			})).Times(1).Return(&http.Response{
 				StatusCode: http.StatusCreated,
 				Header: http.Header{
@@ -555,7 +556,7 @@ func TestAnalysis_RunAnalysis_PollingFunctionErrorCodes(t *testing.T) {
 			mockHTTPClient.EXPECT().Do(mock.MatchedBy(func(i interface{}) bool {
 				req := i.(*http.Request)
 				return req.URL.String() == "http://localhost/rest/orgs/b6fc8954-5918-45ce-bc89-54591815ce1b/scans/a6fb2742-b67f-4dc3-bb27-42b67f1dc344?version=2024-02-16~experimental" &&
-					req.Method == "GET"
+					req.Method == http.MethodGet
 			})).Times(1).Return(nil, errors.New(strconv.Itoa(tc.expectedStatus)))
 
 			analysisOrchestrator := analysis.NewAnalysisOrchestrator(
@@ -583,7 +584,7 @@ func TestAnalysis_RunAnalysis_PollingFunctionTimeout(t *testing.T) {
 	mockHTTPClient.EXPECT().Do(mock.MatchedBy(func(i interface{}) bool {
 		req := i.(*http.Request)
 		return req.URL.String() == "http://localhost/rest/orgs/b6fc8954-5918-45ce-bc89-54591815ce1b/scans?version=2024-02-16~experimental" &&
-			req.Method == "POST"
+			req.Method == http.MethodPost
 	})).Return(&http.Response{
 		StatusCode: http.StatusCreated,
 		Header: http.Header{
@@ -596,7 +597,7 @@ func TestAnalysis_RunAnalysis_PollingFunctionTimeout(t *testing.T) {
 	mockHTTPClient.EXPECT().Do(mock.MatchedBy(func(i interface{}) bool {
 		req := i.(*http.Request)
 		return req.URL.String() == "http://localhost/rest/orgs/b6fc8954-5918-45ce-bc89-54591815ce1b/scans/a6fb2742-b67f-4dc3-bb27-42b67f1dc344?version=2024-02-16~experimental" &&
-			req.Method == "GET"
+			req.Method == http.MethodGet
 	})).Return(&http.Response{
 		StatusCode: http.StatusOK,
 		Header: http.Header{
@@ -627,7 +628,7 @@ func TestAnalysis_RunAnalysis_GetFindingsError(t *testing.T) {
 	mockHTTPClient.EXPECT().Do(mock.MatchedBy(func(i interface{}) bool {
 		req := i.(*http.Request)
 		return req.URL.String() == "http://localhost/rest/orgs/b6fc8954-5918-45ce-bc89-54591815ce1b/scans?version=2024-02-16~experimental" &&
-			req.Method == "POST"
+			req.Method == http.MethodPost
 	})).Times(1).Return(&http.Response{
 		StatusCode: http.StatusCreated,
 		Header: http.Header{
@@ -639,7 +640,7 @@ func TestAnalysis_RunAnalysis_GetFindingsError(t *testing.T) {
 	mockHTTPClient.EXPECT().Do(mock.MatchedBy(func(i interface{}) bool {
 		req := i.(*http.Request)
 		return req.URL.String() == "http://localhost/rest/orgs/b6fc8954-5918-45ce-bc89-54591815ce1b/scans/a6fb2742-b67f-4dc3-bb27-42b67f1dc344?version=2024-02-16~experimental" &&
-			req.Method == "GET"
+			req.Method == http.MethodGet
 	})).Times(1).Return(&http.Response{
 		StatusCode: http.StatusOK,
 		Header: http.Header{
@@ -651,7 +652,7 @@ func TestAnalysis_RunAnalysis_GetFindingsError(t *testing.T) {
 	mockHTTPClient.EXPECT().Do(mock.MatchedBy(func(i interface{}) bool {
 		req := i.(*http.Request)
 		return req.URL.String() == "http://findings_url" &&
-			req.Method == "GET"
+			req.Method == http.MethodGet
 	})).Times(1).Return(nil, errors.New("error"))
 
 	analysisOrchestrator := analysis.NewAnalysisOrchestrator(
@@ -675,7 +676,7 @@ func TestAnalysis_RunAnalysis_GetFindingsNotSuccessful(t *testing.T) {
 	mockHTTPClient.EXPECT().Do(mock.MatchedBy(func(i interface{}) bool {
 		req := i.(*http.Request)
 		return req.URL.String() == "http://localhost/rest/orgs/b6fc8954-5918-45ce-bc89-54591815ce1b/scans?version=2024-02-16~experimental" &&
-			req.Method == "POST"
+			req.Method == http.MethodPost
 	})).Times(1).Return(&http.Response{
 		StatusCode: http.StatusCreated,
 		Header: http.Header{
@@ -687,7 +688,7 @@ func TestAnalysis_RunAnalysis_GetFindingsNotSuccessful(t *testing.T) {
 	mockHTTPClient.EXPECT().Do(mock.MatchedBy(func(i interface{}) bool {
 		req := i.(*http.Request)
 		return req.URL.String() == "http://localhost/rest/orgs/b6fc8954-5918-45ce-bc89-54591815ce1b/scans/a6fb2742-b67f-4dc3-bb27-42b67f1dc344?version=2024-02-16~experimental" &&
-			req.Method == "GET"
+			req.Method == http.MethodGet
 	})).Times(1).Return(&http.Response{
 		StatusCode: http.StatusOK,
 		Header: http.Header{
@@ -699,7 +700,7 @@ func TestAnalysis_RunAnalysis_GetFindingsNotSuccessful(t *testing.T) {
 	mockHTTPClient.EXPECT().Do(mock.MatchedBy(func(i interface{}) bool {
 		req := i.(*http.Request)
 		return req.URL.String() == "http://findings_url" &&
-			req.Method == "GET"
+			req.Method == http.MethodGet
 	})).Times(1).Return(&http.Response{
 		StatusCode: http.StatusInternalServerError,
 		Body:       io.NopCloser(bytes.NewReader([]byte{})),

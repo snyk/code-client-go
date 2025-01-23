@@ -74,7 +74,7 @@ func TestSnykCodeBackendService_GetFilters(t *testing.T) {
 		mock.MatchedBy(func(i interface{}) bool {
 			req := i.(*http.Request)
 			return req.URL.String() == "http://localhost/filters" &&
-				req.Method == "GET" &&
+				req.Method == http.MethodGet &&
 				req.Header.Get("Cache-Control") == "private, max-age=0, no-cache" &&
 				req.Header.Get("Content-Type") == "application/json"
 		}),
@@ -110,7 +110,7 @@ func TestSnykCodeBackendService_GetFilters_Failure(t *testing.T) {
 		mock.MatchedBy(func(i interface{}) bool {
 			req := i.(*http.Request)
 			return req.URL.String() == "http://localhost/filters" &&
-				req.Method == "GET" &&
+				req.Method == http.MethodGet &&
 				req.Header.Get("Cache-Control") == "private, max-age=0, no-cache" &&
 				req.Header.Get("Content-Type") == "application/json"
 		}),
@@ -142,7 +142,7 @@ func TestSnykCodeBackendService_CreateBundle(t *testing.T) {
 		mock.MatchedBy(func(i interface{}) bool {
 			req := i.(*http.Request)
 			return req.URL.String() == "http://localhost/bundle" &&
-				req.Method == "POST" &&
+				req.Method == http.MethodPost &&
 				req.Header.Get("Cache-Control") == "private, max-age=0, no-cache" &&
 				req.Header.Get("Content-Encoding") == "gzip" &&
 				req.Header.Get("Content-Type") == "application/octet-stream"
@@ -183,7 +183,7 @@ func TestSnykCodeBackendService_CreateBundle_Failure(t *testing.T) {
 		mock.MatchedBy(func(i interface{}) bool {
 			req := i.(*http.Request)
 			return req.URL.String() == "http://localhost/bundle" &&
-				req.Method == "POST" &&
+				req.Method == http.MethodPost &&
 				req.Header.Get("Cache-Control") == "private, max-age=0, no-cache" &&
 				req.Header.Get("Content-Encoding") == "gzip" &&
 				req.Header.Get("Content-Type") == "application/octet-stream"
@@ -220,7 +220,7 @@ func TestSnykCodeBackendService_ExtendBundle(t *testing.T) {
 		mock.MatchedBy(func(i interface{}) bool {
 			req := i.(*http.Request)
 			return req.URL.String() == "http://localhost/bundle" &&
-				req.Method == "POST" &&
+				req.Method == http.MethodPost &&
 				req.Header.Get("Cache-Control") == "private, max-age=0, no-cache" &&
 				req.Header.Get("Content-Encoding") == "gzip" &&
 				req.Header.Get("Content-Type") == "application/octet-stream"
@@ -233,7 +233,7 @@ func TestSnykCodeBackendService_ExtendBundle(t *testing.T) {
 		mock.MatchedBy(func(i interface{}) bool {
 			req := i.(*http.Request)
 			return req.URL.String() == "http://localhost/bundle/bundleHash" &&
-				req.Method == "PUT" &&
+				req.Method == http.MethodPut &&
 				req.Header.Get("Cache-Control") == "private, max-age=0, no-cache" &&
 				req.Header.Get("Content-Encoding") == "gzip" &&
 				req.Header.Get("Content-Type") == "application/octet-stream"
@@ -274,7 +274,7 @@ func TestSnykCodeBackendService_ExtendBundle_Failure(t *testing.T) {
 		mock.MatchedBy(func(i interface{}) bool {
 			req := i.(*http.Request)
 			return req.URL.String() == "http://localhost/bundle" &&
-				req.Method == "POST" &&
+				req.Method == http.MethodPost &&
 				req.Header.Get("Cache-Control") == "private, max-age=0, no-cache" &&
 				req.Header.Get("Content-Encoding") == "gzip" &&
 				req.Header.Get("Content-Type") == "application/octet-stream"
@@ -287,7 +287,7 @@ func TestSnykCodeBackendService_ExtendBundle_Failure(t *testing.T) {
 		mock.MatchedBy(func(i interface{}) bool {
 			req := i.(*http.Request)
 			return req.URL.String() == "http://localhost/bundle/bundleHash" &&
-				req.Method == "PUT" &&
+				req.Method == http.MethodPut &&
 				req.Header.Get("Cache-Control") == "private, max-age=0, no-cache" &&
 				req.Header.Get("Content-Encoding") == "gzip" &&
 				req.Header.Get("Content-Type") == "application/octet-stream"

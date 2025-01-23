@@ -1,0 +1,14 @@
+package: v20241221
+generate:
+  client: true
+  models: true
+output-options:
+  skip-prune: true
+  nullable-type: true
+import-mapping:
+  ./common/common.yaml: github.com/snyk/code-client-go/internal/api/test/2024-12-21/common
+  ./tests/tests.yaml: github.com/snyk/code-client-go/internal/api/test/2024-12-21/tests
+  ./parameters/orgs.yaml: github.com/snyk/code-client-go/internal/api/test/2024-12-21/parameters
+  ./parameters/tests.yaml: github.com/snyk/code-client-go/internal/api/test/2024-12-21/parameters
+  ./models/tests.yaml: github.com/snyk/code-client-go/internal/api/test/2024-12-21/models
+output: client.go

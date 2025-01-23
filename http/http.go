@@ -126,14 +126,6 @@ func (s *httpClient) Do(req *http.Request) (*http.Response, error) {
 }
 
 func (s *httpClient) httpCall(req *http.Request) (*http.Response, error) {
-	requestId := req.Header.Get("snyk-request-id")
-	log := s.logger.With().
-		Str("method", "http.httpCall").
-		Str("reqMethod", req.Method).
-		Str("url", req.URL.String()).
-		Str("snyk-request-id", requestId).
-		Logger()
-
 	// store the request body so that after retrying it can be read again
 	var copyReqBody io.ReadCloser
 	var reqBuf []byte
@@ -142,7 +134,6 @@ func (s *httpClient) httpCall(req *http.Request) (*http.Response, error) {
 		reqBody := io.NopCloser(bytes.NewBuffer(reqBuf))
 		copyReqBody = io.NopCloser(bytes.NewBuffer(reqBuf))
 		req.Body = reqBody
-		log.Debug().Msg("SEND TO REMOTE")
 	}
 
 	response, err := s.httpClientFactory().Do(req)
@@ -153,13 +144,9 @@ func (s *httpClient) httpCall(req *http.Request) (*http.Response, error) {
 		resBuf, _ = io.ReadAll(response.Body)
 		copyResBody = io.NopCloser(bytes.NewBuffer(resBuf))
 		response.Body = copyResBody
-		log.Debug().Str("response.Status", response.Status).Msg("RECEIVED FROM REMOTE")
-	} else {
-		log.Debug().Msg("RECEIVED FROM REMOTE")
 	}
 
 	if err != nil {
-		log.Error().Err(err).Msg("got http error")
 		s.errorReporter.CaptureError(err, observability.ErrorReporterOptions{ErrorDiagnosticPath: req.RequestURI})
 		return nil, err
 	}

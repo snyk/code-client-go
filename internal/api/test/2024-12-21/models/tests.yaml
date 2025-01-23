@@ -1,0 +1,614 @@
+components:
+  schemas:
+    TestOptionsGitUrl:
+      type: object
+      properties:
+        integration_id:
+          description: A Snyk integration_id
+          type: string
+          format: uuid
+          example: 275af21f-e92b-40aa-8604-ef9b00c9bd8d
+        repo_url:
+          description: A repository url for which a test will run
+          type: string
+          format: uri
+          example: https://github/com/snyk/goof
+        revision:
+          description: A git commit revision
+          type: string
+          example: 97cea0113b8807b00a5c70d5e9073f908a8baae2
+      required:
+      - integration_id
+      - repo_url
+      - revision
+    TestOptionsTarget:
+      type: object
+      properties:
+        target_id:
+          description: Id of the target to be tested
+          type: string
+          format: uuid
+          example: 275af21f-e92b-40aa-8604-ef9b00c9bd8d
+        version:
+          description: This target's version, like a git branch, a commit sha, or
+            a Docker image tag
+          type: string
+          example: main
+      required:
+      - target_id
+      - version
+    TestOptionsWorkspace:
+      type: object
+      properties:
+        workspace_id:
+          description: Id of the workspace to be tested
+          type: string
+          format: uuid
+          example: 275af21f-e92b-40aa-8604-ef9b00c9bd8d
+      required:
+      - workspace_id
+    TestCoordinates:
+      oneOf:
+      - $ref: '#/components/schemas/TestOptionsGitUrl'
+      - $ref: '#/components/schemas/TestOptionsTarget'
+      - $ref: '#/components/schemas/TestOptionsWorkspace'
+    TestOptionsDiff:
+      type: object
+      properties:
+        base:
+          $ref: '#/components/schemas/TestCoordinates'
+        head:
+          $ref: '#/components/schemas/TestCoordinates'
+      required:
+      - base
+      - head
+    Flow:
+      type: string
+      enum:
+      - api_test
+      - pr_check
+      - cli_test
+      - ide_test
+      - ide_diff_test
+      - manual_test
+      - recurring_test
+      - monitor
+      - api_monitor
+      - sbom_monitor
+      - sbom_test
+    Scan:
+      type: string
+      enum:
+      - code_security
+      - code_security, code_quality
+    TestInputBundle:
+      type: object
+      properties:
+        type:
+          type: string
+          enum:
+          - bundle
+          example: bundle
+        bundle_id:
+          description: A Snyk bundle id
+          type: string
+          maxLength: 100
+          example: 275af21f-e92b-40aa-8604-ef9b00c9bd8d
+        metadata:
+          description: Metadata of the input to be tested
+          type: object
+          properties:
+            local_file_path:
+              type: string
+              description: This can be a file path or a folder id for IDE
+            repo_url:
+              type: string
+              maxLength: 1000
+              example: https://github.com/test-repo/test-goof
+            limit_test_to_files:
+              description: The findings will be limited to a subset of files only.
+              type: array
+              items:
+                type: string
+          required:
+          - local_file_path
+      required:
+      - type
+      - bundle_id
+      - metadata
+    TestInputLegacyScmProject:
+      type: object
+      properties:
+        type:
+          type: string
+          enum:
+          - legacy_scm_project
+          example: legacy_scm_project
+        project_id:
+          description: Id of the project to be tested
+          type: string
+          format: uuid
+          example: 275af21f-e92b-40aa-8604-ef9b00c9bd8d
+        commit_id:
+          description: SHA of the commit to be tested
+          type: string
+          example: 024db817148169e6ca9e7f33408cca01002c1dce
+      required:
+      - type
+      - project_id
+      - commit_id
+    PostTestRequest:
+      type: object
+      properties:
+        data:
+          type: object
+          properties:
+            type:
+              type: string
+              enum:
+              - test
+              example: test
+            attributes:
+              type: object
+              properties:
+                context:
+                  type: object
+                  properties:
+                    flow:
+                      $ref: '#/components/schemas/Flow'
+                  additionalProperties: true
+                  maxProperties: 10
+                options:
+                  oneOf:
+                  - $ref: '#/components/schemas/TestOptionsTarget'
+                  - $ref: '#/components/schemas/TestOptionsGitUrl'
+                  - $ref: '#/components/schemas/TestOptionsDiff'
+                  - $ref: '#/components/schemas/TestOptionsWorkspace'
+              required:
+              - options
+          additionalProperties: false
+          required:
+          - type
+          - attributes
+      additionalProperties: false
+      required:
+      - data
+    TestResponse:
+      type: object
+      properties:
+        data:
+          type: object
+          properties:
+            id:
+              description: The id of the Snyk test
+              type: string
+              format: uuid
+              example: 275af21f-e92b-40aa-8604-ef9b00c9bd8d
+            type:
+              type: string
+              enum:
+              - test
+              example: test
+          required:
+          - id
+          - type
+        links:
+          $ref: ../common/common.yaml#/components/schemas/SelfLink
+        jsonapi:
+          $ref: ../common/common.yaml#/components/schemas/JsonApi
+      additionalProperties: false
+      required:
+      - data
+      - links
+    TestResultResponse:
+      type: object
+      properties:
+        jsonapi:
+          $ref: ../common/common.yaml#/components/schemas/JsonApi
+        links:
+          $ref: ../common/common.yaml#/components/schemas/SelfLink
+        data:
+          type: object
+          properties:
+            type:
+              type: string
+              enum:
+              - test
+              example: test
+            id:
+              type: string
+              format: uuid
+              description: The id of the test
+            attributes:
+              $ref: '#/components/schemas/TestResultState'
+          additionalProperties: false
+          required:
+          - type
+          - id
+          - attributes
+      additionalProperties: false
+      required:
+      - data
+      - jsonapi
+      - links
+    TestResultState:
+      oneOf:
+      - $ref: '#/components/schemas/TestResultAcceptedState'
+      - $ref: '#/components/schemas/TestResultInProgressState'
+      - $ref: '#/components/schemas/TestResultCompletedState'
+      - $ref: '#/components/schemas/TestResultErrorState'
+      discriminator:
+        propertyName: state
+    TestResultAcceptedState:
+      type: object
+      properties:
+        state:
+          type: string
+          enum:
+          - accepted
+        created_at:
+          type: string
+          format: date-time
+          description: Timestamp when the test was created
+        context:
+          type: object
+      required:
+      - state
+      - created_at
+    TestResultInProgressState:
+      type: object
+      properties:
+        state:
+          type: string
+          enum:
+          - in_progress
+        created_at:
+          type: string
+          format: date-time
+          description: Timestamp when the test was created
+        context:
+          type: object
+      required:
+      - state
+      - created_at
+    TestResultCompletedState:
+      type: object
+      properties:
+        state:
+          type: string
+          enum:
+          - completed
+        severity_counts:
+          description: Severity counts for the findings
+          type: object
+          properties:
+            critical:
+              type: integer
+            high:
+              type: integer
+            medium:
+              type: integer
+            low:
+              type: integer
+        created_at:
+          type: string
+          format: date-time
+          description: Timestamp when the test was created
+        context:
+          type: object
+        result:
+          type: object
+          properties:
+            status:
+              type: string
+              enum:
+              - passed
+              - failed
+              description: The outcome of the test. passed - the test completed and
+                passed policy gate, failed - the test completed and failed policy
+                gate
+          required:
+          - status
+        findings:
+          type: array
+          items:
+            type: object
+            properties:
+              format:
+                type: string
+                enum:
+                - SARIF
+                - CYCLONE_DX
+                description: The format of the findings document
+              findings_url:
+                type: string
+                format: uri
+                description: URL where findings can be downloaded
+            required:
+            - format
+            - findings_url
+      required:
+      - state
+      - created_at
+      - findings
+      - severity_counts
+    TestResultErrorState:
+      type: object
+      properties:
+        state:
+          type: string
+          enum:
+          - error
+        created_at:
+          type: string
+          format: date-time
+          description: Timestamp when the test was created
+        context:
+          type: object
+        errors:
+          type: array
+          items:
+            type: object
+            properties:
+              title:
+                type: string
+                description: The high-level description of an error catalog error
+              message:
+                type: string
+                description: A custom description of an error.
+                example: The server cannot process the request due to an unexpected
+                  error. Check Snyk status, then try again.
+              error_code:
+                type: string
+                description: The Snyk error code
+                example: SNYK-9999
+              classification:
+                type: string
+                example: UNEXPECTED
+                description: A type of error
+              info_url:
+                type: string
+                description: The URL to link to more information about the error
+                example: https://docs.snyk.io/scan-with-snyk/error-catalog#snyk-9999
+            required:
+            - title
+            - message
+            - error_code
+            - classification
+      required:
+      - state
+      - created_at
+    CreateTestRequestBody:
+      type: object
+      properties:
+        data:
+          type: object
+          properties:
+            type:
+              type: string
+              enum:
+              - test
+              example: test
+            attributes:
+              type: object
+              properties:
+                input:
+                  oneOf:
+                  - $ref: '#/components/schemas/TestInputBundle'
+                  - $ref: '#/components/schemas/TestInputLegacyScmProject'
+                configuration:
+                  type: object
+                  properties:
+                    scan:
+                      type: object
+                      properties:
+                        result_type:
+                          $ref: '#/components/schemas/Scan'
+                    output:
+                      type: object
+                      properties:
+                        report:
+                          type: boolean
+                          description: Determines if the test is stateless (false)
+                            or stateful (true)
+                        project_name:
+                          type: string
+                          pattern: ^[?#@&+=%a-zA-Z0-9_.~\/\\:\s-]+$
+                        project_id:
+                          type: string
+                          format: uuid
+                        target_name:
+                          type: string
+                          pattern: ^[?#@&+=%a-zA-Z0-9_.~\/\\:\s-]+$
+                        target_reference:
+                          type: string
+                          description: A reference for the target's version - can
+                            be a git branch or a commit sha
+                          example: main
+                        label:
+                          type: string
+                          description: Arbitrary value up to the user
+                          pattern: ^[:/?#@&+=%a-zA-Z0-9_.~-]+$
+                      additionalProperties: false
+                  additionalProperties: false
+                  required:
+                  - scan
+              additionalProperties: false
+              required:
+              - input
+              - configuration
+          additionalProperties: false
+          required:
+          - type
+          - attributes
+      additionalProperties: false
+      required:
+      - data
+    TestResult:
+      type: object
+      properties:
+        jsonapi:
+          $ref: ../common/common.yaml#/components/schemas/JsonApi
+        links:
+          $ref: ../common/common.yaml#/components/schemas/SelfLink
+        data:
+          type: object
+          properties:
+            type:
+              type: string
+              enum:
+              - test
+              example: test
+            id:
+              type: string
+              format: uuid
+              description: The id of the test
+            attributes:
+              $ref: '#/components/schemas/TestState'
+          additionalProperties: false
+          required:
+          - type
+          - id
+          - attributes
+      additionalProperties: false
+      required:
+      - data
+      - jsonapi
+      - links
+    TestState:
+      oneOf:
+      - $ref: '#/components/schemas/TestAcceptedState'
+      - $ref: '#/components/schemas/TestInProgressState'
+      - $ref: '#/components/schemas/TestCompletedState'
+      - $ref: '#/components/schemas/TestErrorState'
+      discriminator:
+        propertyName: status
+    TestAcceptedState:
+      type: object
+      properties:
+        created_at:
+          type: string
+          format: date-time
+          description: Timestamp when the test was created
+        status:
+          type: string
+          enum:
+          - accepted
+      required:
+      - created_at
+      - status
+    TestInProgressState:
+      type: object
+      properties:
+        created_at:
+          type: string
+          format: date-time
+          description: Timestamp when the test was created
+        status:
+          type: string
+          enum:
+          - in_progress
+      required:
+      - created_at
+      - status
+    TestCompletedState:
+      type: object
+      properties:
+        created_at:
+          type: string
+          format: date-time
+          description: Timestamp when the test was created
+        status:
+          type: string
+          enum:
+          - completed
+        results:
+          type: object
+          properties:
+            outcome:
+              type: object
+              properties:
+                result:
+                  type: string
+                  enum:
+                  - passed
+                  - failed
+                  description: The outcome of the test. passed - the test completed
+                    and passed policy gate, failed - the test completed and failed
+                    policy gate
+              required:
+              - result
+            webui:
+              type: object
+              properties:
+                link:
+                  type: string
+                  description: Link to the asset created in the Snyk web UI
+                project_id:
+                  type: string
+                  format: uuid
+                  description: The ID of the created project in the Snyk web UI
+                snapshot_id:
+                  type: string
+                  format: uuid
+                  description: The ID of the created snapshot in the Snyk web UI
+          required:
+          - outcome
+        documents:
+          type: object
+          properties:
+            enriched_sarif:
+              type: string
+              description: The location to use for fetching the enriched sarif results
+              example: /orgs/4f557e06-a379-4686-a4fe-852b8c6f80bd/tests/9ef35e3c-4738-42da-8688-25898d04fb84/documents/enriched-sarif/blob
+          required:
+          - enriched_sarif
+      required:
+      - created_at
+      - status
+      - results
+      - documents
+    TestErrorState:
+      type: object
+      properties:
+        created_at:
+          type: string
+          format: date-time
+          description: Timestamp when the test was created
+        status:
+          type: string
+          enum:
+          - error
+        errors:
+          type: array
+          items:
+            type: object
+            properties:
+              title:
+                type: string
+                description: The high-level description of an error catalog error
+              message:
+                type: string
+                description: A custom description of an error.
+                example: The server cannot process the request due to an unexpected
+                  error. Check Snyk status, then try again.
+              error_code:
+                type: string
+                description: The Snyk error code
+                example: SNYK-9999
+              classification:
+                type: string
+                example: UNEXPECTED
+                description: A type of error
+              info_url:
+                type: string
+                description: The URL to link to more information about the error
+                example: https://docs.snyk.io/scan-with-snyk/error-catalog#snyk-9999
+            required:
+            - title
+            - message
+            - error_code
+            - classification
+      required:
+      - created_at
+      - status

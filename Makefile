@@ -4,7 +4,7 @@ GOARCH = $(shell go env GOARCH)
 
 TOOLS_BIN := $(shell pwd)/.bin
 
-OVERRIDE_GOCI_LINT_V := v1.55.2
+OVERRIDE_GOCI_LINT_V := v1.60.1
 SHELL:=env PATH=$(TOOLS_BIN)/go:$(TOOLS_BIN)/pact/bin:$(PATH) $(SHELL)
 
 ## tools: Install required tooling.
@@ -88,7 +88,7 @@ generate-apis: $(TOOLS_BIN)/go/oapi-codegen download-apis
 	@go generate -tags API,!MOCK ./...
 
 .PHONY: download-apis
-download-apis: download-workspace-api download-orchestration-api
+download-apis: download-test-api
 
 .PHONY: download-workspace-api
 download-workspace-api:
@@ -97,6 +97,10 @@ download-workspace-api:
 .PHONY: download-orchestration-api
 download-orchestration-api:
 	./scripts/download-orchestration-api.py
+
+.PHONY: download-test-api
+download-test-api:
+	./scripts/download-test-api.py
 
 .PHONY: help
 help:

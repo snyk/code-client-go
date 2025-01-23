@@ -26,9 +26,9 @@ import (
 	"github.com/snyk/code-client-go/config"
 	codeClientHTTP "github.com/snyk/code-client-go/http"
 	"github.com/snyk/code-client-go/internal/analysis"
+	testModels "github.com/snyk/code-client-go/internal/api/test/2024-12-21/models"
 	"github.com/snyk/code-client-go/internal/bundle"
 	"github.com/snyk/code-client-go/internal/deepcode"
-	scans "github.com/snyk/code-client-go/internal/orchestration/2024-02-16/scans"
 	"github.com/snyk/code-client-go/observability"
 	"github.com/snyk/code-client-go/sarif"
 	"github.com/snyk/code-client-go/scan"
@@ -43,7 +43,7 @@ type codeScanner struct {
 	trackerFactory       scan.TrackerFactory
 	logger               *zerolog.Logger
 	config               config.Config
-	flow                 string
+	resultTypes          testModels.Scan
 }
 
 type CodeScanner interface {
@@ -68,7 +68,12 @@ func WithInstrumentor(instrumentor observability.Instrumentor) OptionFunc {
 
 func WithFlow(flow string) OptionFunc {
 	return func(c *codeScanner) {
-		c.flow = flow
+		switch flow {
+		case "ide_test":
+			c.resultTypes = testModels.CodeSecurityCodeQuality
+		default:
+			c.resultTypes = testModels.CodeSecurity
+		}
 	}
 }
 
@@ -108,7 +113,7 @@ func NewCodeScanner(
 		logger:         &nopLogger,
 		instrumentor:   instrumentor,
 		trackerFactory: trackerFactory,
-		flow:           string(scans.IdeTest),
+		resultTypes:    testModels.CodeSecurityCodeQuality,
 	}
 
 	for _, option := range options {
@@ -126,7 +131,7 @@ func NewCodeScanner(
 		analysis.WithErrorReporter(scanner.errorReporter),
 		analysis.WithTrackerFactory(scanner.trackerFactory),
 		analysis.WithLogger(scanner.logger),
-		analysis.WithFlow(scanner.flow),
+		analysis.WithResultType(scanner.resultTypes),
 	)
 	scanner.analysisOrchestrator = analysisOrchestrator
 
@@ -204,19 +209,7 @@ func (c *codeScanner) UploadAndAnalyze(
 		return nil, bundleHash, nil
 	}
 
-	workspaceId, err := c.analysisOrchestrator.CreateWorkspace(ctx, c.config.Organization(), requestId, target, bundleHash)
-	if err != nil {
-		if ctx.Err() == nil { // Only handle errors that are not intentional cancellations
-			msg := "error creating workspace for bundle..."
-			c.errorReporter.CaptureError(errors.Wrap(err, msg), observability.ErrorReporterOptions{ErrorDiagnosticPath: target.GetPath()})
-			return nil, bundleHash, err
-		} else {
-			c.logger.Info().Msg("Canceling Code scan - Code scanner received cancellation signal")
-			return nil, bundleHash, nil
-		}
-	}
-
-	response, err := c.analysisOrchestrator.RunIncrementalAnalysis(ctx, c.config.Organization(), b.GetRootPath(), workspaceId, b.GetLimitToFiles())
+	response, err := c.analysisOrchestrator.RunTest(ctx, c.config.Organization(), b, target)
 
 	if ctx.Err() != nil {
 		c.logger.Info().Msg("Canceling Code scan - Code scanner received cancellation signal")

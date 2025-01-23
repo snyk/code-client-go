@@ -34,6 +34,9 @@ import (
 
 	"github.com/snyk/code-client-go/config"
 	codeClientHTTP "github.com/snyk/code-client-go/http"
+	testApi "github.com/snyk/code-client-go/internal/api/test/2024-12-21"
+	testModels "github.com/snyk/code-client-go/internal/api/test/2024-12-21/models"
+	"github.com/snyk/code-client-go/internal/bundle"
 	orchestrationClient "github.com/snyk/code-client-go/internal/orchestration/2024-02-16"
 	scans "github.com/snyk/code-client-go/internal/orchestration/2024-02-16/scans"
 	workspaceClient "github.com/snyk/code-client-go/internal/workspace/2024-05-14"
@@ -48,6 +51,8 @@ type AnalysisOrchestrator interface {
 	CreateWorkspace(ctx context.Context, orgId string, requestId string, path scan.Target, bundleHash string) (string, error)
 	RunAnalysis(ctx context.Context, orgId string, rootPath string, workspaceId string) (*sarif.SarifResponse, error)
 	RunIncrementalAnalysis(ctx context.Context, orgId string, rootPath string, workspaceId string, limitToFiles []string) (*sarif.SarifResponse, error)
+
+	RunTest(ctx context.Context, orgId string, b bundle.Bundle, target scan.Target) (*sarif.SarifResponse, error)
 }
 
 type analysisOrchestrator struct {
@@ -58,6 +63,7 @@ type analysisOrchestrator struct {
 	trackerFactory scan.TrackerFactory
 	config         config.Config
 	flow           scans.Flow
+	testType       testModels.Scan
 }
 
 type OptionFunc func(*analysisOrchestrator)
@@ -86,10 +92,9 @@ func WithTrackerFactory(factory scan.TrackerFactory) func(*analysisOrchestrator)
 	}
 }
 
-func WithFlow(flow string) func(*analysisOrchestrator) {
+func WithResultType(t testModels.Scan) func(*analysisOrchestrator) {
 	return func(a *analysisOrchestrator) {
-		a.flow = scans.Flow{}
-		_ = a.flow.UnmarshalJSON([]byte(fmt.Sprintf(`{"name": "%s"}`, flow)))
+		a.testType = t
 	}
 }
 
@@ -109,7 +114,7 @@ func NewAnalysisOrchestrator(
 		trackerFactory: scan.NewNoopTrackerFactory(),
 		errorReporter:  observability.NewErrorReporter(&nopLogger),
 		logger:         &nopLogger,
-		flow:           flow,
+		testType:       testModels.CodeSecurityCodeQuality,
 	}
 
 	for _, option := range options {
@@ -428,11 +433,11 @@ func (a *analysisOrchestrator) retrieveFindings(ctx context.Context, scanJobId u
 		return nil, errors.New("do not have a findings URL")
 	}
 	req, err := http.NewRequest(http.MethodGet, findingsUrl, nil)
-	req = req.WithContext(ctx)
-
 	if err != nil {
 		return nil, err
 	}
+	req = req.WithContext(ctx)
+
 	rsp, err := a.httpClient.Do(req)
 	if err != nil {
 		return nil, err
@@ -470,4 +475,137 @@ func (a *analysisOrchestrator) host(isHidden bool) string {
 		path = "hidden"
 	}
 	return fmt.Sprintf("%s/%s", apiUrl, path)
+}
+
+func (a *analysisOrchestrator) RunTest(ctx context.Context, orgId string, b bundle.Bundle, target scan.Target) (*sarif.SarifResponse, error) {
+	tracker := a.trackerFactory.GenerateTracker()
+	tracker.Begin("Snyk Code analysis for "+target.GetPath(), "Retrieving results...")
+
+	orgUuid := uuid.MustParse(orgId)
+	host := a.host(true)
+	var repoUrl *string = nil
+	if repoTarget, ok := target.(*scan.RepositoryTarget); ok {
+		tmp := repoTarget.GetRepositoryUrl()
+		repoUrl = &tmp
+	}
+
+	client, err := testApi.NewClient(host, testApi.WithHTTPClient(a.httpClient))
+	if err != nil {
+		return nil, err
+	}
+
+	params := testApi.CreateTestParams{Version: testApi.ApiVersion}
+	body := testApi.NewCreateTestApplicationBody(
+		testApi.WithInputBundle(b.GetBundleHash(), target.GetPath(), repoUrl, b.GetLimitToFiles()),
+		testApi.WithScanType(a.testType),
+	)
+
+	// create test
+	resp, err := client.CreateTestWithApplicationVndAPIPlusJSONBody(ctx, orgUuid, &params, *body)
+	if err != nil {
+		return nil, err
+	}
+
+	parsedResponse, err := testApi.ParseCreateTestResponse(resp)
+	defer func() {
+		closeErr := resp.Body.Close()
+		a.logger.Err(closeErr).Msg("failed to close response body")
+	}()
+	if err != nil {
+		a.logger.Debug().Msg(err.Error())
+		return nil, err
+	}
+
+	switch parsedResponse.StatusCode() {
+	case http.StatusCreated:
+		// poll results
+		result, pollErr := a.pollTestForFindings(ctx, client, orgUuid, parsedResponse.ApplicationvndApiJSON201.Data.Id)
+		tracker.End("Analysis complete.")
+		return result, pollErr
+	default:
+		return nil, fmt.Errorf("failed to create test: %s", parsedResponse.Status())
+	}
+}
+
+func (a *analysisOrchestrator) pollTestForFindings(ctx context.Context, client *testApi.Client, org uuid.UUID, testId openapi_types.UUID) (*sarif.SarifResponse, error) {
+	method := "analysis.pollTestForFindings"
+	logger := a.logger.With().Str("method", method).Logger()
+
+	pollingTicker := time.NewTicker(1 * time.Second)
+	defer pollingTicker.Stop()
+	timeoutTimer := time.NewTimer(a.config.SnykCodeAnalysisTimeout())
+	defer timeoutTimer.Stop()
+	for {
+		select {
+		case <-timeoutTimer.C:
+			msg := "Snyk Code analysis timed out"
+			logger.Error().Str("scanJobId", testId.String()).Msg(msg)
+			return nil, errors.New(msg)
+		case <-pollingTicker.C:
+			findingsUrl, complete, err := a.retrieveTestURL(ctx, client, org, testId)
+			if err != nil {
+				return nil, err
+			}
+			if complete {
+				findings, findingsErr := a.retrieveFindings(ctx, testId, findingsUrl)
+				if findingsErr != nil {
+					return nil, findingsErr
+				}
+				return findings, nil
+			}
+		}
+	}
+}
+
+func (a *analysisOrchestrator) retrieveTestURL(ctx context.Context, client *testApi.Client, org uuid.UUID, testId openapi_types.UUID) (url string, completed bool, err error) {
+	method := "analysis.retrieveTestURL"
+	logger := a.logger.With().Str("method", method).Logger()
+	logger.Debug().Msg("retrieving Test URL")
+
+	httpResponse, err := client.GetTestResult(
+		ctx,
+		org,
+		testId,
+		&testApi.GetTestResultParams{Version: testApi.ApiVersion},
+	)
+	if err != nil {
+		logger.Err(err).Str("testId", testId.String()).Msg("error requesting the ScanJobResult")
+		return "", false, err
+	}
+	defer func() {
+		closeErr := httpResponse.Body.Close()
+		a.logger.Err(closeErr).Msg("failed to close response body")
+	}()
+
+	parsedResponse, err := testApi.ParseGetTestResultResponse(httpResponse)
+	if err != nil {
+		return "", false, err
+	}
+
+	switch parsedResponse.StatusCode() {
+	case 200:
+		stateDiscriminator, stateError := parsedResponse.ApplicationvndApiJSON200.Data.Attributes.Discriminator()
+		if stateError != nil {
+			return "", false, stateError
+		}
+
+		switch stateDiscriminator {
+		case string(testModels.TestAcceptedStateStatusAccepted):
+			fallthrough
+		case string(testModels.TestInProgressStateStatusInProgress):
+			return "", false, nil
+		case string(testModels.TestCompletedStateStatusCompleted):
+			testCompleted, stateCompleteError := parsedResponse.ApplicationvndApiJSON200.Data.Attributes.AsTestCompletedState()
+			if stateCompleteError != nil {
+				return "", false, stateCompleteError
+			}
+
+			findingsUrl := a.host(true) + testCompleted.Documents.EnrichedSarif + "?version=" + testApi.DocumentApiVersion
+			return findingsUrl, true, nil
+		default:
+			return "", false, fmt.Errorf("unexpected test status \"%s\"", stateDiscriminator)
+		}
+	default:
+		return "", false, fmt.Errorf("unexpected response status \"%d\"", parsedResponse.StatusCode())
+	}
 }
