@@ -18,7 +18,11 @@ func WithInputBundle(id string, localFilePath string, repoUrl *string, limitTest
 				LimitTestToFiles *[]string `json:"limit_test_to_files,omitempty"`
 				LocalFilePath    string    `json:"local_file_path"`
 				RepoUrl          *string   `json:"repo_url,omitempty"`
-			}{LocalFilePath: localFilePath, RepoUrl: repoUrl, LimitTestToFiles: &limitTestToFiles},
+			}{LocalFilePath: localFilePath, RepoUrl: repoUrl},
+		}
+
+		if len(limitTestToFiles) > 0 {
+			bundleInput.Metadata.LimitTestToFiles = &limitTestToFiles
 		}
 
 		body.Data.Attributes.Input.FromTestInputBundle(bundleInput)
