@@ -509,7 +509,9 @@ func (a *analysisOrchestrator) RunTest(ctx context.Context, orgId string, b bund
 	parsedResponse, err := testApi.ParseCreateTestResponse(resp)
 	defer func() {
 		closeErr := resp.Body.Close()
-		a.logger.Err(closeErr).Msg("failed to close response body")
+		if closeErr != nil {
+			a.logger.Err(closeErr).Msg("failed to close response body")
+		}
 	}()
 	if err != nil {
 		a.logger.Debug().Msg(err.Error())
@@ -574,7 +576,9 @@ func (a *analysisOrchestrator) retrieveTestURL(ctx context.Context, client *test
 	}
 	defer func() {
 		closeErr := httpResponse.Body.Close()
-		a.logger.Err(closeErr).Msg("failed to close response body")
+		if closeErr != nil {
+			a.logger.Err(closeErr).Msg("failed to close response body")
+		}
 	}()
 
 	parsedResponse, err := testApi.ParseGetTestResultResponse(httpResponse)
