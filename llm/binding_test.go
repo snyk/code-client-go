@@ -2,20 +2,22 @@ package llm
 
 import (
 	"net/http"
+	"net/url"
 	"testing"
 
 	"github.com/rs/zerolog"
+	"github.com/snyk/code-client-go/observability"
 	"github.com/stretchr/testify/assert"
 )
 
 func TestDeepcodeLLMBinding_PublishIssues(t *testing.T) {
 	binding := NewDeepcodeLLMBinding()
-	assert.PanicsWithValue(t, "implement me", func() { binding.PublishIssues([]map[string]string{}) })
+	assert.PanicsWithValue(t, "implement me", func() { _ = binding.PublishIssues([]map[string]string{}) })
 }
 
 func TestDeepcodeLLMBinding_Explain(t *testing.T) {
 	binding := NewDeepcodeLLMBinding()
-	assert.PanicsWithValue(t, "implement me", func() { binding.Explain("input", HTML, nil) })
+	assert.PanicsWithValue(t, "implement me", func() { _ = binding.Explain("input", HTML, nil) })
 }
 
 func TestNewDeepcodeLLMBinding(t *testing.T) {
@@ -87,4 +89,76 @@ func TestWithOutputFormat(t *testing.T) {
 	invalidFormat := OutputFormat("invalid")
 	WithOutputFormat(invalidFormat)(binding)
 	assert.Equal(t, MarkDown, binding.outputFormat)
+}
+
+func TestWithEndpoint(t *testing.T) {
+	testCases := []struct {
+		name     string
+		inputURL string
+		expected url.URL
+	}{
+		{
+			name:     "Valid URL",
+			inputURL: "http://localhost:8080",
+			expected: url.URL{Scheme: "http", Host: "localhost:8080"},
+		},
+		{
+			name:     "URL with Path",
+			inputURL: "https://example.com/path/to/resource",
+			expected: url.URL{Scheme: "https", Host: "example.com", Path: "/path/to/resource"},
+		},
+		{
+			name:     "URL with Query Params",
+			inputURL: "http://api.example.com?param1=value1&param2=value2",
+			expected: url.URL{Scheme: "http", Host: "api.example.com", RawQuery: "param1=value1&param2=value2"},
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			parsedURL, err := url.Parse(tc.inputURL)
+			if err != nil {
+				t.Fatalf("Failed to parse URL: %v", err)
+			}
+
+			binding := &DeepcodeLLMBinding{}
+			WithEndpoint(parsedURL)(binding)
+
+			if binding.endpoint.Scheme != tc.expected.Scheme {
+				t.Errorf("Expected Scheme: %s, Got: %s", tc.expected.Scheme, binding.endpoint.Scheme)
+			}
+			if binding.endpoint.Host != tc.expected.Host {
+				t.Errorf("Expected Host: %s, Got: %s", tc.expected.Host, binding.endpoint.Host)
+			}
+			if binding.endpoint.Path != tc.expected.Path {
+				t.Errorf("Expected Path: %s, Got: %s", tc.expected.Path, binding.endpoint.Path)
+			}
+			if binding.endpoint.RawQuery != tc.expected.RawQuery {
+				t.Errorf("Expected RawQuery: %s, Got: %s", tc.expected.RawQuery, binding.endpoint.RawQuery)
+			}
+
+		})
+	}
+}
+
+func TestWithInstrumentor(t *testing.T) {
+	// Test case 1:  Provide a mock instrumentor
+	mockInstrumentor := &MockInstrumentor{}
+	binding := &DeepcodeLLMBinding{}
+
+	WithInstrumentor(mockInstrumentor)(binding)
+
+	assert.Equal(t, mockInstrumentor, binding.instrumentor)
+
+	// Test case 2: Provide a nil instrumentor (should still set it)
+	binding = &DeepcodeLLMBinding{} // Reset binding for the next test
+
+	WithInstrumentor(nil)(binding)
+
+	assert.Nil(t, binding.instrumentor)
+}
+
+// Mock Instrumentor (if you don't have a mock already)
+type MockInstrumentor struct {
+	observability.Instrumentor
 }

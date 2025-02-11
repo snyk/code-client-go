@@ -2,8 +2,10 @@ package llm
 
 import (
 	"net/http"
+	"net/url"
 
 	"github.com/rs/zerolog"
+	"github.com/snyk/code-client-go/observability"
 )
 
 type OutputFormat string
@@ -37,6 +39,8 @@ type DeepcodeLLMBinding struct {
 	logger         zerolog.Logger
 	outputChannel  chan<- string
 	outputFormat   OutputFormat
+	instrumentor   observability.Instrumentor
+	endpoint       *url.URL
 }
 
 func (d *DeepcodeLLMBinding) PublishIssues(issues []map[string]string) error {
@@ -52,6 +56,12 @@ type Option func(*DeepcodeLLMBinding)
 func WithHTTPClient(httpClientFunc func() *http.Client) func(*DeepcodeLLMBinding) {
 	return func(binding *DeepcodeLLMBinding) {
 		binding.httpClientFunc = httpClientFunc
+	}
+}
+
+func WithEndpoint(endpoint *url.URL) func(*DeepcodeLLMBinding) {
+	return func(binding *DeepcodeLLMBinding) {
+		binding.endpoint = endpoint
 	}
 }
 
@@ -76,7 +86,19 @@ func WithOutputFormat(outputFormat OutputFormat) func(*DeepcodeLLMBinding) {
 	}
 }
 
+func WithInstrumentor(instrumentor observability.Instrumentor) func(*DeepcodeLLMBinding) {
+	return func(binding *DeepcodeLLMBinding) {
+		binding.instrumentor = instrumentor
+	}
+}
+
 func NewDeepcodeLLMBinding(opts ...Option) *DeepcodeLLMBinding {
+	endpoint, err := url.Parse(defaultEndpointURL)
+	if err != nil {
+		// time to panic, as our default should never be invalid
+		panic(err)
+	}
+
 	binding := &DeepcodeLLMBinding{
 		logger: zerolog.Nop(),
 		httpClientFunc: func() *http.Client {
@@ -84,6 +106,8 @@ func NewDeepcodeLLMBinding(opts ...Option) *DeepcodeLLMBinding {
 		},
 		outputChannel: nil,
 		outputFormat:  MarkDown,
+		instrumentor:  observability.NewInstrumentor(),
+		endpoint:      endpoint,
 	}
 	for _, opt := range opts {
 		opt(binding)
