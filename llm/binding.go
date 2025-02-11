@@ -1,6 +1,7 @@
 package llm
 
 import (
+	"encoding/json"
 	"net/http"
 	"net/url"
 
@@ -13,6 +14,11 @@ type OutputFormat string
 const HTML OutputFormat = "html"
 const JSON OutputFormat = "json"
 const MarkDown OutputFormat = "md"
+
+type AIRequest struct {
+	Id    string `json:"id"`
+	Input string `json:"inputs"`
+}
 
 type SnykLLMBindings interface {
 	// PublishIssues sends issues to an LLM for further processing.
@@ -29,7 +35,12 @@ type SnykLLMBindings interface {
 	// input - the thing to be explained as a string
 	// format - the requested outputFormat
 	// output - a channel that can be used to stream the results
-	Explain(input string, format OutputFormat, output chan<- string) error
+	Explain(input AIRequest, format OutputFormat, output chan<- string) error
+}
+
+type DeepCodeLLMBinding interface {
+	SnykLLMBindings
+	ExplainWithOptions(options ExplainOptions) (string, error)
 }
 
 // DeepcodeLLMBinding is an LLM binding for the Snyk Code LLM.
@@ -37,10 +48,13 @@ type SnykLLMBindings interface {
 type DeepcodeLLMBinding struct {
 	httpClientFunc func() *http.Client
 	logger         zerolog.Logger
-	outputChannel  chan<- string
 	outputFormat   OutputFormat
 	instrumentor   observability.Instrumentor
 	endpoint       *url.URL
+}
+
+func (d *DeepcodeLLMBinding) ExplainWithOptions(options ExplainOptions) (string, error) {
+	panic("implement me")
 }
 
 func (d *DeepcodeLLMBinding) PublishIssues(issues []map[string]string) error {
@@ -48,7 +62,17 @@ func (d *DeepcodeLLMBinding) PublishIssues(issues []map[string]string) error {
 }
 
 func (d *DeepcodeLLMBinding) Explain(input string, format OutputFormat, output chan<- string) error {
-	panic("implement me")
+	var options ExplainOptions
+	err := json.Unmarshal([]byte(input), &options)
+	if err != nil {
+		return err
+	}
+	response, err := d.ExplainWithOptions(options)
+	if err != nil {
+		return err
+	}
+	output <- response
+	return nil
 }
 
 func NewDeepcodeLLMBinding(opts ...Option) *DeepcodeLLMBinding {
@@ -63,10 +87,9 @@ func NewDeepcodeLLMBinding(opts ...Option) *DeepcodeLLMBinding {
 		httpClientFunc: func() *http.Client {
 			return http.DefaultClient
 		},
-		outputChannel: nil,
-		outputFormat:  MarkDown,
-		instrumentor:  observability.NewInstrumentor(),
-		endpoint:      endpoint,
+		outputFormat: MarkDown,
+		instrumentor: observability.NewInstrumentor(),
+		endpoint:     endpoint,
 	}
 	for _, opt := range opts {
 		opt(binding)

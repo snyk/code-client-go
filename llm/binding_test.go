@@ -23,17 +23,14 @@ func TestDeepcodeLLMBinding_Explain(t *testing.T) {
 func TestNewDeepcodeLLMBinding(t *testing.T) {
 	logger := zerolog.Nop()
 	client := &http.Client{}
-	output := make(chan<- string)
 
 	binding := NewDeepcodeLLMBinding(
 		WithHTTPClient(func() *http.Client { return client }),
 		WithLogger(logger),
-		WithOutputChannel(output),
 	)
 
 	assert.Equal(t, logger, binding.logger)
 	assert.Equal(t, client, binding.httpClientFunc())
-	assert.Equal(t, output, binding.outputChannel)
 }
 
 func TestNewDeepcodeLLMBinding_Defaults(t *testing.T) {
@@ -41,7 +38,6 @@ func TestNewDeepcodeLLMBinding_Defaults(t *testing.T) {
 
 	assert.Equal(t, zerolog.Nop(), binding.logger)
 	assert.Equal(t, http.DefaultClient, binding.httpClientFunc())
-	assert.Nil(t, binding.outputChannel)
 }
 
 func TestWithHTTPClient(t *testing.T) {

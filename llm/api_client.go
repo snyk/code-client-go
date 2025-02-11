@@ -5,7 +5,6 @@ import (
 	"context"
 	"encoding/json"
 	"io"
-	"net/http"
 	"net/url"
 
 	"github.com/snyk/code-client-go/observability"
@@ -17,7 +16,7 @@ const (
 	defaultEndpointURL            = "http://localhost:10000/explain"
 )
 
-func (d *DeepcodeLLMBinding) runExplain(ctx context.Context, options explainOptions) (explainResponse, error) {
+func (d *DeepcodeLLMBinding) runExplain(ctx context.Context, options ExplainOptions) (explainResponse, error) {
 	requestId, err := observability.GetTraceId(ctx)
 	span := d.instrumentor.StartSpan(ctx, "code.RunExplain")
 	defer span.Finish()
@@ -47,7 +46,7 @@ func (d *DeepcodeLLMBinding) runExplain(ctx context.Context, options explainOpti
 		}
 	}
 	logger.Debug().Str("payload body: %s\n", string(requestBody)).Msg("Marshaled payload")
-	resp, err := http.Post(u.String(), "application/json", bytes.NewBuffer(requestBody))
+	resp, err := d.httpClientFunc().Post(u.String(), "application/json", bytes.NewBuffer(requestBody))
 	if err != nil {
 		logger.Err(err).Str("requestBody", string(requestBody)).Msg("error getting response")
 		return explainResponse{}, err
@@ -81,21 +80,21 @@ func (d *DeepcodeLLMBinding) runExplain(ctx context.Context, options explainOpti
 	return response, nil
 }
 
-func (d *DeepcodeLLMBinding) explainRequestBody(options *explainOptions) ([]byte, error) {
+func (d *DeepcodeLLMBinding) explainRequestBody(options *ExplainOptions) ([]byte, error) {
 	logger := d.logger.With().Str("method", "code.explainRequestBody").Logger()
 
 	var request explainRequest
 	if options.diff == "" {
 		request.VulnExplanation = &explainVulnerabilityRequest{
-			RuleId:            options.ruleKey,
-			Derivation:        options.derivation,
+			RuleId:            options.RuleKey,
+			Derivation:        options.Derivation,
 			RuleMessage:       options.ruleMessage,
 			ExplanationLength: SHORT,
 		}
 		logger.Debug().Msg("payload for VulnExplanation")
 	} else {
 		request.FixExplanation = &explainFixRequest{
-			RuleId:            options.ruleKey,
+			RuleId:            options.RuleKey,
 			Diff:              options.diff,
 			ExplanationLength: SHORT,
 		}

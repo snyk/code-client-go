@@ -18,7 +18,7 @@ import (
 func TestDeepcodeLLMBinding_runExplain(t *testing.T) {
 	tests := []struct {
 		name               string
-		options            explainOptions
+		options            ExplainOptions
 		serverResponse     string
 		serverStatusCode   int
 		expectedResponse   explainResponse
@@ -27,9 +27,9 @@ func TestDeepcodeLLMBinding_runExplain(t *testing.T) {
 	}{
 		{
 			name: "successful vuln explanation",
-			options: explainOptions{
-				ruleKey:     "rule-key",
-				derivation:  "derivation",
+			options: ExplainOptions{
+				RuleKey:     "rule-key",
+				Derivation:  "Derivation",
 				ruleMessage: "rule-message",
 			},
 			serverResponse:   `{"explanation": "This is a vulnerability explanation"}`,
@@ -41,8 +41,8 @@ func TestDeepcodeLLMBinding_runExplain(t *testing.T) {
 		},
 		{
 			name: "successful fix explanation",
-			options: explainOptions{
-				ruleKey: "rule-key",
+			options: ExplainOptions{
+				RuleKey: "rule-key",
 				diff:    "diff",
 			},
 			serverResponse:   `{"explanation": "This is a fix explanation"}`,
@@ -54,16 +54,16 @@ func TestDeepcodeLLMBinding_runExplain(t *testing.T) {
 		},
 		{
 			name:               "error creating request body",
-			options:            explainOptions{}, // Missing required fields will cause an error
+			options:            ExplainOptions{}, // Missing required fields will cause an error
 			serverStatusCode:   http.StatusUnprocessableEntity,
 			expectedError:      "unexpected end of JSON input",
 			expectedLogMessage: "error creating request body",
 		},
 		{
 			name: "error getting response",
-			options: explainOptions{
-				ruleKey:     "rule-key",
-				derivation:  "derivation",
+			options: ExplainOptions{
+				RuleKey:     "rule-key",
+				Derivation:  "Derivation",
 				ruleMessage: "rule-message",
 			},
 			serverStatusCode:   http.StatusInternalServerError,
@@ -72,9 +72,9 @@ func TestDeepcodeLLMBinding_runExplain(t *testing.T) {
 		},
 		{
 			name: "error unmarshalling response",
-			options: explainOptions{
-				ruleKey:     "rule-key",
-				derivation:  "derivation",
+			options: ExplainOptions{
+				RuleKey:     "rule-key",
+				Derivation:  "Derivation",
 				ruleMessage: "rule-message",
 			},
 			serverResponse:     `invalid json`,
@@ -127,9 +127,9 @@ func TestDeepcodeLLMBinding_explainRequestBody(t *testing.T) {
 	}
 
 	t.Run("VulnExplanation", func(t *testing.T) {
-		options := &explainOptions{
-			ruleKey:     "test-rule-key",
-			derivation:  "test-derivation",
+		options := &ExplainOptions{
+			RuleKey:     "test-rule-key",
+			Derivation:  "test-Derivation",
 			ruleMessage: "test-rule-message",
 		}
 		requestBody, err := d.explainRequestBody(options)
@@ -142,14 +142,14 @@ func TestDeepcodeLLMBinding_explainRequestBody(t *testing.T) {
 		assert.Nil(t, request.FixExplanation)
 		assert.NotNil(t, request.VulnExplanation)
 		assert.Equal(t, "test-rule-key", request.VulnExplanation.RuleId)
-		assert.Equal(t, "test-derivation", request.VulnExplanation.Derivation)
+		assert.Equal(t, "test-Derivation", request.VulnExplanation.Derivation)
 		assert.Equal(t, "test-rule-message", request.VulnExplanation.RuleMessage)
 		assert.Equal(t, SHORT, request.VulnExplanation.ExplanationLength)
 	})
 
 	t.Run("FixExplanation", func(t *testing.T) {
-		options := &explainOptions{
-			ruleKey: "test-rule-key",
+		options := &ExplainOptions{
+			RuleKey: "test-rule-key",
 			diff:    "test-diff",
 		}
 		requestBody, err := d.explainRequestBody(options)

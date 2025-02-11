@@ -28,12 +28,6 @@ func WithLogger(logger zerolog.Logger) func(*DeepcodeLLMBinding) {
 	}
 }
 
-func WithOutputChannel(outputChannel chan<- string) func(*DeepcodeLLMBinding) {
-	return func(binding *DeepcodeLLMBinding) {
-		binding.outputChannel = outputChannel
-	}
-}
-
 func WithOutputFormat(outputFormat OutputFormat) func(*DeepcodeLLMBinding) {
 	return func(binding *DeepcodeLLMBinding) {
 		if outputFormat != HTML && outputFormat != JSON && outputFormat != MarkDown {

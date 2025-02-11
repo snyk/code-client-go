@@ -11,7 +11,7 @@ const (
 type explainVulnerabilityRequest struct {
 	RuleId            string            `json:"rule_key"`
 	RuleMessage       string            `json:"rule_message"`
-	Derivation        string            `json:"derivation"`
+	Derivation        string            `json:"Derivation"`
 	ExplanationLength explanationLength `json:"explanation_length"`
 }
 
@@ -31,9 +31,36 @@ type explainResponse struct {
 	Explanation string `json:"explanation"`
 }
 
-type explainOptions struct {
-	derivation  string
-	ruleKey     string
+type ExplainOptions struct {
+	// Derivation = Code Flow
+	// const derivationLineNumbers: Set<number> = new Set<number>();
+	//          for (const markerLocation of suggestion.markers!) {
+	//            for (const markerPos of markerLocation.pos) {
+	//              const lines = markerPos.rows;
+	//              for (const line of lines) {
+	//                derivationLineNumbers.add(line + 1);
+	//              }
+	//            }
+	//            markerLocation.pos;
+	//          }
+	//          console.log('Derivation lines: ', ...derivationLineNumbers);
+	//
+	//          const derivationLines: string[] = [];
+	//          const fileLines: string[] = fileContent.split('\n');
+	//          for (const derivationLineNumber of derivationLineNumbers) {
+	//            derivationLines.push(fileLines.at(derivationLineNumber - 1)!);
+	//          }
+	//          let Derivation = derivationLines.join(',');
+	//          Derivation = Derivation.replace(/\t/g, '  ');
+	//          console.log('Derivation: ', Derivation);
+	Derivation string
+
+	// vulnerability name from Snyk Code (rule)
+	RuleKey string
+
+	// Snyk Code message for the vulnerability
 	ruleMessage string
-	diff        string
+
+	// fix difference
+	diff string
 }
