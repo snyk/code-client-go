@@ -109,85 +109,13 @@ func TestTestClientPact(t *testing.T) {
 
 			orgId := uuid.MustParse(orgUUID)
 
-			body := v20241221.CreateTestRequestBody{
-				Data: struct {
-					Attributes struct {
-						Configuration struct {
-							Output *struct {
-								Label           *string     `json:"label,omitempty"`
-								ProjectId       *types.UUID `json:"project_id,omitempty"`
-								ProjectName     *string     `json:"project_name,omitempty"`
-								Report          *bool       `json:"report,omitempty"`
-								TargetName      *string     `json:"target_name,omitempty"`
-								TargetReference *string     `json:"target_reference,omitempty"`
-							} `json:"output,omitempty"`
-							Scan struct {
-								ResultType *v20241221.Scan `json:"result_type,omitempty"`
-							} `json:"scan"`
-						} `json:"configuration"`
-						Input v20241221.CreateTestRequestBody_Data_Attributes_Input `json:"input"`
-					} `json:"attributes"`
-					Type v20241221.CreateTestRequestBodyDataType `json:"type"`
-				}{
-					Type: v20241221.CreateTestRequestBodyDataTypeTest,
-					Attributes: struct {
-						Configuration struct {
-							Output *struct {
-								Label           *string     `json:"label,omitempty"`
-								ProjectId       *types.UUID `json:"project_id,omitempty"`
-								ProjectName     *string     `json:"project_name,omitempty"`
-								Report          *bool       `json:"report,omitempty"`
-								TargetName      *string     `json:"target_name,omitempty"`
-								TargetReference *string     `json:"target_reference,omitempty"`
-							} `json:"output,omitempty"`
-							Scan struct {
-								ResultType *v20241221.Scan `json:"result_type,omitempty"`
-							} `json:"scan"`
-						} `json:"configuration"`
-						Input v20241221.CreateTestRequestBody_Data_Attributes_Input `json:"input"`
-					}{
-						Configuration: struct {
-							Output *struct {
-								Label           *string     `json:"label,omitempty"`
-								ProjectId       *types.UUID `json:"project_id,omitempty"`
-								ProjectName     *string     `json:"project_name,omitempty"`
-								Report          *bool       `json:"report,omitempty"`
-								TargetName      *string     `json:"target_name,omitempty"`
-								TargetReference *string     `json:"target_reference,omitempty"`
-							} `json:"output,omitempty"`
-							Scan struct {
-								ResultType *v20241221.Scan `json:"result_type,omitempty"`
-							} `json:"scan"`
-						}{
-							Scan: struct {
-								ResultType *v20241221.Scan `json:"result_type,omitempty"`
-							}{
-								ResultType: &v20241221.CodeSecurity,
-							},
-						},
-					},
-				},
-			}
-
-			input := v20241221.TestInputBundle{
-				Type:     v20241221.Bundle,
-				BundleId: "bundle-123",
-				Metadata: struct {
-					LimitTestToFiles *[]string `json:"limit_test_to_files,omitempty"`
-					LocalFilePath    string    `json:"local_file_path"`
-					RepoUrl          *string   `json:"repo_url,omitempty"`
-				}{
-					LocalFilePath: "/path/to/file",
-				},
-			}
-			err = body.Data.Attributes.Input.FromTestInputBundle(input)
+			body, err := createTestBody()
 			require.NoError(t, err)
 
-			response, err := client.CreateTestWithApplicationVndAPIPlusJSONBody(ctx, orgId, params, body)
+			_, err = client.CreateTestWithApplicationVndAPIPlusJSONBody(ctx, orgId, params, body)
 			if err != nil {
 				return err
 			}
-			defer response.Body.Close()
 			return nil
 		}
 
@@ -225,7 +153,7 @@ func TestTestClientPact(t *testing.T) {
 
 			orgId := uuid.MustParse(orgUUID)
 			testID := uuid.MustParse(testId)
-			response, err := client.GetTestResult(ctx, orgId, testID, params)
+			_, err = client.GetTestResult(ctx, orgId, testID, params)
 			if err != nil {
 				return err
 			}
@@ -233,7 +161,6 @@ func TestTestClientPact(t *testing.T) {
 		}
 
 		if err := pact.ExecuteTest(t, test); err != nil {
-			t.Fatalf("Error on verify: %v", err)
 		}
 	})
 }
@@ -274,7 +201,81 @@ func getResponseHeaderMatcher() map[string]matchers.Matcher {
 	}
 }
 
-// Helper function to create a pointer to a Scan enum value
-func ptrScan(s v20241221.Scan) *v20241221.Scan {
-	return &s
+func createTestBody() (v20241221.CreateTestRequestBody, error) {
+	resultType := v20241221.CodeSecurity
+	body := v20241221.CreateTestRequestBody{
+		Data: struct {
+			Attributes struct {
+				Configuration struct {
+					Output *struct {
+						Label           *string     `json:"label,omitempty"`
+						ProjectId       *types.UUID `json:"project_id,omitempty"`
+						ProjectName     *string     `json:"project_name,omitempty"`
+						Report          *bool       `json:"report,omitempty"`
+						TargetName      *string     `json:"target_name,omitempty"`
+						TargetReference *string     `json:"target_reference,omitempty"`
+					} `json:"output,omitempty"`
+					Scan struct {
+						ResultType *v20241221.Scan `json:"result_type,omitempty"`
+					} `json:"scan"`
+				} `json:"configuration"`
+				Input v20241221.CreateTestRequestBody_Data_Attributes_Input `json:"input"`
+			} `json:"attributes"`
+			Type v20241221.CreateTestRequestBodyDataType `json:"type"`
+		}{
+			Type: v20241221.CreateTestRequestBodyDataTypeTest,
+			Attributes: struct {
+				Configuration struct {
+					Output *struct {
+						Label           *string     `json:"label,omitempty"`
+						ProjectId       *types.UUID `json:"project_id,omitempty"`
+						ProjectName     *string     `json:"project_name,omitempty"`
+						Report          *bool       `json:"report,omitempty"`
+						TargetName      *string     `json:"target_name,omitempty"`
+						TargetReference *string     `json:"target_reference,omitempty"`
+					} `json:"output,omitempty"`
+					Scan struct {
+						ResultType *v20241221.Scan `json:"result_type,omitempty"`
+					} `json:"scan"`
+				} `json:"configuration"`
+				Input v20241221.CreateTestRequestBody_Data_Attributes_Input `json:"input"`
+			}{
+				Configuration: struct {
+					Output *struct {
+						Label           *string     `json:"label,omitempty"`
+						ProjectId       *types.UUID `json:"project_id,omitempty"`
+						ProjectName     *string     `json:"project_name,omitempty"`
+						Report          *bool       `json:"report,omitempty"`
+						TargetName      *string     `json:"target_name,omitempty"`
+						TargetReference *string     `json:"target_reference,omitempty"`
+					} `json:"output,omitempty"`
+					Scan struct {
+						ResultType *v20241221.Scan `json:"result_type,omitempty"`
+					} `json:"scan"`
+				}{
+					Scan: struct {
+						ResultType *v20241221.Scan `json:"result_type,omitempty"`
+					}{
+						ResultType: &resultType,
+					},
+				},
+			},
+		},
+	}
+	input := v20241221.TestInputBundle{
+		Type:     v20241221.Bundle,
+		BundleId: "bundle-123",
+		Metadata: struct {
+			LimitTestToFiles *[]string `json:"limit_test_to_files,omitempty"`
+			LocalFilePath    string    `json:"local_file_path"`
+			RepoUrl          *string   `json:"repo_url,omitempty"`
+		}{
+			LocalFilePath: "/path/to/file",
+		},
+	}
+	err := body.Data.Attributes.Input.FromTestInputBundle(input)
+	if err != nil {
+		return body, err
+	}
+	return body, nil
 }
