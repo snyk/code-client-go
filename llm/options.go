@@ -22,7 +22,7 @@ func WithEndpoint(endpoint *url.URL) func(*DeepcodeLLMBinding) {
 	}
 }
 
-func WithLogger(logger zerolog.Logger) func(*DeepcodeLLMBinding) {
+func WithLogger(logger *zerolog.Logger) func(*DeepcodeLLMBinding) {
 	return func(binding *DeepcodeLLMBinding) {
 		binding.logger = logger
 	}

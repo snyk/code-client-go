@@ -53,14 +53,14 @@ type ExplainOptions struct {
 	//          let Derivation = derivationLines.join(',');
 	//          Derivation = Derivation.replace(/\t/g, '  ');
 	//          console.log('Derivation: ', Derivation);
-	Derivation string
+	Derivation string `json:"derivation"`
 
 	// vulnerability name from Snyk Code (rule)
-	RuleKey string
+	RuleKey string `json:"rule_key"`
 
 	// Snyk Code message for the vulnerability
-	ruleMessage string
+	RuleMessage string `json:"rule_message"`
 
 	// fix difference
-	diff string
+	Diff string `json:"diff"`
 }

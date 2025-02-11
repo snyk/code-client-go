@@ -6,8 +6,9 @@ import (
 	"testing"
 
 	"github.com/rs/zerolog"
-	"github.com/snyk/code-client-go/observability"
 	"github.com/stretchr/testify/assert"
+
+	"github.com/snyk/code-client-go/observability"
 )
 
 func TestDeepcodeLLMBinding_PublishIssues(t *testing.T) {
@@ -16,8 +17,16 @@ func TestDeepcodeLLMBinding_PublishIssues(t *testing.T) {
 }
 
 func TestDeepcodeLLMBinding_Explain(t *testing.T) {
-	binding := NewDeepcodeLLMBinding()
-	assert.PanicsWithValue(t, "implement me", func() { _ = binding.Explain("input", HTML, nil) })
+	logger := zerolog.Nop()
+	client := &http.Client{}
+
+	binding := NewDeepcodeLLMBinding(
+		WithHTTPClient(func() *http.Client { return client }),
+		WithLogger(&logger),
+	)
+	outputChain := make(chan string)
+	err := binding.Explain("{}", HTML, outputChain)
+	assert.NoError(t, err)
 }
 
 func TestNewDeepcodeLLMBinding(t *testing.T) {
@@ -26,10 +35,10 @@ func TestNewDeepcodeLLMBinding(t *testing.T) {
 
 	binding := NewDeepcodeLLMBinding(
 		WithHTTPClient(func() *http.Client { return client }),
-		WithLogger(logger),
+		WithLogger(&logger),
 	)
 
-	assert.Equal(t, logger, binding.logger)
+	assert.Equal(t, &logger, binding.logger)
 	assert.Equal(t, client, binding.httpClientFunc())
 }
 
@@ -50,16 +59,8 @@ func TestWithHTTPClient(t *testing.T) {
 func TestWithLogger(t *testing.T) {
 	logger := zerolog.Nop()
 	binding := &DeepcodeLLMBinding{}
-	WithLogger(logger)(binding)
+	WithLogger(&logger)(binding)
 	assert.Equal(t, logger, binding.logger)
-
-}
-
-func TestWithOutputChannel(t *testing.T) {
-	output := make(chan<- string)
-	binding := &DeepcodeLLMBinding{}
-	WithOutputChannel(output)(binding)
-	assert.Equal(t, output, binding.outputChannel)
 }
 
 // Test OutputFormat constants

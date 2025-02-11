@@ -10,9 +10,10 @@ import (
 	"testing"
 
 	"github.com/rs/zerolog"
-	"github.com/snyk/code-client-go/observability"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"github.com/snyk/code-client-go/observability"
 )
 
 func TestDeepcodeLLMBinding_runExplain(t *testing.T) {
@@ -30,7 +31,7 @@ func TestDeepcodeLLMBinding_runExplain(t *testing.T) {
 			options: ExplainOptions{
 				RuleKey:     "rule-key",
 				Derivation:  "Derivation",
-				ruleMessage: "rule-message",
+				RuleMessage: "rule-message",
 			},
 			serverResponse:   `{"explanation": "This is a vulnerability explanation"}`,
 			serverStatusCode: http.StatusOK,
@@ -43,7 +44,7 @@ func TestDeepcodeLLMBinding_runExplain(t *testing.T) {
 			name: "successful fix explanation",
 			options: ExplainOptions{
 				RuleKey: "rule-key",
-				diff:    "diff",
+				Diff:    "Diff",
 			},
 			serverResponse:   `{"explanation": "This is a fix explanation"}`,
 			serverStatusCode: http.StatusOK,
@@ -64,7 +65,7 @@ func TestDeepcodeLLMBinding_runExplain(t *testing.T) {
 			options: ExplainOptions{
 				RuleKey:     "rule-key",
 				Derivation:  "Derivation",
-				ruleMessage: "rule-message",
+				RuleMessage: "rule-message",
 			},
 			serverStatusCode:   http.StatusInternalServerError,
 			expectedError:      "unexpected end of JSON input",
@@ -75,7 +76,7 @@ func TestDeepcodeLLMBinding_runExplain(t *testing.T) {
 			options: ExplainOptions{
 				RuleKey:     "rule-key",
 				Derivation:  "Derivation",
-				ruleMessage: "rule-message",
+				RuleMessage: "rule-message",
 			},
 			serverResponse:     `invalid json`,
 			serverStatusCode:   http.StatusOK,
@@ -98,11 +99,7 @@ func TestDeepcodeLLMBinding_runExplain(t *testing.T) {
 			u, err := url.Parse(server.URL)
 			assert.NoError(t, err)
 
-			d := &DeepcodeLLMBinding{
-				logger:       testLogger(t), // Replace with your logger implementation
-				instrumentor: observability.NewInstrumentor(),
-				endpoint:     u,
-			}
+			d := NewDeepcodeLLMBinding(WithEndpoint(u))
 
 			ctx := context.Background()
 			ctx = observability.GetContextWithTraceId(ctx, "test-trace-id")
@@ -130,7 +127,7 @@ func TestDeepcodeLLMBinding_explainRequestBody(t *testing.T) {
 		options := &ExplainOptions{
 			RuleKey:     "test-rule-key",
 			Derivation:  "test-Derivation",
-			ruleMessage: "test-rule-message",
+			RuleMessage: "test-rule-message",
 		}
 		requestBody, err := d.explainRequestBody(options)
 		require.NoError(t, err)
@@ -150,7 +147,7 @@ func TestDeepcodeLLMBinding_explainRequestBody(t *testing.T) {
 	t.Run("FixExplanation", func(t *testing.T) {
 		options := &ExplainOptions{
 			RuleKey: "test-rule-key",
-			diff:    "test-diff",
+			Diff:    "test-Diff",
 		}
 		requestBody, err := d.explainRequestBody(options)
 		require.NoError(t, err)
@@ -162,14 +159,15 @@ func TestDeepcodeLLMBinding_explainRequestBody(t *testing.T) {
 		assert.Nil(t, request.VulnExplanation)
 		assert.NotNil(t, request.FixExplanation)
 		assert.Equal(t, "test-rule-key", request.FixExplanation.RuleId)
-		assert.Equal(t, "test-diff", request.FixExplanation.Diff)
+		assert.Equal(t, "test-Diff", request.FixExplanation.Diff)
 		assert.Equal(t, SHORT, request.FixExplanation.ExplanationLength)
 	})
 
 }
 
 // Helper function for testing
-func testLogger(t *testing.T) zerolog.Logger {
+func testLogger(t *testing.T) *zerolog.Logger {
 	t.Helper()
-	return zerolog.New(io.Discard)
+	logger := zerolog.New(io.Discard)
+	return &logger
 }

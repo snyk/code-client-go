@@ -84,18 +84,18 @@ func (d *DeepcodeLLMBinding) explainRequestBody(options *ExplainOptions) ([]byte
 	logger := d.logger.With().Str("method", "code.explainRequestBody").Logger()
 
 	var request explainRequest
-	if options.diff == "" {
+	if options.Diff == "" {
 		request.VulnExplanation = &explainVulnerabilityRequest{
 			RuleId:            options.RuleKey,
 			Derivation:        options.Derivation,
-			RuleMessage:       options.ruleMessage,
+			RuleMessage:       options.RuleMessage,
 			ExplanationLength: SHORT,
 		}
 		logger.Debug().Msg("payload for VulnExplanation")
 	} else {
 		request.FixExplanation = &explainFixRequest{
 			RuleId:            options.RuleKey,
-			Diff:              options.diff,
+			Diff:              options.Diff,
 			ExplanationLength: SHORT,
 		}
 		logger.Debug().Msg("payload for FixExplanation")

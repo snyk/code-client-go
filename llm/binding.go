@@ -1,11 +1,13 @@
 package llm
 
 import (
+	"context"
 	"encoding/json"
 	"net/http"
 	"net/url"
 
 	"github.com/rs/zerolog"
+
 	"github.com/snyk/code-client-go/observability"
 )
 
@@ -47,14 +49,21 @@ type DeepCodeLLMBinding interface {
 // Currently, it only supports explain.
 type DeepcodeLLMBinding struct {
 	httpClientFunc func() *http.Client
-	logger         zerolog.Logger
+	logger         *zerolog.Logger
 	outputFormat   OutputFormat
 	instrumentor   observability.Instrumentor
 	endpoint       *url.URL
 }
 
 func (d *DeepcodeLLMBinding) ExplainWithOptions(options ExplainOptions) (string, error) {
-	panic("implement me")
+	s := d.instrumentor.StartSpan(context.Background(), "code.ExplainWithOptions")
+	defer d.instrumentor.Finish(s)
+	response, err := d.runExplain(s.Context(), options)
+	if err != nil {
+		return "", err
+	}
+
+	return response.Explanation, nil
 }
 
 func (d *DeepcodeLLMBinding) PublishIssues(issues []map[string]string) error {
@@ -82,8 +91,9 @@ func NewDeepcodeLLMBinding(opts ...Option) *DeepcodeLLMBinding {
 		panic(err)
 	}
 
+	nopLogger := zerolog.Nop()
 	binding := &DeepcodeLLMBinding{
-		logger: zerolog.Nop(),
+		logger: &nopLogger,
 		httpClientFunc: func() *http.Client {
 			return http.DefaultClient
 		},
