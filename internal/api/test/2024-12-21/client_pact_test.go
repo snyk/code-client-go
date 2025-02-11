@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/oapi-codegen/runtime/types"
 	"github.com/pact-foundation/pact-go/v2/consumer"
 	"github.com/pact-foundation/pact-go/v2/matchers"
 	"github.com/rs/zerolog"
@@ -19,6 +20,7 @@ import (
 
 	codeClientHTTP "github.com/snyk/code-client-go/http"
 	testapi "github.com/snyk/code-client-go/internal/api/test/2024-12-21"
+	v20241221 "github.com/snyk/code-client-go/internal/api/test/2024-12-21/models"
 	"github.com/snyk/code-client-go/internal/util/testutil"
 )
 
@@ -47,6 +49,153 @@ func loadTestResultFixture(t *testing.T, path string) matchers.Matcher {
 func TestTestClientPact(t *testing.T) {
 	setupPact(t)
 
+	t.Run("Create test", func(t *testing.T) {
+		ctx := context.Background()
+		params := &testapi.CreateTestParams{
+			Version: "2024-12-21",
+		}
+
+		pact.AddInteraction().
+			Given("Create new test").
+			UponReceiving("A request to create test").
+			WithCompleteRequest(consumer.Request{
+				Method: "POST",
+				Path:   matchers.Regex("/orgs/e7ea34c9-de0f-422c-bf2c-4654c2e2da90/tests", "/orgs/"+orgUUID+"/tests"),
+				Query: map[string]matchers.Matcher{
+					"version": matchers.Term("2024-12-21", "2024-12-21"),
+				},
+				Headers: map[string]matchers.Matcher{
+					"Content-Type": matchers.Includes("application/vnd.api+json"),
+				},
+				Body: matchers.Like(map[string]interface{}{
+					"data": map[string]interface{}{
+						"type": "test",
+						"attributes": map[string]interface{}{
+							"configuration": map[string]interface{}{
+								"scan": map[string]interface{}{
+									"result_type": "code_security",
+								},
+							},
+							"input": map[string]interface{}{
+								"type":      "bundle",
+								"bundle_id": "bundle-123",
+								"metadata": map[string]interface{}{
+									"local_file_path": "/path/to/file",
+								},
+							},
+						},
+					},
+				}),
+			}).
+			WithCompleteResponse(consumer.Response{
+				Status: 201,
+				Headers: matchers.MapMatcher{
+					"Content-Type": matchers.Term("application/vnd.api+json", "application/vnd.api+json"),
+				},
+				Body: matchers.Like(map[string]interface{}{
+					"data": map[string]interface{}{
+						"type": "test",
+						"id":   testId,
+					},
+					"links": map[string]interface{}{
+						"self": fmt.Sprintf("http://localhost/orgs/%s/tests/%s", orgUUID, testId),
+					},
+				}),
+			})
+
+		test := func(config consumer.MockServerConfig) error {
+			client, err := testapi.NewClientWithResponses(fmt.Sprintf("http://localhost:%d", config.Port), testapi.WithHTTPClient(httpClient))
+			require.NoError(t, err)
+
+			orgId := uuid.MustParse(orgUUID)
+
+			body := v20241221.CreateTestRequestBody{
+				Data: struct {
+					Attributes struct {
+						Configuration struct {
+							Output *struct {
+								Label           *string     `json:"label,omitempty"`
+								ProjectId       *types.UUID `json:"project_id,omitempty"`
+								ProjectName     *string     `json:"project_name,omitempty"`
+								Report          *bool       `json:"report,omitempty"`
+								TargetName      *string     `json:"target_name,omitempty"`
+								TargetReference *string     `json:"target_reference,omitempty"`
+							} `json:"output,omitempty"`
+							Scan struct {
+								ResultType *v20241221.Scan `json:"result_type,omitempty"`
+							} `json:"scan"`
+						} `json:"configuration"`
+						Input v20241221.CreateTestRequestBody_Data_Attributes_Input `json:"input"`
+					} `json:"attributes"`
+					Type v20241221.CreateTestRequestBodyDataType `json:"type"`
+				}{
+					Type: v20241221.CreateTestRequestBodyDataTypeTest,
+					Attributes: struct {
+						Configuration struct {
+							Output *struct {
+								Label           *string     `json:"label,omitempty"`
+								ProjectId       *types.UUID `json:"project_id,omitempty"`
+								ProjectName     *string     `json:"project_name,omitempty"`
+								Report          *bool       `json:"report,omitempty"`
+								TargetName      *string     `json:"target_name,omitempty"`
+								TargetReference *string     `json:"target_reference,omitempty"`
+							} `json:"output,omitempty"`
+							Scan struct {
+								ResultType *v20241221.Scan `json:"result_type,omitempty"`
+							} `json:"scan"`
+						} `json:"configuration"`
+						Input v20241221.CreateTestRequestBody_Data_Attributes_Input `json:"input"`
+					}{
+						Configuration: struct {
+							Output *struct {
+								Label           *string     `json:"label,omitempty"`
+								ProjectId       *types.UUID `json:"project_id,omitempty"`
+								ProjectName     *string     `json:"project_name,omitempty"`
+								Report          *bool       `json:"report,omitempty"`
+								TargetName      *string     `json:"target_name,omitempty"`
+								TargetReference *string     `json:"target_reference,omitempty"`
+							} `json:"output,omitempty"`
+							Scan struct {
+								ResultType *v20241221.Scan `json:"result_type,omitempty"`
+							} `json:"scan"`
+						}{
+							Scan: struct {
+								ResultType *v20241221.Scan `json:"result_type,omitempty"`
+							}{
+								ResultType: &v20241221.CodeSecurity,
+							},
+						},
+					},
+				},
+			}
+
+			input := v20241221.TestInputBundle{
+				Type:     v20241221.Bundle,
+				BundleId: "bundle-123",
+				Metadata: struct {
+					LimitTestToFiles *[]string `json:"limit_test_to_files,omitempty"`
+					LocalFilePath    string    `json:"local_file_path"`
+					RepoUrl          *string   `json:"repo_url,omitempty"`
+				}{
+					LocalFilePath: "/path/to/file",
+				},
+			}
+			err = body.Data.Attributes.Input.FromTestInputBundle(input)
+			require.NoError(t, err)
+
+			response, err := client.CreateTestWithApplicationVndAPIPlusJSONBody(ctx, orgId, params, body)
+			if err != nil {
+				return err
+			}
+			defer response.Body.Close()
+			return nil
+		}
+
+		if err := pact.ExecuteTest(t, test); err != nil {
+			t.Fatalf("Error on verify: %v", err)
+		}
+	})
+
 	t.Run("Get test result", func(t *testing.T) {
 		ctx := context.Background()
 		params := &testapi.GetTestResultParams{
@@ -72,17 +221,12 @@ func TestTestClientPact(t *testing.T) {
 			})
 		test := func(config consumer.MockServerConfig) error {
 			client, err := testapi.NewClientWithResponses(fmt.Sprintf("http://localhost:%d", config.Port), testapi.WithHTTPClient(httpClient))
-			fmt.Println("client created", client)
 			require.NoError(t, err)
 
 			orgId := uuid.MustParse(orgUUID)
 			testID := uuid.MustParse(testId)
-			fmt.Println("Getting test result")
 			response, err := client.GetTestResult(ctx, orgId, testID, params)
-			fmt.Println("Got test result", response.StatusCode)
-			fmt.Println("Got test result", response.Body)
 			if err != nil {
-				fmt.Println("Error getting test result", err)
 				return err
 			}
 			return err
@@ -128,4 +272,9 @@ func getResponseHeaderMatcher() map[string]matchers.Matcher {
 	return map[string]matchers.Matcher{
 		"Content-Type": matchers.Regex("(?i)application/json(;\\s?charset=utf-8)?", "application/json; charset=utf-8"),
 	}
+}
+
+// Helper function to create a pointer to a Scan enum value
+func ptrScan(s v20241221.Scan) *v20241221.Scan {
+	return &s
 }

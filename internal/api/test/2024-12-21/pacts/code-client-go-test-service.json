@@ -4,6 +4,78 @@
   },
   "interactions": [
     {
+      "description": "A request to create test",
+      "providerState": "Create new test",
+      "request": {
+        "body": {
+          "data": {
+            "attributes": {
+              "configuration": {
+                "scan": {
+                  "result_type": "code_security"
+                }
+              },
+              "input": {
+                "bundle_id": "bundle-123",
+                "metadata": {
+                  "local_file_path": "/path/to/file"
+                },
+                "type": "bundle"
+              }
+            },
+            "type": "test"
+          }
+        },
+        "headers": {
+          "Content-Type": "application/vnd.api+json"
+        },
+        "matchingRules": {
+          "$.body": {
+            "match": "type"
+          },
+          "$.header['Content-Type']": {
+            "match": "include",
+            "value": "application/vnd.api+json"
+          },
+          "$.path": {
+            "match": "regex",
+            "regex": "/orgs/e7ea34c9-de0f-422c-bf2c-4654c2e2da90/tests"
+          },
+          "$.query.version": {
+            "match": "regex",
+            "regex": "2024-12-21"
+          }
+        },
+        "method": "POST",
+        "path": "/orgs/e7ea34c9-de0f-422c-bf2c-4654c2e2da90/tests",
+        "query": "version=2024-12-21"
+      },
+      "response": {
+        "body": {
+          "data": {
+            "id": "b7ea34c9-de0f-4a2c-bf2c-4654c2e2da90",
+            "type": "test"
+          },
+          "links": {
+            "self": "http://localhost/orgs/e7ea34c9-de0f-422c-bf2c-4654c2e2da90/tests/b7ea34c9-de0f-4a2c-bf2c-4654c2e2da90"
+          }
+        },
+        "headers": {
+          "Content-Type": "application/vnd.api+json"
+        },
+        "matchingRules": {
+          "$.body": {
+            "match": "type"
+          },
+          "$.header['Content-Type']": {
+            "match": "regex",
+            "regex": "application/vnd.api+json"
+          }
+        },
+        "status": 201
+      }
+    },
+    {
       "description": "A request to get test result",
       "providerState": "Test exists",
       "request": {
