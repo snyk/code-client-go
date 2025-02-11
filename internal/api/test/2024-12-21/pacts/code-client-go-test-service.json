@@ -1,0 +1,76 @@
+{
+  "consumer": {
+    "name": "code-client-go"
+  },
+  "interactions": [
+    {
+      "description": "A request to get test result",
+      "providerState": "Test exists",
+      "request": {
+        "matchingRules": {
+          "$.path": {
+            "match": "regex",
+            "regex": "/orgs/e7ea34c9-de0f-422c-bf2c-4654c2e2da90/tests/b7ea34c9-de0f-4a2c-bf2c-4654c2e2da90"
+          },
+          "$.query.version": {
+            "match": "regex",
+            "regex": "2024-12-21"
+          }
+        },
+        "method": "GET",
+        "path": "/orgs/e7ea34c9-de0f-422c-bf2c-4654c2e2da90/tests/e7ea34c9-de0f-422c-bf2c-4654c2e2da90",
+        "query": "version=2024-12-21"
+      },
+      "response": {
+        "body": {
+          "data": {
+            "attributes": {
+              "created_at": "2024-01-01T00:00:00Z",
+              "findings": [
+                {
+                  "findings_url": "https://example.com/findings",
+                  "format": "SARIF"
+                }
+              ],
+              "state": "completed"
+            },
+            "id": "test-id",
+            "type": "test"
+          },
+          "jsonapi": {
+            "version": "1.0"
+          },
+          "links": {
+            "self": "https://api.snyk.io/v1/orgs/e7ea34c9-de0f-422c-bf2c-4654c2e2da90/tests/test-id"
+          }
+        },
+        "headers": {
+          "Content-Type": "(?i)application/json(;\\s?charset=utf-8)?"
+        },
+        "matchingRules": {
+          "$.body": {
+            "match": "type"
+          },
+          "$.header['Content-Type']": {
+            "match": "regex",
+            "regex": "application/json; charset=utf-8"
+          }
+        },
+        "status": 200
+      }
+    }
+  ],
+  "metadata": {
+    "pactRust": {
+      "ffi": "0.4.16",
+      "mockserver": "1.2.5",
+      "models": "1.1.19"
+    },
+    "pactSpecification": {
+      "version": "2.0.0"
+    }
+  },
+  "provider": {
+    "name": "test-service"
+  }
+}
