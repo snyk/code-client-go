@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/json"
 	"io"
+	"net/http"
 	"net/url"
 
 	"github.com/snyk/code-client-go/observability"
@@ -17,11 +18,11 @@ const (
 )
 
 func (d *DeepcodeLLMBinding) runExplain(ctx context.Context, options ExplainOptions) (explainResponse, error) {
-	requestId, err := observability.GetTraceId(ctx)
 	span := d.instrumentor.StartSpan(ctx, "code.RunExplain")
 	defer span.Finish()
-	logger := d.logger.With().Str("method", "code.RunExplain").Str("requestId", requestId).Logger()
 
+	requestId, err := observability.GetTraceId(ctx)
+	logger := d.logger.With().Str("method", "code.RunExplain").Str("requestId", requestId).Logger()
 	if err != nil {
 		logger.Err(err).Msg(failedToObtainRequestIdString + err.Error())
 		return explainResponse{}, err
@@ -30,12 +31,12 @@ func (d *DeepcodeLLMBinding) runExplain(ctx context.Context, options ExplainOpti
 	logger.Debug().Msg("API: Retrieving explain for bundle")
 	defer logger.Debug().Msg("API: Retrieving explain done")
 
-	// construct the requestBody depending on the values given from IDE.
 	requestBody, err := d.explainRequestBody(&options)
 	if err != nil {
 		logger.Err(err).Str("requestBody", string(requestBody)).Msg("error creating request body")
 		return explainResponse{}, err
 	}
+	logger.Debug().Str("payload body: %s\n", string(requestBody)).Msg("Marshaled payload")
 
 	u := d.endpoint
 	if u == nil {
@@ -45,8 +46,15 @@ func (d *DeepcodeLLMBinding) runExplain(ctx context.Context, options ExplainOpti
 			return explainResponse{}, err
 		}
 	}
-	logger.Debug().Str("payload body: %s\n", string(requestBody)).Msg("Marshaled payload")
-	resp, err := d.httpClientFunc().Post(u.String(), "application/json", bytes.NewBuffer(requestBody))
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, u.String(), bytes.NewBuffer(requestBody))
+	if err != nil {
+		logger.Err(err).Str("requestBody", string(requestBody)).Msg("error creating request")
+		return explainResponse{}, err
+	}
+
+	d.addDefaultHeaders(req, requestId)
+
+	resp, err := d.httpClientFunc().Do(req)
 	if err != nil {
 		logger.Err(err).Str("requestBody", string(requestBody)).Msg("error getting response")
 		return explainResponse{}, err
@@ -65,10 +73,6 @@ func (d *DeepcodeLLMBinding) runExplain(ctx context.Context, options ExplainOpti
 		return explainResponse{}, err
 	}
 	logger.Debug().Str("response body: %s\n", string(responseBody)).Msg("Got the response")
-
-	if err != nil {
-		return explainResponse{}, err
-	}
 
 	var response explainResponse
 	response.Status = completeStatus
@@ -102,4 +106,10 @@ func (d *DeepcodeLLMBinding) explainRequestBody(options *ExplainOptions) ([]byte
 	}
 	requestBody, err := json.Marshal(request)
 	return requestBody, err
+}
+
+func (d *DeepcodeLLMBinding) addDefaultHeaders(req *http.Request, requestId string) {
+	req.Header.Set("snyk-request-id", requestId)
+	req.Header.Set("Cache-Control", "private, max-age=0, no-cache")
+	req.Header.Set("Content-Type", "application/json")
 }

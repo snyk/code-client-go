@@ -3,10 +3,10 @@ package llm
 import (
 	"context"
 	"encoding/json"
-	"net/http"
 	"net/url"
 
 	"github.com/rs/zerolog"
+	"github.com/snyk/code-client-go/http"
 
 	"github.com/snyk/code-client-go/observability"
 )
@@ -48,7 +48,7 @@ type DeepCodeLLMBinding interface {
 // DeepcodeLLMBinding is an LLM binding for the Snyk Code LLM.
 // Currently, it only supports explain.
 type DeepcodeLLMBinding struct {
-	httpClientFunc func() *http.Client
+	httpClientFunc func() http.HTTPClient
 	logger         *zerolog.Logger
 	outputFormat   OutputFormat
 	instrumentor   observability.Instrumentor
@@ -94,8 +94,12 @@ func NewDeepcodeLLMBinding(opts ...Option) *DeepcodeLLMBinding {
 	nopLogger := zerolog.Nop()
 	binding := &DeepcodeLLMBinding{
 		logger: &nopLogger,
-		httpClientFunc: func() *http.Client {
-			return http.DefaultClient
+		httpClientFunc: func() http.HTTPClient {
+			return http.NewHTTPClient(
+				http.NewDefaultClientFactory(),
+				http.WithRetryCount(3),
+				http.WithLogger(&nopLogger),
+			)
 		},
 		outputFormat: MarkDown,
 		instrumentor: observability.NewInstrumentor(),

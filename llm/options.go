@@ -1,16 +1,16 @@
 package llm
 
 import (
-	"net/http"
 	"net/url"
 
 	"github.com/rs/zerolog"
+	"github.com/snyk/code-client-go/http"
 	"github.com/snyk/code-client-go/observability"
 )
 
 type Option func(*DeepcodeLLMBinding)
 
-func WithHTTPClient(httpClientFunc func() *http.Client) func(*DeepcodeLLMBinding) {
+func WithHTTPClient(httpClientFunc func() http.HTTPClient) func(*DeepcodeLLMBinding) {
 	return func(binding *DeepcodeLLMBinding) {
 		binding.httpClientFunc = httpClientFunc
 	}

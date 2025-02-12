@@ -1,11 +1,17 @@
 package llm
 
 import (
-	"net/http"
+	"encoding/json"
+	"io"
+	http2 "net/http"
 	"net/url"
+	"strings"
 	"testing"
 
+	"github.com/golang/mock/gomock"
 	"github.com/rs/zerolog"
+	"github.com/snyk/code-client-go/http"
+	"github.com/snyk/code-client-go/http/mocks"
 	"github.com/stretchr/testify/assert"
 
 	"github.com/snyk/code-client-go/observability"
@@ -16,25 +22,49 @@ func TestDeepcodeLLMBinding_PublishIssues(t *testing.T) {
 	assert.PanicsWithValue(t, "implement me", func() { _ = binding.PublishIssues([]map[string]string{}) })
 }
 
-func TestDeepcodeLLMBinding_Explain(t *testing.T) {
-	logger := zerolog.Nop()
-	client := &http.Client{}
+func TestExplainWithOptions(t *testing.T) {
+	t.Run("success", func(t *testing.T) {
+		d, mockHTTPClient := getHTTPMockedBinding(t, &url.URL{Scheme: "http", Host: "test.com"})
 
-	binding := NewDeepcodeLLMBinding(
-		WithHTTPClient(func() *http.Client { return client }),
-		WithLogger(&logger),
+		explainResponseJSON := explainResponse{
+			Status:      completeStatus,
+			Explanation: "mock explanation",
+		}
+
+		expectedResponseBody, err := json.Marshal(explainResponseJSON)
+		assert.NoError(t, err)
+		mockResponse := http2.Response{
+			Status:     "200 Ok",
+			StatusCode: 200,
+			Body:       io.NopCloser(strings.NewReader(string(expectedResponseBody))),
+		}
+		mockHTTPClient.EXPECT().Do(gomock.Any()).Return(&mockResponse, nil)
+		explanation, err := d.ExplainWithOptions(ExplainOptions{})
+		assert.NoError(t, err)
+		assert.Equal(t, explainResponseJSON.Explanation, explanation)
+	})
+
+	t.Run("runExplain error", func(t *testing.T) {
+
+	})
+}
+
+func getHTTPMockedBinding(t *testing.T, endpoint *url.URL) (*DeepcodeLLMBinding, *mocks.MockHTTPClient) {
+	ctrl := gomock.NewController(t)
+	mockHTTPClient := mocks.NewMockHTTPClient(ctrl)
+	d := NewDeepcodeLLMBinding(
+		WithHTTPClient(func() http.HTTPClient { return mockHTTPClient }),
+		WithEndpoint(endpoint),
 	)
-	outputChain := make(chan string)
-	err := binding.Explain("{}", HTML, outputChain)
-	assert.NoError(t, err)
+	return d, mockHTTPClient
 }
 
 func TestNewDeepcodeLLMBinding(t *testing.T) {
 	logger := zerolog.Nop()
-	client := &http.Client{}
+	client := http.NewHTTPClient(http.NewDefaultClientFactory())
 
 	binding := NewDeepcodeLLMBinding(
-		WithHTTPClient(func() *http.Client { return client }),
+		WithHTTPClient(func() http.HTTPClient { return client }),
 		WithLogger(&logger),
 	)
 
@@ -45,14 +75,16 @@ func TestNewDeepcodeLLMBinding(t *testing.T) {
 func TestNewDeepcodeLLMBinding_Defaults(t *testing.T) {
 	binding := NewDeepcodeLLMBinding()
 
-	assert.Equal(t, zerolog.Nop(), binding.logger)
-	assert.Equal(t, http.DefaultClient, binding.httpClientFunc())
+	assert.NotNil(t, binding.endpoint)
+	assert.NotNil(t, binding.logger)
+	assert.NotNil(t, binding.httpClientFunc)
+	assert.NotNil(t, binding.instrumentor)
 }
 
 func TestWithHTTPClient(t *testing.T) {
-	client := &http.Client{}
+	client := http.NewHTTPClient(http.NewDefaultClientFactory())
 	binding := &DeepcodeLLMBinding{}
-	WithHTTPClient(func() *http.Client { return client })(binding)
+	WithHTTPClient(func() http.HTTPClient { return client })(binding)
 	assert.Equal(t, client, binding.httpClientFunc())
 }
 
@@ -60,7 +92,7 @@ func TestWithLogger(t *testing.T) {
 	logger := zerolog.Nop()
 	binding := &DeepcodeLLMBinding{}
 	WithLogger(&logger)(binding)
-	assert.Equal(t, logger, binding.logger)
+	assert.Equal(t, &logger, binding.logger)
 }
 
 // Test OutputFormat constants
@@ -140,12 +172,12 @@ func TestWithEndpoint(t *testing.T) {
 
 func TestWithInstrumentor(t *testing.T) {
 	// Test case 1:  Provide a mock instrumentor
-	mockInstrumentor := &MockInstrumentor{}
 	binding := &DeepcodeLLMBinding{}
 
-	WithInstrumentor(mockInstrumentor)(binding)
+	instrumentor := observability.NewInstrumentor()
+	WithInstrumentor(instrumentor)(binding)
 
-	assert.Equal(t, mockInstrumentor, binding.instrumentor)
+	assert.Equal(t, instrumentor, binding.instrumentor)
 
 	// Test case 2: Provide a nil instrumentor (should still set it)
 	binding = &DeepcodeLLMBinding{} // Reset binding for the next test
@@ -153,9 +185,4 @@ func TestWithInstrumentor(t *testing.T) {
 	WithInstrumentor(nil)(binding)
 
 	assert.Nil(t, binding.instrumentor)
-}
-
-// Mock Instrumentor (if you don't have a mock already)
-type MockInstrumentor struct {
-	observability.Instrumentor
 }

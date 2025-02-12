@@ -171,3 +171,33 @@ func testLogger(t *testing.T) *zerolog.Logger {
 	logger := zerolog.New(io.Discard)
 	return &logger
 }
+
+// Test with existing headers
+func TestAddDefaultHeadersWithExistingHeaders(t *testing.T) {
+	d := &DeepcodeLLMBinding{} // Initialize your struct if needed
+	req := &http.Request{Header: http.Header{"Existing-Header": {"existing-value"}}}
+	requestId := "test-request-id"
+
+	d.addDefaultHeaders(req, requestId)
+
+	snykRequestId := req.Header.Get("snyk-request-id")
+	cacheControl := req.Header.Get("Cache-Control")
+	contentType := req.Header.Get("Content-Type")
+	existingHeader := req.Header.Get("Existing-Header")
+
+	if snykRequestId != requestId {
+		t.Errorf("Expected snyk-request-id header to be %s, got %s", requestId, snykRequestId)
+	}
+
+	if cacheControl != "private, max-age=0, no-cache" {
+		t.Errorf("Expected Cache-Control header to be 'private, max-age=0, no-cache', got %s", cacheControl)
+	}
+
+	if contentType != "application/json" {
+		t.Errorf("Expected Content-Type header to be 'application/json', got %s", contentType)
+	}
+
+	if existingHeader != "existing-value" {
+		t.Errorf("Expected Existing-Header to be 'existing-value', got %s", existingHeader)
+	}
+}

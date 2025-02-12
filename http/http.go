@@ -153,3 +153,8 @@ func (s *httpClient) httpCall(req *http.Request) (*http.Response, error) {
 
 	return response, nil
 }
+
+func NewDefaultClientFactory() HTTPClientFactory {
+	clientFunc := func() *http.Client { return http.DefaultClient }
+	return clientFunc
+}
