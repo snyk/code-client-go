@@ -118,7 +118,7 @@ func TestDeepcodeLLMBinding_runExplain(t *testing.T) {
 }
 
 func TestDeepcodeLLMBinding_explainRequestBody(t *testing.T) {
-	d := &DeepcodeLLMBinding{
+	d := &DeepCodeLLMBindingImpl{
 		logger: testLogger(t),
 	}
 
@@ -172,7 +172,7 @@ func testLogger(t *testing.T) *zerolog.Logger {
 
 // Test with existing headers
 func TestAddDefaultHeadersWithExistingHeaders(t *testing.T) {
-	d := &DeepcodeLLMBinding{} // Initialize your struct if needed
+	d := &DeepCodeLLMBindingImpl{} // Initialize your struct if needed
 	req := &http.Request{Header: http.Header{"Existing-Header": {"existing-value"}}}
 	requestId := "test-request-id"
 

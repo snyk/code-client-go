@@ -17,7 +17,7 @@ const (
 	defaultEndpointURL            = "http://localhost:10000/explain"
 )
 
-func (d *DeepcodeLLMBinding) runExplain(ctx context.Context, options ExplainOptions) (explainResponse, error) {
+func (d *DeepCodeLLMBindingImpl) runExplain(ctx context.Context, options ExplainOptions) (explainResponse, error) {
 	span := d.instrumentor.StartSpan(ctx, "code.RunExplain")
 	defer span.Finish()
 
@@ -84,7 +84,7 @@ func (d *DeepcodeLLMBinding) runExplain(ctx context.Context, options ExplainOpti
 	return response, nil
 }
 
-func (d *DeepcodeLLMBinding) explainRequestBody(options *ExplainOptions) ([]byte, error) {
+func (d *DeepCodeLLMBindingImpl) explainRequestBody(options *ExplainOptions) ([]byte, error) {
 	logger := d.logger.With().Str("method", "code.explainRequestBody").Logger()
 
 	var request explainRequest
@@ -108,7 +108,7 @@ func (d *DeepcodeLLMBinding) explainRequestBody(options *ExplainOptions) ([]byte
 	return requestBody, err
 }
 
-func (d *DeepcodeLLMBinding) addDefaultHeaders(req *http.Request, requestId string) {
+func (d *DeepCodeLLMBindingImpl) addDefaultHeaders(req *http.Request, requestId string) {
 	req.Header.Set("snyk-request-id", requestId)
 	req.Header.Set("Cache-Control", "private, max-age=0, no-cache")
 	req.Header.Set("Content-Type", "application/json")

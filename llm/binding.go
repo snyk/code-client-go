@@ -6,6 +6,7 @@ import (
 	"net/url"
 
 	"github.com/rs/zerolog"
+
 	"github.com/snyk/code-client-go/http"
 
 	"github.com/snyk/code-client-go/observability"
@@ -21,6 +22,9 @@ type AIRequest struct {
 	Id    string `json:"id"`
 	Input string `json:"inputs"`
 }
+
+var _ DeepCodeLLMBinding = (*DeepCodeLLMBindingImpl)(nil)
+var _ SnykLLMBindings = (*DeepCodeLLMBindingImpl)(nil)
 
 type SnykLLMBindings interface {
 	// PublishIssues sends issues to an LLM for further processing.
@@ -45,9 +49,9 @@ type DeepCodeLLMBinding interface {
 	ExplainWithOptions(options ExplainOptions) (string, error)
 }
 
-// DeepcodeLLMBinding is an LLM binding for the Snyk Code LLM.
+// DeepCodeLLMBindingImpl is an LLM binding for the Snyk Code LLM.
 // Currently, it only supports explain.
-type DeepcodeLLMBinding struct {
+type DeepCodeLLMBindingImpl struct {
 	httpClientFunc func() http.HTTPClient
 	logger         *zerolog.Logger
 	outputFormat   OutputFormat
@@ -55,7 +59,7 @@ type DeepcodeLLMBinding struct {
 	endpoint       *url.URL
 }
 
-func (d *DeepcodeLLMBinding) ExplainWithOptions(options ExplainOptions) (string, error) {
+func (d *DeepCodeLLMBindingImpl) ExplainWithOptions(options ExplainOptions) (string, error) {
 	s := d.instrumentor.StartSpan(context.Background(), "code.ExplainWithOptions")
 	defer d.instrumentor.Finish(s)
 	response, err := d.runExplain(s.Context(), options)
@@ -66,13 +70,13 @@ func (d *DeepcodeLLMBinding) ExplainWithOptions(options ExplainOptions) (string,
 	return response.Explanation, nil
 }
 
-func (d *DeepcodeLLMBinding) PublishIssues(issues []map[string]string) error {
+func (d *DeepCodeLLMBindingImpl) PublishIssues(_ []map[string]string) error {
 	panic("implement me")
 }
 
-func (d *DeepcodeLLMBinding) Explain(input string, format OutputFormat, output chan<- string) error {
+func (d *DeepCodeLLMBindingImpl) Explain(input AIRequest, _ OutputFormat, output chan<- string) error {
 	var options ExplainOptions
-	err := json.Unmarshal([]byte(input), &options)
+	err := json.Unmarshal([]byte(input.Input), &options)
 	if err != nil {
 		return err
 	}
@@ -84,7 +88,7 @@ func (d *DeepcodeLLMBinding) Explain(input string, format OutputFormat, output c
 	return nil
 }
 
-func NewDeepcodeLLMBinding(opts ...Option) *DeepcodeLLMBinding {
+func NewDeepcodeLLMBinding(opts ...Option) *DeepCodeLLMBindingImpl {
 	endpoint, err := url.Parse(defaultEndpointURL)
 	if err != nil {
 		// time to panic, as our default should never be invalid
@@ -92,7 +96,7 @@ func NewDeepcodeLLMBinding(opts ...Option) *DeepcodeLLMBinding {
 	}
 
 	nopLogger := zerolog.Nop()
-	binding := &DeepcodeLLMBinding{
+	binding := &DeepCodeLLMBindingImpl{
 		logger: &nopLogger,
 		httpClientFunc: func() http.HTTPClient {
 			return http.NewHTTPClient(

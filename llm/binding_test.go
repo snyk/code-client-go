@@ -49,7 +49,7 @@ func TestExplainWithOptions(t *testing.T) {
 	})
 }
 
-func getHTTPMockedBinding(t *testing.T, endpoint *url.URL) (*DeepcodeLLMBinding, *mocks.MockHTTPClient) {
+func getHTTPMockedBinding(t *testing.T, endpoint *url.URL) (*DeepCodeLLMBindingImpl, *mocks.MockHTTPClient) {
 	t.Helper()
 	ctrl := gomock.NewController(t)
 	mockHTTPClient := mocks.NewMockHTTPClient(ctrl)
@@ -84,14 +84,14 @@ func TestNewDeepcodeLLMBinding_Defaults(t *testing.T) {
 
 func TestWithHTTPClient(t *testing.T) {
 	client := http.NewHTTPClient(http.NewDefaultClientFactory())
-	binding := &DeepcodeLLMBinding{}
+	binding := &DeepCodeLLMBindingImpl{}
 	WithHTTPClient(func() http.HTTPClient { return client })(binding)
 	assert.Equal(t, client, binding.httpClientFunc())
 }
 
 func TestWithLogger(t *testing.T) {
 	logger := zerolog.Nop()
-	binding := &DeepcodeLLMBinding{}
+	binding := &DeepCodeLLMBindingImpl{}
 	WithLogger(&logger)(binding)
 	assert.Equal(t, &logger, binding.logger)
 }
@@ -104,7 +104,7 @@ func TestOutputFormatConstants(t *testing.T) {
 }
 
 func TestWithOutputFormat(t *testing.T) {
-	binding := &DeepcodeLLMBinding{}
+	binding := &DeepCodeLLMBindingImpl{}
 
 	// Test setting valid output formats
 	WithOutputFormat(JSON)(binding)
@@ -151,7 +151,7 @@ func TestWithEndpoint(t *testing.T) {
 				t.Fatalf("Failed to parse URL: %v", err)
 			}
 
-			binding := &DeepcodeLLMBinding{}
+			binding := &DeepCodeLLMBindingImpl{}
 			WithEndpoint(parsedURL)(binding)
 
 			if binding.endpoint.Scheme != tc.expected.Scheme {
@@ -172,7 +172,7 @@ func TestWithEndpoint(t *testing.T) {
 
 func TestWithInstrumentor(t *testing.T) {
 	// Test case 1:  Provide a mock instrumentor
-	binding := &DeepcodeLLMBinding{}
+	binding := &DeepCodeLLMBindingImpl{}
 
 	instrumentor := observability.NewInstrumentor()
 	WithInstrumentor(instrumentor)(binding)
@@ -180,7 +180,7 @@ func TestWithInstrumentor(t *testing.T) {
 	assert.Equal(t, instrumentor, binding.instrumentor)
 
 	// Test case 2: Provide a nil instrumentor (should still set it)
-	binding = &DeepcodeLLMBinding{} // Reset binding for the next test
+	binding = &DeepCodeLLMBindingImpl{} // Reset binding for the next test
 
 	WithInstrumentor(nil)(binding)
 

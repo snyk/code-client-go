@@ -8,28 +8,28 @@ import (
 	"github.com/snyk/code-client-go/observability"
 )
 
-type Option func(*DeepcodeLLMBinding)
+type Option func(*DeepCodeLLMBindingImpl)
 
-func WithHTTPClient(httpClientFunc func() http.HTTPClient) func(*DeepcodeLLMBinding) {
-	return func(binding *DeepcodeLLMBinding) {
+func WithHTTPClient(httpClientFunc func() http.HTTPClient) func(*DeepCodeLLMBindingImpl) {
+	return func(binding *DeepCodeLLMBindingImpl) {
 		binding.httpClientFunc = httpClientFunc
 	}
 }
 
-func WithEndpoint(endpoint *url.URL) func(*DeepcodeLLMBinding) {
-	return func(binding *DeepcodeLLMBinding) {
+func WithEndpoint(endpoint *url.URL) func(*DeepCodeLLMBindingImpl) {
+	return func(binding *DeepCodeLLMBindingImpl) {
 		binding.endpoint = endpoint
 	}
 }
 
-func WithLogger(logger *zerolog.Logger) func(*DeepcodeLLMBinding) {
-	return func(binding *DeepcodeLLMBinding) {
+func WithLogger(logger *zerolog.Logger) func(*DeepCodeLLMBindingImpl) {
+	return func(binding *DeepCodeLLMBindingImpl) {
 		binding.logger = logger
 	}
 }
 
-func WithOutputFormat(outputFormat OutputFormat) func(*DeepcodeLLMBinding) {
-	return func(binding *DeepcodeLLMBinding) {
+func WithOutputFormat(outputFormat OutputFormat) func(*DeepCodeLLMBindingImpl) {
+	return func(binding *DeepCodeLLMBindingImpl) {
 		if outputFormat != HTML && outputFormat != JSON && outputFormat != MarkDown {
 			return
 		}
@@ -37,8 +37,8 @@ func WithOutputFormat(outputFormat OutputFormat) func(*DeepcodeLLMBinding) {
 	}
 }
 
-func WithInstrumentor(instrumentor observability.Instrumentor) func(*DeepcodeLLMBinding) {
-	return func(binding *DeepcodeLLMBinding) {
+func WithInstrumentor(instrumentor observability.Instrumentor) func(*DeepCodeLLMBindingImpl) {
+	return func(binding *DeepCodeLLMBindingImpl) {
 		binding.instrumentor = instrumentor
 	}
 }
