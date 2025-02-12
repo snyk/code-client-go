@@ -1,6 +1,7 @@
 package llm
 
 import (
+	"context"
 	"encoding/json"
 	"io"
 	http2 "net/http"
@@ -19,7 +20,7 @@ import (
 
 func TestDeepcodeLLMBinding_PublishIssues(t *testing.T) {
 	binding := NewDeepcodeLLMBinding()
-	assert.PanicsWithValue(t, "implement me", func() { _ = binding.PublishIssues([]map[string]string{}) })
+	assert.PanicsWithValue(t, "implement me", func() { _ = binding.PublishIssues(nil, []map[string]string{}) })
 }
 
 func TestExplainWithOptions(t *testing.T) {
@@ -39,7 +40,7 @@ func TestExplainWithOptions(t *testing.T) {
 			Body:       io.NopCloser(strings.NewReader(string(expectedResponseBody))),
 		}
 		mockHTTPClient.EXPECT().Do(gomock.Any()).Return(&mockResponse, nil)
-		explanation, err := d.ExplainWithOptions(ExplainOptions{})
+		explanation, err := d.ExplainWithOptions(context.Background(), ExplainOptions{})
 		assert.NoError(t, err)
 		assert.Equal(t, explainResponseJSON.Explanation, explanation)
 	})

@@ -19,6 +19,6 @@ func TestDeepcodeLLMBinding_Explain_Smoke(t *testing.T) {
 		WithLogger(&logger),
 	)
 	outputChain := make(chan string)
-	err := binding.Explain(AIRequest{Id: uuid.New().String(), Input: "{}"}, HTML, outputChain)
+	err := binding.Explain(nil, AIRequest{Id: uuid.New().String(), Input: "{}"}, HTML, outputChain)
 	assert.NoError(t, err)
 }

@@ -30,7 +30,7 @@ type SnykLLMBindings interface {
 	// PublishIssues sends issues to an LLM for further processing.
 	// the map in the slice of issues map is a json representation of json key : value
 	// In case of errors, they are returned
-	PublishIssues(issues []map[string]string) error
+	PublishIssues(ctx context.Context, issues []map[string]string) error
 
 	// Explain forwards an input and desired output format to an LLM to
 	// receive an explanation. The implementation should alter the LLM
@@ -38,15 +38,16 @@ type SnykLLMBindings interface {
 	// the format. The results should be streamed into the given channel
 	//
 	// Parameters:
+	// ctx - request context
 	// input - the thing to be explained as a string
 	// format - the requested outputFormat
 	// output - a channel that can be used to stream the results
-	Explain(input AIRequest, format OutputFormat, output chan<- string) error
+	Explain(ctx context.Context, input AIRequest, format OutputFormat, output chan<- string) error
 }
 
 type DeepCodeLLMBinding interface {
 	SnykLLMBindings
-	ExplainWithOptions(options ExplainOptions) (string, error)
+	ExplainWithOptions(ctx context.Context, options ExplainOptions) (string, error)
 }
 
 // DeepCodeLLMBindingImpl is an LLM binding for the Snyk Code LLM.
@@ -59,8 +60,8 @@ type DeepCodeLLMBindingImpl struct {
 	endpoint       *url.URL
 }
 
-func (d *DeepCodeLLMBindingImpl) ExplainWithOptions(options ExplainOptions) (string, error) {
-	s := d.instrumentor.StartSpan(context.Background(), "code.ExplainWithOptions")
+func (d *DeepCodeLLMBindingImpl) ExplainWithOptions(ctx context.Context, options ExplainOptions) (string, error) {
+	s := d.instrumentor.StartSpan(ctx, "code.ExplainWithOptions")
 	defer d.instrumentor.Finish(s)
 	response, err := d.runExplain(s.Context(), options)
 	if err != nil {
@@ -70,17 +71,17 @@ func (d *DeepCodeLLMBindingImpl) ExplainWithOptions(options ExplainOptions) (str
 	return response.Explanation, nil
 }
 
-func (d *DeepCodeLLMBindingImpl) PublishIssues(_ []map[string]string) error {
+func (d *DeepCodeLLMBindingImpl) PublishIssues(_ context.Context, _ []map[string]string) error {
 	panic("implement me")
 }
 
-func (d *DeepCodeLLMBindingImpl) Explain(input AIRequest, _ OutputFormat, output chan<- string) error {
+func (d *DeepCodeLLMBindingImpl) Explain(ctx context.Context, input AIRequest, _ OutputFormat, output chan<- string) error {
 	var options ExplainOptions
 	err := json.Unmarshal([]byte(input.Input), &options)
 	if err != nil {
 		return err
 	}
-	response, err := d.ExplainWithOptions(options)
+	response, err := d.ExplainWithOptions(ctx, options)
 	if err != nil {
 		return err
 	}
