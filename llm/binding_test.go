@@ -11,16 +11,17 @@ import (
 
 	"github.com/golang/mock/gomock"
 	"github.com/rs/zerolog"
+	"github.com/stretchr/testify/assert"
+
 	"github.com/snyk/code-client-go/http"
 	"github.com/snyk/code-client-go/http/mocks"
-	"github.com/stretchr/testify/assert"
 
 	"github.com/snyk/code-client-go/observability"
 )
 
 func TestDeepcodeLLMBinding_PublishIssues(t *testing.T) {
 	binding := NewDeepcodeLLMBinding()
-	assert.PanicsWithValue(t, "implement me", func() { _ = binding.PublishIssues(nil, []map[string]string{}) })
+	assert.PanicsWithValue(t, "implement me", func() { _ = binding.PublishIssues(context.Background(), []map[string]string{}) })
 }
 
 func TestExplainWithOptions(t *testing.T) {
