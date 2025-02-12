@@ -113,7 +113,6 @@ func TestDeepcodeLLMBinding_runExplain(t *testing.T) {
 				require.NoError(t, err)
 				assert.Equal(t, tt.expectedResponse, response)
 			}
-
 		})
 	}
 }
@@ -162,7 +161,6 @@ func TestDeepcodeLLMBinding_explainRequestBody(t *testing.T) {
 		assert.Equal(t, "test-Diff", request.FixExplanation.Diff)
 		assert.Equal(t, SHORT, request.FixExplanation.ExplanationLength)
 	})
-
 }
 
 // Helper function for testing

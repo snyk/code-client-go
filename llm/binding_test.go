@@ -50,6 +50,7 @@ func TestExplainWithOptions(t *testing.T) {
 }
 
 func getHTTPMockedBinding(t *testing.T, endpoint *url.URL) (*DeepcodeLLMBinding, *mocks.MockHTTPClient) {
+	t.Helper()
 	ctrl := gomock.NewController(t)
 	mockHTTPClient := mocks.NewMockHTTPClient(ctrl)
 	d := NewDeepcodeLLMBinding(
@@ -165,7 +166,6 @@ func TestWithEndpoint(t *testing.T) {
 			if binding.endpoint.RawQuery != tc.expected.RawQuery {
 				t.Errorf("Expected RawQuery: %s, Got: %s", tc.expected.RawQuery, binding.endpoint.RawQuery)
 			}
-
 		})
 	}
 }

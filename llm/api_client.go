@@ -54,7 +54,7 @@ func (d *DeepcodeLLMBinding) runExplain(ctx context.Context, options ExplainOpti
 
 	d.addDefaultHeaders(req, requestId)
 
-	resp, err := d.httpClientFunc().Do(req)
+	resp, err := d.httpClientFunc().Do(req) //nolint:bodyclose // this seems to be a false positive
 	if err != nil {
 		logger.Err(err).Str("requestBody", string(requestBody)).Msg("error getting response")
 		return explainResponse{}, err
