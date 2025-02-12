@@ -46,7 +46,7 @@ func (d *DeepCodeLLMBindingImpl) runExplain(ctx context.Context, options Explain
 			return explainResponse{}, err
 		}
 	}
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, u.String(), bytes.NewBuffer(requestBody))
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, u.String(), bytes.NewBuffer(requestBody))
 	if err != nil {
 		logger.Err(err).Str("requestBody", string(requestBody)).Msg("error creating request")
 		return explainResponse{}, err
