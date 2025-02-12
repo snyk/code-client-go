@@ -1,11 +1,14 @@
 package llm
 
 import (
+	"context"
 	"testing"
 
+	"github.com/google/uuid"
 	"github.com/rs/zerolog"
-	"github.com/snyk/code-client-go/http"
 	"github.com/stretchr/testify/assert"
+
+	"github.com/snyk/code-client-go/http"
 )
 
 func TestDeepcodeLLMBinding_Explain_Smoke(t *testing.T) {
@@ -17,6 +20,6 @@ func TestDeepcodeLLMBinding_Explain_Smoke(t *testing.T) {
 		WithLogger(&logger),
 	)
 	outputChain := make(chan string)
-	err := binding.Explain("{}", HTML, outputChain)
+	err := binding.Explain(context.Background(), AIRequest{Id: uuid.New().String(), Input: "{}"}, HTML, outputChain)
 	assert.NoError(t, err)
 }
