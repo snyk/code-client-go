@@ -1,0 +1,23 @@
+
+{
+  "data": {
+    "id": "test-id",
+    "type": "test",
+    "attributes": {
+      "created_at": "2024-01-01T00:00:00Z",
+      "state": "completed",
+      "findings": [
+        {
+          "findings_url": "https://example.com/findings",
+          "format": "SARIF"
+        }
+      ]
+    }
+  },
+  "jsonapi": {
+    "version": "1.0"
+  },
+  "links": {
+    "self": "https://api.snyk.io/v1/orgs/e7ea34c9-de0f-422c-bf2c-4654c2e2da90/tests/test-id"
+  }
+}
