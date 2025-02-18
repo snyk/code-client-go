@@ -104,6 +104,7 @@ func Test_UploadAndAnalyze(t *testing.T) {
 				"4a72d1db-b465-4764-99e1-ecedad03b06a",
 				gomock.Any(),
 				gomock.Any(),
+				gomock.Any(),
 			).Return(&sarif.SarifResponse{Status: "COMPLETE"}, nil)
 
 			codeScanner := codeclient.NewCodeScanner(
@@ -138,6 +139,7 @@ func Test_UploadAndAnalyze(t *testing.T) {
 			mockAnalysisOrchestrator.EXPECT().RunTest(
 				gomock.Any(),
 				"4a72d1db-b465-4764-99e1-ecedad03b06a",
+				gomock.Any(),
 				gomock.Any(),
 				gomock.Any(),
 			).Return(&sarif.SarifResponse{Status: "COMPLETE"}, nil)

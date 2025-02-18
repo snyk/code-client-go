@@ -44,6 +44,8 @@ type codeScanner struct {
 	logger               *zerolog.Logger
 	config               config.Config
 	resultTypes          testModels.Scan
+	projectName          *string
+	targetName           *string
 }
 
 type CodeScanner interface {
@@ -53,6 +55,7 @@ type CodeScanner interface {
 		target scan.Target,
 		files <-chan string,
 		changedFiles map[string]bool,
+		options ...UploadAndAnalyzeOption,
 	) (*sarif.SarifResponse, string, error)
 }
 
@@ -92,6 +95,27 @@ func WithLogger(logger *zerolog.Logger) OptionFunc {
 func WithTrackerFactory(trackerFactory scan.TrackerFactory) OptionFunc {
 	return func(c *codeScanner) {
 		c.trackerFactory = trackerFactory
+	}
+}
+
+func WithProjectName(projectName *string) OptionFunc {
+	return func(c *codeScanner) {
+		c.projectName = projectName
+	}
+}
+
+func WithTargetName(targetName *string) OptionFunc {
+	return func(c *codeScanner) {
+		c.targetName = targetName
+	}
+}
+
+type UploadAndAnalyzeOption func(*analysis.ReportingConfig)
+
+func WithReportingConfig(projectName *string, targetName *string) UploadAndAnalyzeOption {
+	return func(c *analysis.ReportingConfig) {
+		c.ProjectName = projectName
+		c.TargetName = targetName
 	}
 }
 
@@ -169,7 +193,13 @@ func (c *codeScanner) UploadAndAnalyze(
 	target scan.Target,
 	files <-chan string,
 	changedFiles map[string]bool,
+	options ...UploadAndAnalyzeOption,
 ) (*sarif.SarifResponse, string, error) {
+	cfg := analysis.ReportingConfig{}
+	for _, opt := range options {
+		opt(&cfg)
+	}
+
 	if ctx.Err() != nil {
 		c.logger.Info().Msg("Canceling Code scan - Code scanner received cancellation signal")
 		return nil, "", nil
@@ -209,7 +239,7 @@ func (c *codeScanner) UploadAndAnalyze(
 		return nil, bundleHash, nil
 	}
 
-	response, err := c.analysisOrchestrator.RunTest(ctx, c.config.Organization(), b, target)
+	response, err := c.analysisOrchestrator.RunTest(ctx, c.config.Organization(), b, target, cfg)
 
 	if ctx.Err() != nil {
 		c.logger.Info().Msg("Canceling Code scan - Code scanner received cancellation signal")

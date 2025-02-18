@@ -52,9 +52,14 @@ type AnalysisOrchestrator interface {
 	RunAnalysis(ctx context.Context, orgId string, rootPath string, workspaceId string) (*sarif.SarifResponse, error)
 	RunIncrementalAnalysis(ctx context.Context, orgId string, rootPath string, workspaceId string, limitToFiles []string) (*sarif.SarifResponse, error)
 
-	RunTest(ctx context.Context, orgId string, b bundle.Bundle, target scan.Target) (*sarif.SarifResponse, error)
+	RunTest(ctx context.Context, orgId string, b bundle.Bundle, target scan.Target, reportingOptions ReportingConfig) (*sarif.SarifResponse, error)
 }
 
+type ReportingConfig struct {
+	Report      *bool
+	ProjectName *string
+	TargetName  *string
+}
 type analysisOrchestrator struct {
 	httpClient     codeClientHTTP.HTTPClient
 	instrumentor   observability.Instrumentor
@@ -477,7 +482,7 @@ func (a *analysisOrchestrator) host(isHidden bool) string {
 	return fmt.Sprintf("%s/%s", apiUrl, path)
 }
 
-func (a *analysisOrchestrator) RunTest(ctx context.Context, orgId string, b bundle.Bundle, target scan.Target) (*sarif.SarifResponse, error) {
+func (a *analysisOrchestrator) RunTest(ctx context.Context, orgId string, b bundle.Bundle, target scan.Target, reportingConfig ReportingConfig) (*sarif.SarifResponse, error) {
 	tracker := a.trackerFactory.GenerateTracker()
 	tracker.Begin("Snyk Code analysis for "+target.GetPath(), "Retrieving results...")
 
@@ -498,7 +503,17 @@ func (a *analysisOrchestrator) RunTest(ctx context.Context, orgId string, b bund
 	body := testApi.NewCreateTestApplicationBody(
 		testApi.WithInputBundle(b.GetBundleHash(), target.GetPath(), repoUrl, b.GetLimitToFiles()),
 		testApi.WithScanType(a.testType),
+		testApi.WithProjectName(reportingConfig.ProjectName),
+		testApi.WithTargetName(reportingConfig.TargetName),
+		testApi.WithReporting(reportingConfig.Report),
 	)
+
+	fmt.Println("Creating test")
+	bodyBytes, err := json.MarshalIndent(body, "", "  ")
+	if err != nil {
+		return nil, err
+	}
+	fmt.Println(string(bodyBytes))
 
 	// create test
 	resp, err := client.CreateTestWithApplicationVndAPIPlusJSONBody(ctx, orgUuid, &params, *body)
