@@ -97,3 +97,18 @@ func (mr *MockAnalysisOrchestratorMockRecorder) RunTest(ctx, orgId, b, target, r
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RunTest", reflect.TypeOf((*MockAnalysisOrchestrator)(nil).RunTest), ctx, orgId, b, target, reportingOptions)
 }
+
+// RunTestRemote mocks base method.
+func (m *MockAnalysisOrchestrator) RunTestRemote(ctx context.Context, orgId, interactionId string, reportingOptions analysis.ReportingConfig) (*sarif.SarifResponse, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "RunTestRemote", ctx, orgId, interactionId, reportingOptions)
+	ret0, _ := ret[0].(*sarif.SarifResponse)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// RunTestRemote indicates an expected call of RunTestRemote.
+func (mr *MockAnalysisOrchestratorMockRecorder) RunTestRemote(ctx, orgId, interactionId, reportingOptions interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RunTestRemote", reflect.TypeOf((*MockAnalysisOrchestrator)(nil).RunTestRemote), ctx, orgId, interactionId, reportingOptions)
+}

@@ -30,6 +30,12 @@ func WithInputBundle(id string, localFilePath string, repoUrl *string, limitTest
 	}
 }
 
+func WithInputLegacyScmProject(project v20241221.TestInputLegacyScmProject) CreateTestOption {
+	return func(body *CreateTestApplicationVndAPIPlusJSONRequestBody) {
+		body.Data.Attributes.Input.FromTestInputLegacyScmProject(project)
+	}
+}
+
 func WithScanType(t v20241221.Scan) CreateTestOption {
 	return func(body *CreateTestApplicationVndAPIPlusJSONRequestBody) {
 		body.Data.Attributes.Configuration.Scan = struct {
@@ -69,6 +75,13 @@ func WithProjectName(name *string) CreateTestOption {
 	}
 }
 
+func WithProjectId(id openapi_types.UUID) CreateTestOption {
+	return func(body *CreateTestApplicationVndAPIPlusJSONRequestBody) {
+		out := ensureOutput(body)
+		out.ProjectId = &id
+	}
+}
+
 func WithTargetName(name *string) CreateTestOption {
 	return func(body *CreateTestApplicationVndAPIPlusJSONRequestBody) {
 		if name == nil {
@@ -97,4 +110,12 @@ func NewCreateTestApplicationBody(options ...CreateTestOption) *CreateTestApplic
 	}
 
 	return result
+}
+
+func NewTestInputLegacyScmProject(projectId openapi_types.UUID, commitId string) v20241221.TestInputLegacyScmProject {
+	return v20241221.TestInputLegacyScmProject{
+		ProjectId: projectId,
+		CommitId:  commitId,
+		Type: 	v20241221.LegacyScmProject,
+	}
 }

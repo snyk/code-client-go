@@ -53,12 +53,15 @@ type AnalysisOrchestrator interface {
 	RunIncrementalAnalysis(ctx context.Context, orgId string, rootPath string, workspaceId string, limitToFiles []string) (*sarif.SarifResponse, error)
 
 	RunTest(ctx context.Context, orgId string, b bundle.Bundle, target scan.Target, reportingOptions ReportingConfig) (*sarif.SarifResponse, error)
+	RunTestRemote(ctx context.Context, orgId string, interactionId string, reportingOptions ReportingConfig) (*sarif.SarifResponse, error)
 }
 
 type ReportingConfig struct {
 	Report      *bool
 	ProjectName *string
 	TargetName  *string
+	ProjectId   *uuid.UUID
+	CommitId    *string
 }
 type analysisOrchestrator struct {
 	httpClient     codeClientHTTP.HTTPClient
@@ -541,6 +544,84 @@ func (a *analysisOrchestrator) RunTest(ctx context.Context, orgId string, b bund
 		return result, pollErr
 	default:
 		return nil, fmt.Errorf("failed to create test: %s", parsedResponse.Status())
+	}
+}
+
+func (a *analysisOrchestrator) RunTestRemote(ctx context.Context, orgId string, interactionId string, cfg ReportingConfig) (*sarif.SarifResponse, error) {
+	tracker := a.trackerFactory.GenerateTracker()
+	tracker.Begin("Snyk Code analysis for remote project", "Retrieving results...")
+
+	orgUuid := uuid.MustParse(orgId)
+	host := a.host(true)
+
+	client, err := testApi.NewClient(host, testApi.WithHTTPClient(a.httpClient))
+	if err != nil {
+		return nil, err
+	}
+
+	params := testApi.CreateTestParams{Version: testApi.ApiVersion}
+	projectId := cfg.ProjectId
+	commitId := cfg.CommitId
+	fmt.Println("Creating test")
+	prettyBytes, err := json.MarshalIndent(cfg, "", "  ")
+	if err != nil {
+		return nil, err
+	}
+	fmt.Println(string(prettyBytes))
+
+	if projectId == nil || commitId == nil {
+		return nil, errors.New("projectId and commitId are required")
+	}
+	legacyScmProject := testApi.NewTestInputLegacyScmProject(*projectId, *commitId)
+	body := testApi.NewCreateTestApplicationBody(
+		testApi.WithInputLegacyScmProject(legacyScmProject),
+		testApi.WithReporting(cfg.Report),
+		testApi.WithScanType(a.testType),
+		testApi.WithProjectId(*projectId),
+
+	)
+	fmt.Println("Creating test")
+	prettyBytes, err = json.MarshalIndent(body, "", "  ")
+	if err != nil {
+		return nil, err
+	}
+	fmt.Println(string(prettyBytes))
+
+	// create test
+	bodyBytes, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	resp, err := client.CreateTestWithBody(ctx, orgUuid, &params, "application/json", strings.NewReader(string(bodyBytes)))
+	if err != nil {
+		return nil, err
+	}
+
+	parsedResponse, err := testApi.ParseGetTestResultResponse(resp)
+	defer func() {
+		closeErr := resp.Body.Close()
+		if closeErr != nil {
+			a.logger.Err(closeErr).Msg("failed to close response body")
+		}
+	}()
+	if err != nil {
+		a.logger.Debug().Msg(err.Error())
+		return nil, err
+	}
+
+	switch parsedResponse.StatusCode() {
+	case http.StatusCreated:
+		// poll results
+		result, pollErr := a.pollTestForFindings(ctx, client, orgUuid, parsedResponse.ApplicationvndApiJSON200.Data.Id)
+		formattedResult, err := json.MarshalIndent(parsedResponse.ApplicationvndApiJSON200, "", "  ")
+		if err != nil {
+			return nil, err
+		}
+		fmt.Println(string(formattedResult))
+		tracker.End("Analysis complete.")
+		return result, pollErr
+	default:
+		return nil, fmt.Errorf("failed to analyze project: %s", parsedResponse.Status())
 	}
 }
 
