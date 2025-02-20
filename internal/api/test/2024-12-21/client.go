@@ -121,6 +121,11 @@ type ClientInterface interface {
 }
 
 func (c *Client) CreateTestWithBody(ctx context.Context, orgId externalRef2.OrgId, params *CreateTestParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	buf, err := io.ReadAll(body)
+	if err != nil {
+		return nil, err
+	}
+	body = bytes.NewReader(buf)
 	req, err := NewCreateTestRequestWithBody(c.Server, orgId, params, contentType, body)
 	if err != nil {
 		return nil, err
@@ -159,6 +164,7 @@ func (c *Client) GetTestResult(ctx context.Context, orgId externalRef2.OrgId, te
 // NewCreateTestRequestWithApplicationVndAPIPlusJSONBody calls the generic CreateTest builder with application/vnd.api+json body
 func NewCreateTestRequestWithApplicationVndAPIPlusJSONBody(server string, orgId externalRef2.OrgId, params *CreateTestParams, body CreateTestApplicationVndAPIPlusJSONRequestBody) (*http.Request, error) {
 	var bodyReader io.Reader
+
 	buf, err := json.Marshal(body)
 	if err != nil {
 		return nil, err
@@ -210,7 +216,6 @@ func NewCreateTestRequestWithBody(server string, orgId externalRef2.OrgId, param
 
 		queryURL.RawQuery = queryValues.Encode()
 	}
-
 	req, err := http.NewRequest("POST", queryURL.String(), body)
 	if err != nil {
 		return nil, err

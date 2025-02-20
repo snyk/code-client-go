@@ -511,13 +511,6 @@ func (a *analysisOrchestrator) RunTest(ctx context.Context, orgId string, b bund
 		testApi.WithReporting(reportingConfig.Report),
 	)
 
-	fmt.Println("Creating test")
-	bodyBytes, err := json.MarshalIndent(body, "", "  ")
-	if err != nil {
-		return nil, err
-	}
-	fmt.Println(string(bodyBytes))
-
 	// create test
 	resp, err := client.CreateTestWithApplicationVndAPIPlusJSONBody(ctx, orgUuid, &params, *body)
 	if err != nil {
@@ -562,12 +555,6 @@ func (a *analysisOrchestrator) RunTestRemote(ctx context.Context, orgId string, 
 	params := testApi.CreateTestParams{Version: testApi.ApiVersion}
 	projectId := cfg.ProjectId
 	commitId := cfg.CommitId
-	fmt.Println("Creating test")
-	prettyBytes, err := json.MarshalIndent(cfg, "", "  ")
-	if err != nil {
-		return nil, err
-	}
-	fmt.Println(string(prettyBytes))
 
 	if projectId == nil || commitId == nil {
 		return nil, errors.New("projectId and commitId are required")
@@ -580,13 +567,6 @@ func (a *analysisOrchestrator) RunTestRemote(ctx context.Context, orgId string, 
 		testApi.WithProjectId(*projectId),
 
 	)
-	fmt.Println("Creating test")
-	prettyBytes, err = json.MarshalIndent(body, "", "  ")
-	if err != nil {
-		return nil, err
-	}
-	fmt.Println(string(prettyBytes))
-
 	// create test
 	bodyBytes, err := json.Marshal(body)
 	if err != nil {
@@ -613,11 +593,6 @@ func (a *analysisOrchestrator) RunTestRemote(ctx context.Context, orgId string, 
 	case http.StatusCreated:
 		// poll results
 		result, pollErr := a.pollTestForFindings(ctx, client, orgUuid, parsedResponse.ApplicationvndApiJSON200.Data.Id)
-		formattedResult, err := json.MarshalIndent(parsedResponse.ApplicationvndApiJSON200, "", "  ")
-		if err != nil {
-			return nil, err
-		}
-		fmt.Println(string(formattedResult))
 		tracker.End("Analysis complete.")
 		return result, pollErr
 	default:
