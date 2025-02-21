@@ -52,12 +52,12 @@ type AnalysisOrchestrator interface {
 	RunAnalysis(ctx context.Context, orgId string, rootPath string, workspaceId string) (*sarif.SarifResponse, error)
 	RunIncrementalAnalysis(ctx context.Context, orgId string, rootPath string, workspaceId string, limitToFiles []string) (*sarif.SarifResponse, error)
 
-	RunTest(ctx context.Context, orgId string, b bundle.Bundle, target scan.Target, reportingOptions ReportingConfig) (*sarif.SarifResponse, error)
-	RunTestRemote(ctx context.Context, orgId string, interactionId string, reportingOptions ReportingConfig) (*sarif.SarifResponse, error)
+	RunTest(ctx context.Context, orgId string, b bundle.Bundle, target scan.Target, reportingOptions AnalysisConfig) (*sarif.SarifResponse, error)
+	RunTestRemote(ctx context.Context, orgId string, interactionId string, reportingOptions AnalysisConfig) (*sarif.SarifResponse, error)
 }
 
-type ReportingConfig struct {
-	Report      *bool
+type AnalysisConfig struct {
+	Report      bool
 	ProjectName *string
 	TargetName  *string
 	ProjectId   *uuid.UUID
@@ -485,7 +485,7 @@ func (a *analysisOrchestrator) host(isHidden bool) string {
 	return fmt.Sprintf("%s/%s", apiUrl, path)
 }
 
-func (a *analysisOrchestrator) RunTest(ctx context.Context, orgId string, b bundle.Bundle, target scan.Target, reportingConfig ReportingConfig) (*sarif.SarifResponse, error) {
+func (a *analysisOrchestrator) RunTest(ctx context.Context, orgId string, b bundle.Bundle, target scan.Target, reportingConfig AnalysisConfig) (*sarif.SarifResponse, error) {
 	tracker := a.trackerFactory.GenerateTracker()
 	tracker.Begin("Snyk Code analysis for "+target.GetPath(), "Retrieving results...")
 
@@ -508,7 +508,7 @@ func (a *analysisOrchestrator) RunTest(ctx context.Context, orgId string, b bund
 		testApi.WithScanType(a.testType),
 		testApi.WithProjectName(reportingConfig.ProjectName),
 		testApi.WithTargetName(reportingConfig.TargetName),
-		testApi.WithReporting(reportingConfig.Report),
+		testApi.WithReporting(&reportingConfig.Report),
 	)
 
 	// create test
@@ -540,7 +540,7 @@ func (a *analysisOrchestrator) RunTest(ctx context.Context, orgId string, b bund
 	}
 }
 
-func (a *analysisOrchestrator) RunTestRemote(ctx context.Context, orgId string, interactionId string, cfg ReportingConfig) (*sarif.SarifResponse, error) {
+func (a *analysisOrchestrator) RunTestRemote(ctx context.Context, orgId string, interactionId string, cfg AnalysisConfig) (*sarif.SarifResponse, error) {
 	tracker := a.trackerFactory.GenerateTracker()
 	tracker.Begin("Snyk Code analysis for remote project", "Retrieving results...")
 
@@ -562,10 +562,9 @@ func (a *analysisOrchestrator) RunTestRemote(ctx context.Context, orgId string, 
 	legacyScmProject := testApi.NewTestInputLegacyScmProject(*projectId, *commitId)
 	body := testApi.NewCreateTestApplicationBody(
 		testApi.WithInputLegacyScmProject(legacyScmProject),
-		testApi.WithReporting(cfg.Report),
+		testApi.WithReporting(&cfg.Report),
 		testApi.WithScanType(a.testType),
 		testApi.WithProjectId(*projectId),
-
 	)
 	// create test
 	bodyBytes, err := json.Marshal(body)

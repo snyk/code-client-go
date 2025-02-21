@@ -84,7 +84,7 @@ func (mr *MockAnalysisOrchestratorMockRecorder) RunIncrementalAnalysis(ctx, orgI
 }
 
 // RunTest mocks base method.
-func (m *MockAnalysisOrchestrator) RunTest(ctx context.Context, orgId string, b bundle.Bundle, target scan.Target, reportingOptions analysis.ReportingConfig) (*sarif.SarifResponse, error) {
+func (m *MockAnalysisOrchestrator) RunTest(ctx context.Context, orgId string, b bundle.Bundle, target scan.Target, reportingOptions analysis.AnalysisConfig) (*sarif.SarifResponse, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "RunTest", ctx, orgId, b, target, reportingOptions)
 	ret0, _ := ret[0].(*sarif.SarifResponse)
@@ -99,7 +99,7 @@ func (mr *MockAnalysisOrchestratorMockRecorder) RunTest(ctx, orgId, b, target, r
 }
 
 // RunTestRemote mocks base method.
-func (m *MockAnalysisOrchestrator) RunTestRemote(ctx context.Context, orgId, interactionId string, reportingOptions analysis.ReportingConfig) (*sarif.SarifResponse, error) {
+func (m *MockAnalysisOrchestrator) RunTestRemote(ctx context.Context, orgId, interactionId string, reportingOptions analysis.AnalysisConfig) (*sarif.SarifResponse, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "RunTestRemote", ctx, orgId, interactionId, reportingOptions)
 	ret0, _ := ret[0].(*sarif.SarifResponse)

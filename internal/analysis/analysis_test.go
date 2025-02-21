@@ -784,10 +784,10 @@ func TestAnalysis_RunTestRemote(t *testing.T) {
 		context.Background(),
 		"4a72d1db-b465-4764-99e1-ecedad03b06a",
 		"b372d1db-b465-4764-99e1-ecedad03b06a",
-		analysis.ReportingConfig{
+		analysis.AnalysisConfig{
 			ProjectId: &projectId,
 			CommitId:  &commitId,
-			Report:    &report,
+			Report:    report,
 		},
 	)
 
@@ -816,7 +816,7 @@ func TestAnalysis_RunTestRemote_MissingRequiredParams(t *testing.T) {
 			context.Background(),
 			"4a72d1db-b465-4764-99e1-ecedad03b06a",
 			"b372d1db-b465-4764-99e1-ecedad03b06a",
-			analysis.ReportingConfig{},
+			analysis.AnalysisConfig{},
 		)
 
 		assert.Error(t, err)
@@ -830,7 +830,7 @@ func TestAnalysis_RunTestRemote_MissingRequiredParams(t *testing.T) {
 			context.Background(),
 			"4a72d1db-b465-4764-99e1-ecedad03b06a",
 			"b372d1db-b465-4764-99e1-ecedad03b06a",
-			analysis.ReportingConfig{
+			analysis.AnalysisConfig{
 				CommitId: &commitId,
 			},
 		)
@@ -846,7 +846,7 @@ func TestAnalysis_RunTestRemote_MissingRequiredParams(t *testing.T) {
 			context.Background(),
 			"4a72d1db-b465-4764-99e1-ecedad03b06a",
 			"b372d1db-b465-4764-99e1-ecedad03b06a",
-			analysis.ReportingConfig{
+			analysis.AnalysisConfig{
 				ProjectId: &projectId,
 			},
 		)

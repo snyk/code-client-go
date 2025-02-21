@@ -54,7 +54,7 @@ type CodeScanner interface {
 		target scan.Target,
 		files <-chan string,
 		changedFiles map[string]bool,
-		options ...ReportingOption,
+		options ...AnalysisOption,
 	) (*sarif.SarifResponse, string, error)
 }
 
@@ -97,23 +97,21 @@ func WithTrackerFactory(trackerFactory scan.TrackerFactory) OptionFunc {
 	}
 }
 
-type ReportingOption func(*analysis.ReportingConfig)
+type AnalysisOption func(*analysis.AnalysisConfig)
 
-func WithReportingConfig(report bool, config map[string]interface{}) ReportingOption {
-	return func(c *analysis.ReportingConfig) {
-		c.Report = &report
-		if projectName, ok := config["projectName"].(*string); ok {
-			c.ProjectName = projectName
-		}
-		if targetName, ok := config["targetName"].(*string); ok {
-			c.TargetName = targetName
-		}
-		if projectId, ok := config["projectId"].(*uuid.UUID); ok {
-			c.ProjectId = projectId
-		}
-		if commitId, ok := config["commitId"].(*string); ok {
-			c.CommitId = commitId
-		}
+func ReportLocalTest(projectName string, targetName string) AnalysisOption {
+	return func(c *analysis.AnalysisConfig) {
+		c.Report = true
+		c.ProjectName = &projectName
+		c.TargetName = &targetName
+	}
+}
+
+func ReportRemoteTest(projectId uuid.UUID, commitId string) AnalysisOption {
+	return func(c *analysis.AnalysisConfig) {
+		c.Report = true
+		c.ProjectId = &projectId
+		c.CommitId = &commitId
 	}
 }
 
@@ -191,9 +189,9 @@ func (c *codeScanner) UploadAndAnalyze(
 	target scan.Target,
 	files <-chan string,
 	changedFiles map[string]bool,
-	options ...ReportingOption,
+	options ...AnalysisOption,
 ) (*sarif.SarifResponse, string, error) {
-	cfg := analysis.ReportingConfig{}
+	cfg := analysis.AnalysisConfig{}
 	for _, opt := range options {
 		opt(&cfg)
 	}
@@ -247,8 +245,8 @@ func (c *codeScanner) UploadAndAnalyze(
 	return response, bundleHash, err
 }
 
-func (c *codeScanner) AnalyzeRemote(ctx context.Context, interactionId string, options ...ReportingOption) (*sarif.SarifResponse, error) {
-	cfg := analysis.ReportingConfig{}
+func (c *codeScanner) AnalyzeRemote(ctx context.Context, interactionId string, options ...AnalysisOption) (*sarif.SarifResponse, error) {
+	cfg := analysis.AnalysisConfig{}
 	for _, opt := range options {
 		opt(&cfg)
 	}
