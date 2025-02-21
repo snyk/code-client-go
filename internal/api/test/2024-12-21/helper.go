@@ -116,6 +116,6 @@ func NewTestInputLegacyScmProject(projectId openapi_types.UUID, commitId string)
 	return v20241221.TestInputLegacyScmProject{
 		ProjectId: projectId,
 		CommitId:  commitId,
-		Type: 	v20241221.LegacyScmProject,
+		Type:      v20241221.LegacyScmProject,
 	}
 }
