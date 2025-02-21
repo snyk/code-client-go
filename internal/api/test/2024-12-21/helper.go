@@ -2,6 +2,7 @@ package v20241221
 
 import (
 	openapi_types "github.com/oapi-codegen/runtime/types"
+
 	v20241221 "github.com/snyk/code-client-go/internal/api/test/2024-12-21/models"
 )
 
@@ -84,7 +85,7 @@ func WithProjectId(id openapi_types.UUID) CreateTestOption {
 
 func WithTargetName(name *string) CreateTestOption {
 	return func(body *CreateTestApplicationVndAPIPlusJSONRequestBody) {
-		if name == nil {
+		if name == nil || len(*name) == 0 {
 			return
 		}
 		out := ensureOutput(body)
