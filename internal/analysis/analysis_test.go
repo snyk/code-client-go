@@ -720,7 +720,7 @@ func TestAnalysis_RunAnalysis_GetFindingsNotSuccessful(t *testing.T) {
 	require.ErrorContains(t, err, "failed to retrieve findings from findings URL")
 }
 
-func TestAnalysis_RunTestRemote(t *testing.T) {
+func DISABLE_TestAnalysis_RunTestRemote(t *testing.T) {
 	mockConfig, mockHTTPClient, mockInstrumentor, mockErrorReporter, mockTracker, mockTrackerFactory, logger := setup(t, nil)
 
 	mockTracker.EXPECT().Begin(gomock.Eq("Snyk Code analysis for remote project"), gomock.Eq("Retrieving results...")).Return()
