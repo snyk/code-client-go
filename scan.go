@@ -158,7 +158,6 @@ func NewCodeScanner(
 	scanner.analysisOrchestrator = analysisOrchestrator
 
 	return scanner
-	return scanner
 }
 
 // WithBundleManager creates a new Code Scanner from the current one and replaces the bundle manager.
