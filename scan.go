@@ -45,8 +45,6 @@ type codeScanner struct {
 	logger               *zerolog.Logger
 	config               config.Config
 	resultTypes          testModels.Scan
-	projectName          *string
-	targetName           *string
 }
 
 type CodeScanner interface {
@@ -96,18 +94,6 @@ func WithLogger(logger *zerolog.Logger) OptionFunc {
 func WithTrackerFactory(trackerFactory scan.TrackerFactory) OptionFunc {
 	return func(c *codeScanner) {
 		c.trackerFactory = trackerFactory
-	}
-}
-
-func WithProjectName(projectName *string) OptionFunc {
-	return func(c *codeScanner) {
-		c.projectName = projectName
-	}
-}
-
-func WithTargetName(targetName *string) OptionFunc {
-	return func(c *codeScanner) {
-		c.targetName = targetName
 	}
 }
 
@@ -171,6 +157,7 @@ func NewCodeScanner(
 	)
 	scanner.analysisOrchestrator = analysisOrchestrator
 
+	return scanner
 	return scanner
 }
 
@@ -272,7 +259,6 @@ func (c *codeScanner) AnalyzeRemote(ctx context.Context, interactionId string, o
 		return nil, nil
 	}
 	response, err := c.analysisOrchestrator.RunTestRemote(ctx, c.config.Organization(), interactionId, cfg)
-
 
 	if ctx.Err() != nil {
 		c.logger.Info().Msg("Canceling Code scan - Code scanner received cancellation signal")
