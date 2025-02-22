@@ -20,6 +20,7 @@ package codeclient
 import (
 	"context"
 
+	"github.com/google/uuid"
 	"github.com/pkg/errors"
 	"github.com/rs/zerolog"
 
@@ -53,6 +54,7 @@ type CodeScanner interface {
 		target scan.Target,
 		files <-chan string,
 		changedFiles map[string]bool,
+		options ...AnalysisOption,
 	) (*sarif.SarifResponse, string, error)
 }
 
@@ -92,6 +94,24 @@ func WithLogger(logger *zerolog.Logger) OptionFunc {
 func WithTrackerFactory(trackerFactory scan.TrackerFactory) OptionFunc {
 	return func(c *codeScanner) {
 		c.trackerFactory = trackerFactory
+	}
+}
+
+type AnalysisOption func(*analysis.AnalysisConfig)
+
+func ReportLocalTest(projectName string, targetName string) AnalysisOption {
+	return func(c *analysis.AnalysisConfig) {
+		c.Report = true
+		c.ProjectName = &projectName
+		c.TargetName = &targetName
+	}
+}
+
+func ReportRemoteTest(projectId uuid.UUID, commitId string) AnalysisOption {
+	return func(c *analysis.AnalysisConfig) {
+		c.Report = true
+		c.ProjectId = &projectId
+		c.CommitId = &commitId
 	}
 }
 
@@ -169,7 +189,13 @@ func (c *codeScanner) UploadAndAnalyze(
 	target scan.Target,
 	files <-chan string,
 	changedFiles map[string]bool,
+	options ...AnalysisOption,
 ) (*sarif.SarifResponse, string, error) {
+	cfg := analysis.AnalysisConfig{}
+	for _, opt := range options {
+		opt(&cfg)
+	}
+
 	if ctx.Err() != nil {
 		c.logger.Info().Msg("Canceling Code scan - Code scanner received cancellation signal")
 		return nil, "", nil
@@ -209,7 +235,7 @@ func (c *codeScanner) UploadAndAnalyze(
 		return nil, bundleHash, nil
 	}
 
-	response, err := c.analysisOrchestrator.RunTest(ctx, c.config.Organization(), b, target)
+	response, err := c.analysisOrchestrator.RunTest(ctx, c.config.Organization(), b, target, cfg)
 
 	if ctx.Err() != nil {
 		c.logger.Info().Msg("Canceling Code scan - Code scanner received cancellation signal")
@@ -217,4 +243,24 @@ func (c *codeScanner) UploadAndAnalyze(
 	}
 
 	return response, bundleHash, err
+}
+
+func (c *codeScanner) AnalyzeRemote(ctx context.Context, interactionId string, options ...AnalysisOption) (*sarif.SarifResponse, error) {
+	cfg := analysis.AnalysisConfig{}
+	for _, opt := range options {
+		opt(&cfg)
+	}
+
+	if ctx.Err() != nil {
+		c.logger.Info().Msg("Canceling Code scan - Code scanner received cancellation signal")
+		return nil, nil
+	}
+	response, err := c.analysisOrchestrator.RunTestRemote(ctx, c.config.Organization(), interactionId, cfg)
+
+	if ctx.Err() != nil {
+		c.logger.Info().Msg("Canceling Code scan - Code scanner received cancellation signal")
+		return nil, nil
+	}
+
+	return response, err
 }

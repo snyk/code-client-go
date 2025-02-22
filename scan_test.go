@@ -104,6 +104,7 @@ func Test_UploadAndAnalyze(t *testing.T) {
 				"4a72d1db-b465-4764-99e1-ecedad03b06a",
 				gomock.Any(),
 				gomock.Any(),
+				gomock.Any(),
 			).Return(&sarif.SarifResponse{Status: "COMPLETE"}, nil)
 
 			codeScanner := codeclient.NewCodeScanner(
@@ -140,6 +141,7 @@ func Test_UploadAndAnalyze(t *testing.T) {
 				"4a72d1db-b465-4764-99e1-ecedad03b06a",
 				gomock.Any(),
 				gomock.Any(),
+				gomock.Any(),
 			).Return(&sarif.SarifResponse{Status: "COMPLETE"}, nil)
 
 			codeScanner := codeclient.NewCodeScanner(
@@ -159,6 +161,63 @@ func Test_UploadAndAnalyze(t *testing.T) {
 			assert.Equal(t, "COMPLETE", response.Status)
 		},
 	)
+}
+
+func TestAnalyzeRemote(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+	mockConfig := confMocks.NewMockConfig(ctrl)
+	mockConfig.EXPECT().Organization().AnyTimes().Return("mockOrgId")
+
+	mockHTTPClient := httpmocks.NewMockHTTPClient(ctrl)
+	mockInstrumentor := mocks.NewMockInstrumentor(ctrl)
+	mockErrorReporter := mocks.NewMockErrorReporter(ctrl)
+	mockSpan := mocks.NewMockSpan(ctrl)
+	mockSpan.EXPECT().GetTraceId().AnyTimes().Return("testTraceId")
+	mockSpan.EXPECT().Context().AnyTimes().Return(context.Background())
+	mockInstrumentor.EXPECT().StartSpan(gomock.Any(), gomock.Any()).AnyTimes().Return(mockSpan)
+	mockInstrumentor.EXPECT().Finish(gomock.Any()).AnyTimes()
+
+	logger := zerolog.Nop()
+	mockAnalysisOrchestrator := mockAnalysis.NewMockAnalysisOrchestrator(ctrl)
+
+	codeScanner := codeclient.NewCodeScanner(
+		mockConfig,
+		mockHTTPClient,
+		codeclient.WithInstrumentor(mockInstrumentor),
+		codeclient.WithErrorReporter(mockErrorReporter),
+		codeclient.WithLogger(&logger),
+	).WithAnalysisOrchestrator(mockAnalysisOrchestrator)
+
+	t.Run("returns valid response", func(t *testing.T) {
+		mockAnalysisOrchestrator.EXPECT().RunTestRemote(
+			gomock.Any(),
+			"mockOrgId",
+			"mockInteractionId",
+			gomock.Any(),
+		).Return(&sarif.SarifResponse{Status: "COMPLETE"}, nil)
+
+		response, err := codeScanner.AnalyzeRemote(context.Background(), "mockInteractionId")
+		if err != nil {
+			t.Fatalf("AnalyzeRemote failed: %v", err)
+		}
+		if response == nil || response.Status != "COMPLETE" {
+			t.Fatalf("expected COMPLETE, got %+v", response)
+		}
+	})
+
+	t.Run("handles orchestrator error", func(t *testing.T) {
+		mockAnalysisOrchestrator.EXPECT().RunTestRemote(
+			gomock.Any(),
+			gomock.Any(),
+			gomock.Any(),
+			gomock.Any(),
+		).Return(nil, assert.AnError)
+
+		response, err := codeScanner.AnalyzeRemote(context.Background(), "mockInteractionId")
+		assert.Nil(t, response)
+		assert.Error(t, err)
+	})
 }
 
 func setupDocs(t *testing.T) (string, string, string, []byte, []byte) {

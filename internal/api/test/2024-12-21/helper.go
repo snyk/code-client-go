@@ -1,6 +1,8 @@
 package v20241221
 
 import (
+	openapi_types "github.com/oapi-codegen/runtime/types"
+
 	v20241221 "github.com/snyk/code-client-go/internal/api/test/2024-12-21/models"
 )
 
@@ -29,11 +31,74 @@ func WithInputBundle(id string, localFilePath string, repoUrl *string, limitTest
 	}
 }
 
+func WithInputLegacyScmProject(project v20241221.TestInputLegacyScmProject) CreateTestOption {
+	return func(body *CreateTestApplicationVndAPIPlusJSONRequestBody) {
+		body.Data.Attributes.Input.FromTestInputLegacyScmProject(project)
+	}
+}
+
 func WithScanType(t v20241221.Scan) CreateTestOption {
 	return func(body *CreateTestApplicationVndAPIPlusJSONRequestBody) {
 		body.Data.Attributes.Configuration.Scan = struct {
 			ResultType *v20241221.Scan `json:"result_type,omitempty"`
 		}{ResultType: &t}
+	}
+}
+
+func ensureOutput(body *CreateTestApplicationVndAPIPlusJSONRequestBody) *struct {
+	Label           *string             `json:"label,omitempty"`
+	ProjectId       *openapi_types.UUID `json:"project_id,omitempty"`
+	ProjectName     *string             `json:"project_name,omitempty"`
+	Report          *bool               `json:"report,omitempty"`
+	TargetName      *string             `json:"target_name,omitempty"`
+	TargetReference *string             `json:"target_reference,omitempty"`
+} {
+	if body.Data.Attributes.Configuration.Output == nil {
+		body.Data.Attributes.Configuration.Output = &struct {
+			Label           *string             `json:"label,omitempty"`
+			ProjectId       *openapi_types.UUID `json:"project_id,omitempty"`
+			ProjectName     *string             `json:"project_name,omitempty"`
+			Report          *bool               `json:"report,omitempty"`
+			TargetName      *string             `json:"target_name,omitempty"`
+			TargetReference *string             `json:"target_reference,omitempty"`
+		}{}
+	}
+	return body.Data.Attributes.Configuration.Output
+}
+
+func WithProjectName(name *string) CreateTestOption {
+	return func(body *CreateTestApplicationVndAPIPlusJSONRequestBody) {
+		if name == nil {
+			return
+		}
+		out := ensureOutput(body)
+		out.ProjectName = name
+	}
+}
+
+func WithProjectId(id openapi_types.UUID) CreateTestOption {
+	return func(body *CreateTestApplicationVndAPIPlusJSONRequestBody) {
+		out := ensureOutput(body)
+		out.ProjectId = &id
+	}
+}
+
+func WithTargetName(name *string) CreateTestOption {
+	return func(body *CreateTestApplicationVndAPIPlusJSONRequestBody) {
+		if name == nil || len(*name) == 0 {
+			return
+		}
+		out := ensureOutput(body)
+		out.TargetName = name
+	}
+}
+func WithReporting(report *bool) CreateTestOption {
+	return func(body *CreateTestApplicationVndAPIPlusJSONRequestBody) {
+		if report == nil {
+			return
+		}
+		out := ensureOutput(body)
+		out.Report = report
 	}
 }
 
@@ -46,4 +111,12 @@ func NewCreateTestApplicationBody(options ...CreateTestOption) *CreateTestApplic
 	}
 
 	return result
+}
+
+func NewTestInputLegacyScmProject(projectId openapi_types.UUID, commitId string) v20241221.TestInputLegacyScmProject {
+	return v20241221.TestInputLegacyScmProject{
+		ProjectId: projectId,
+		CommitId:  commitId,
+		Type:      v20241221.LegacyScmProject,
+	}
 }
