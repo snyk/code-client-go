@@ -485,24 +485,63 @@ func (a *analysisOrchestrator) host(isHidden bool) string {
 	return fmt.Sprintf("%s/%s", apiUrl, path)
 }
 
-func (a *analysisOrchestrator) RunTest(ctx context.Context, orgId string, b bundle.Bundle, target scan.Target, reportingConfig AnalysisConfig) (*sarif.SarifResponse, error) {
+func (a *analysisOrchestrator) createTestAndGetResults(ctx context.Context, orgId string, body *testApi.CreateTestApplicationVndAPIPlusJSONRequestBody, progressString string) (*sarif.SarifResponse, error) {
 	tracker := a.trackerFactory.GenerateTracker()
-	tracker.Begin("Snyk Code analysis for "+target.GetPath(), "Retrieving results...")
+	tracker.Begin(progressString, "Retrieving results...")
 
-	orgUuid := uuid.MustParse(orgId)
-	host := a.host(true)
+	innerFunction := func() (*sarif.SarifResponse, error) {
+		params := testApi.CreateTestParams{Version: testApi.ApiVersion}
+		orgUuid := uuid.MustParse(orgId)
+		host := a.host(true)
+
+		client, err := testApi.NewClient(host, testApi.WithHTTPClient(a.httpClient))
+		if err != nil {
+			return nil, err
+		}
+
+		// create test
+		resp, err := client.CreateTestWithApplicationVndAPIPlusJSONBody(ctx, orgUuid, &params, *body)
+		if err != nil {
+			return nil, err
+		}
+
+		parsedResponse, err := testApi.ParseCreateTestResponse(resp)
+		defer func() {
+			closeErr := resp.Body.Close()
+			if closeErr != nil {
+				a.logger.Err(closeErr).Msg("failed to close response body")
+			}
+		}()
+		if err != nil {
+			a.logger.Debug().Msg(err.Error())
+			return nil, err
+		}
+
+		switch parsedResponse.StatusCode() {
+		case http.StatusCreated:
+			// poll results
+			return a.pollTestForFindings(ctx, client, orgUuid, parsedResponse.ApplicationvndApiJSON201.Data.Id)
+		}
+		return nil, nil
+	}
+
+	result, err := innerFunction()
+	if err != nil {
+		tracker.End("Analysis failed.")
+	} else {
+		tracker.End("Analysis completed.")
+	}
+
+	return result, err
+}
+
+func (a *analysisOrchestrator) RunTest(ctx context.Context, orgId string, b bundle.Bundle, target scan.Target, reportingConfig AnalysisConfig) (*sarif.SarifResponse, error) {
 	var repoUrl *string = nil
 	if repoTarget, ok := target.(*scan.RepositoryTarget); ok {
 		tmp := repoTarget.GetRepositoryUrl()
 		repoUrl = &tmp
 	}
 
-	client, err := testApi.NewClient(host, testApi.WithHTTPClient(a.httpClient))
-	if err != nil {
-		return nil, err
-	}
-
-	params := testApi.CreateTestParams{Version: testApi.ApiVersion}
 	body := testApi.NewCreateTestApplicationBody(
 		testApi.WithInputBundle(b.GetBundleHash(), target.GetPath(), repoUrl, b.GetLimitToFiles()),
 		testApi.WithScanType(a.testType),
@@ -511,92 +550,23 @@ func (a *analysisOrchestrator) RunTest(ctx context.Context, orgId string, b bund
 		testApi.WithReporting(&reportingConfig.Report),
 	)
 
-	// create test
-	resp, err := client.CreateTestWithApplicationVndAPIPlusJSONBody(ctx, orgUuid, &params, *body)
-	if err != nil {
-		return nil, err
-	}
-
-	parsedResponse, err := testApi.ParseCreateTestResponse(resp)
-	defer func() {
-		closeErr := resp.Body.Close()
-		if closeErr != nil {
-			a.logger.Err(closeErr).Msg("failed to close response body")
-		}
-	}()
-	if err != nil {
-		a.logger.Debug().Msg(err.Error())
-		return nil, err
-	}
-
-	switch parsedResponse.StatusCode() {
-	case http.StatusCreated:
-		// poll results
-		result, pollErr := a.pollTestForFindings(ctx, client, orgUuid, parsedResponse.ApplicationvndApiJSON201.Data.Id)
-		tracker.End("Analysis complete.")
-		return result, pollErr
-	default:
-		return nil, fmt.Errorf("failed to create test: %s", parsedResponse.Status())
-	}
+	return a.createTestAndGetResults(ctx, orgId, body, "Snyk Code analysis for "+target.GetPath())
 }
 
 func (a *analysisOrchestrator) RunTestRemote(ctx context.Context, orgId string, interactionId string, cfg AnalysisConfig) (*sarif.SarifResponse, error) {
-	tracker := a.trackerFactory.GenerateTracker()
-	tracker.Begin("Snyk Code analysis for remote project", "Retrieving results...")
-
-	orgUuid := uuid.MustParse(orgId)
-	host := a.host(true)
-
-	client, err := testApi.NewClient(host, testApi.WithHTTPClient(a.httpClient))
-	if err != nil {
-		return nil, err
-	}
-
-	params := testApi.CreateTestParams{Version: testApi.ApiVersion}
-	projectId := cfg.ProjectId
-	commitId := cfg.CommitId
-
-	if projectId == nil || commitId == nil {
+	if cfg.ProjectId == nil || cfg.CommitId == nil {
 		return nil, errors.New("projectId and commitId are required")
 	}
-	legacyScmProject := testApi.NewTestInputLegacyScmProject(*projectId, *commitId)
+
+	legacyScmProject := testApi.NewTestInputLegacyScmProject(*cfg.ProjectId, *cfg.CommitId)
 	body := testApi.NewCreateTestApplicationBody(
 		testApi.WithInputLegacyScmProject(legacyScmProject),
 		testApi.WithReporting(&cfg.Report),
 		testApi.WithScanType(a.testType),
-		testApi.WithProjectId(*projectId),
+		testApi.WithProjectId(*cfg.ProjectId),
 	)
-	// create test
-	bodyBytes, err := json.Marshal(body)
-	if err != nil {
-		return nil, err
-	}
-	resp, err := client.CreateTestWithBody(ctx, orgUuid, &params, "application/json", strings.NewReader(string(bodyBytes)))
-	if err != nil {
-		return nil, err
-	}
 
-	parsedResponse, err := testApi.ParseGetTestResultResponse(resp)
-	defer func() {
-		closeErr := resp.Body.Close()
-		if closeErr != nil {
-			a.logger.Err(closeErr).Msg("failed to close response body")
-		}
-	}()
-	if err != nil {
-		a.logger.Debug().Msg(err.Error())
-		return nil, err
-	}
-
-	switch parsedResponse.StatusCode() {
-	case http.StatusCreated:
-		// poll results
-		result, pollErr := a.pollTestForFindings(ctx, client, orgUuid, parsedResponse.ApplicationvndApiJSON200.Data.Id)
-		tracker.End("Analysis complete.")
-		return result, pollErr
-	default:
-		return nil, fmt.Errorf("failed to analyze project: %s", parsedResponse.Status())
-	}
+	return a.createTestAndGetResults(ctx, orgId, body, "Snyk Code analysis for remote project")
 }
 
 func (a *analysisOrchestrator) pollTestForFindings(ctx context.Context, client *testApi.Client, org uuid.UUID, testId openapi_types.UUID) (*sarif.SarifResponse, error) {

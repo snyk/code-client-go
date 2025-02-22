@@ -68,7 +68,7 @@ func setup(t *testing.T, timeout *time.Duration) (*confMocks.MockConfig, *httpmo
 	mockErrorReporter := mocks.NewMockErrorReporter(ctrl)
 	mockTracker := trackerMocks.NewMockTracker(ctrl)
 	mockTrackerFactory := trackerMocks.NewMockTrackerFactory(ctrl)
-	mockTrackerFactory.EXPECT().GenerateTracker().Return(mockTracker)
+	mockTrackerFactory.EXPECT().GenerateTracker().Return(mockTracker).AnyTimes()
 
 	logger := zerolog.Nop()
 	return mockConfig, mockHTTPClient, mockInstrumentor, mockErrorReporter, mockTracker, mockTrackerFactory, logger
@@ -796,10 +796,7 @@ func TestAnalysis_RunTestRemote(t *testing.T) {
 }
 
 func TestAnalysis_RunTestRemote_MissingRequiredParams(t *testing.T) {
-	mockConfig, mockHTTPClient, mockInstrumentor, mockErrorReporter, mockTracker, mockTrackerFactory, logger := setup(t, nil)
-	mockTrackerFactory.EXPECT().GenerateTracker().Return(mockTracker).AnyTimes()
-
-	mockTracker.EXPECT().Begin(gomock.Eq("Snyk Code analysis for remote project"), gomock.Eq("Retrieving results...")).Return().AnyTimes()
+	mockConfig, mockHTTPClient, mockInstrumentor, mockErrorReporter, _, mockTrackerFactory, logger := setup(t, nil)
 	mockHTTPClient.EXPECT().Do(gomock.Any()).Times(0)
 
 	analysisOrchestrator := analysis.NewAnalysisOrchestrator(
