@@ -78,7 +78,7 @@ func TestSmoke_Scan_IDE(t *testing.T) {
 	span := instrumentor.StartSpan(context.Background(), "UploadAndAnalyze")
 	defer span.Finish()
 
-	response, bundleHash, _, scanErr := codeScanner.UploadAndAnalyze(span.Context(), uuid.New().String(), target, files, map[string]bool{})
+	response, bundleHash, scanErr := codeScanner.UploadAndAnalyze(span.Context(), uuid.New().String(), target, files, map[string]bool{})
 	require.NoError(t, scanErr)
 	require.NotEmpty(t, bundleHash)
 	require.NotNil(t, response)
@@ -132,7 +132,7 @@ func Test_SmokeScan_CLI(t *testing.T) {
 	span := instrumentor.StartSpan(context.Background(), "UploadAndAnalyze")
 	defer span.Finish()
 
-	response, bundleHash, _, scanErr := codeScanner.UploadAndAnalyze(span.Context(), uuid.New().String(), target, files, map[string]bool{})
+	response, bundleHash, scanErr := codeScanner.UploadAndAnalyze(span.Context(), uuid.New().String(), target, files, map[string]bool{})
 	require.NoError(t, scanErr)
 	require.NotEmpty(t, bundleHash)
 	require.NotNil(t, response)
@@ -182,7 +182,7 @@ func TestSmoke_Scan_SubFolder(t *testing.T) {
 	span := instrumentor.StartSpan(context.Background(), "UploadAndAnalyze")
 	defer span.Finish()
 
-	response, bundleHash, _, scanErr := codeScanner.UploadAndAnalyze(span.Context(), uuid.New().String(), target, files, map[string]bool{})
+	response, bundleHash, scanErr := codeScanner.UploadAndAnalyze(span.Context(), uuid.New().String(), target, files, map[string]bool{})
 	require.NoError(t, scanErr)
 	require.NotEmpty(t, bundleHash)
 	require.NotNil(t, response)

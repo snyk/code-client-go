@@ -84,7 +84,7 @@ func Test_UploadAndAnalyze(t *testing.T) {
 				codeclient.WithLogger(&logger),
 			)
 
-			response, bundleHash, _, err := codeScanner.WithBundleManager(mockBundleManager).UploadAndAnalyze(context.Background(), "testRequestId", target, docs, map[string]bool{})
+			response, bundleHash, err := codeScanner.WithBundleManager(mockBundleManager).UploadAndAnalyze(context.Background(), "testRequestId", target, docs, map[string]bool{})
 			require.NoError(t, err)
 			assert.Equal(t, "", bundleHash)
 			assert.Nil(t, response)
@@ -116,7 +116,7 @@ func Test_UploadAndAnalyze(t *testing.T) {
 				codeclient.WithLogger(&logger),
 			)
 
-			response, bundleHash, _, err := codeScanner.
+			response, bundleHash, err := codeScanner.
 				WithBundleManager(mockBundleManager).
 				WithAnalysisOrchestrator(mockAnalysisOrchestrator).
 				UploadAndAnalyze(context.Background(), "b372d1db-b465-4764-99e1-ecedad03b06a", target, docs, map[string]bool{})
@@ -153,7 +153,7 @@ func Test_UploadAndAnalyze(t *testing.T) {
 				codeclient.WithLogger(&logger),
 			)
 
-			response, _, _, err := codeScanner.
+			response, _, err := codeScanner.
 				WithBundleManager(mockBundleManager).
 				WithAnalysisOrchestrator(mockAnalysisOrchestrator).
 				UploadAndAnalyze(context.Background(), "b372d1db-b465-4764-99e1-ecedad03b06a", target, docs, map[string]bool{})
