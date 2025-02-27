@@ -54,8 +54,7 @@ type CodeScanner interface {
 		target scan.Target,
 		files <-chan string,
 		changedFiles map[string]bool,
-		options ...AnalysisOption,
-	) (*sarif.SarifResponse, string, *scan.ResultMetaData, error)
+	) (*sarif.SarifResponse, string, error)
 }
 
 var _ CodeScanner = (*codeScanner)(nil)
@@ -182,8 +181,19 @@ func (c *codeScanner) WithAnalysisOrchestrator(analysisOrchestrator analysis.Ana
 	}
 }
 
-// UploadAndAnalyze returns a fake SARIF response for testing. Use target-service to run analysis on.
 func (c *codeScanner) UploadAndAnalyze(
+	ctx context.Context,
+	requestId string,
+	target scan.Target,
+	files <-chan string,
+	changedFiles map[string]bool,
+) (*sarif.SarifResponse, string, error) {
+	sarif, bundleHash, _, err := c.UploadAndAnalyzeWithOptions(ctx, requestId, target, files, changedFiles)
+	return sarif, bundleHash, err
+}
+
+// UploadAndAnalyze returns a fake SARIF response for testing. Use target-service to run analysis on.
+func (c *codeScanner) UploadAndAnalyzeWithOptions(
 	ctx context.Context,
 	requestId string,
 	target scan.Target,
