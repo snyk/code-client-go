@@ -646,12 +646,9 @@ func (a *analysisOrchestrator) retrieveTestURL(ctx context.Context, client *test
 				return nil, false, stateCompleteError
 			}
 
-			tes := "/org/team-cli-testing/project/ff7a6ceb-fab5-4f68-bdbf-4dbc919e8074/history/65e25f20-af06-45ff-8515-40aea39af878"
-
 			findingsUrl := a.host(true) + testCompleted.Documents.EnrichedSarif + "?version=" + testApi.DocumentApiVersion
 			result := &scan.ResultMetaData{
 				FindingsUrl: findingsUrl,
-				WebUiUrl:    tes,
 			}
 			if testCompleted.Results.Webui != nil && testCompleted.Results.Webui.Link != nil {
 				result.WebUiUrl = *testCompleted.Results.Webui.Link
