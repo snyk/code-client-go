@@ -84,12 +84,13 @@ func (mr *MockAnalysisOrchestratorMockRecorder) RunIncrementalAnalysis(ctx, orgI
 }
 
 // RunTest mocks base method.
-func (m *MockAnalysisOrchestrator) RunTest(ctx context.Context, orgId string, b bundle.Bundle, target scan.Target, reportingOptions analysis.AnalysisConfig) (*sarif.SarifResponse, error) {
+func (m *MockAnalysisOrchestrator) RunTest(ctx context.Context, orgId string, b bundle.Bundle, target scan.Target, reportingOptions analysis.AnalysisConfig) (*sarif.SarifResponse, *scan.ResultMetaData, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "RunTest", ctx, orgId, b, target, reportingOptions)
 	ret0, _ := ret[0].(*sarif.SarifResponse)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
+	ret1, _ := ret[1].(*scan.ResultMetaData)
+	ret2, _ := ret[2].(error)
+	return ret0, ret1, ret2
 }
 
 // RunTest indicates an expected call of RunTest.
@@ -99,16 +100,17 @@ func (mr *MockAnalysisOrchestratorMockRecorder) RunTest(ctx, orgId, b, target, r
 }
 
 // RunTestRemote mocks base method.
-func (m *MockAnalysisOrchestrator) RunTestRemote(ctx context.Context, orgId, interactionId string, reportingOptions analysis.AnalysisConfig) (*sarif.SarifResponse, error) {
+func (m *MockAnalysisOrchestrator) RunTestRemote(ctx context.Context, orgId string, reportingOptions analysis.AnalysisConfig) (*sarif.SarifResponse, *scan.ResultMetaData, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "RunTestRemote", ctx, orgId, interactionId, reportingOptions)
+	ret := m.ctrl.Call(m, "RunTestRemote", ctx, orgId, reportingOptions)
 	ret0, _ := ret[0].(*sarif.SarifResponse)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
+	ret1, _ := ret[1].(*scan.ResultMetaData)
+	ret2, _ := ret[2].(error)
+	return ret0, ret1, ret2
 }
 
 // RunTestRemote indicates an expected call of RunTestRemote.
-func (mr *MockAnalysisOrchestratorMockRecorder) RunTestRemote(ctx, orgId, interactionId, reportingOptions interface{}) *gomock.Call {
+func (mr *MockAnalysisOrchestratorMockRecorder) RunTestRemote(ctx, orgId, reportingOptions interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RunTestRemote", reflect.TypeOf((*MockAnalysisOrchestrator)(nil).RunTestRemote), ctx, orgId, interactionId, reportingOptions)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RunTestRemote", reflect.TypeOf((*MockAnalysisOrchestrator)(nil).RunTestRemote), ctx, orgId, reportingOptions)
 }

@@ -52,8 +52,8 @@ type AnalysisOrchestrator interface {
 	RunAnalysis(ctx context.Context, orgId string, rootPath string, workspaceId string) (*sarif.SarifResponse, error)
 	RunIncrementalAnalysis(ctx context.Context, orgId string, rootPath string, workspaceId string, limitToFiles []string) (*sarif.SarifResponse, error)
 
-	RunTest(ctx context.Context, orgId string, b bundle.Bundle, target scan.Target, reportingOptions AnalysisConfig) (*sarif.SarifResponse, error)
-	RunTestRemote(ctx context.Context, orgId string, interactionId string, reportingOptions AnalysisConfig) (*sarif.SarifResponse, error)
+	RunTest(ctx context.Context, orgId string, b bundle.Bundle, target scan.Target, reportingOptions AnalysisConfig) (*sarif.SarifResponse, *scan.ResultMetaData, error)
+	RunTestRemote(ctx context.Context, orgId string, reportingOptions AnalysisConfig) (*sarif.SarifResponse, *scan.ResultMetaData, error)
 }
 
 type AnalysisConfig struct {
@@ -73,6 +73,8 @@ type analysisOrchestrator struct {
 	flow           scans.Flow
 	testType       testModels.Scan
 }
+
+var _ AnalysisOrchestrator = (*analysisOrchestrator)(nil)
 
 type OptionFunc func(*analysisOrchestrator)
 
@@ -485,24 +487,24 @@ func (a *analysisOrchestrator) host(isHidden bool) string {
 	return fmt.Sprintf("%s/%s", apiUrl, path)
 }
 
-func (a *analysisOrchestrator) createTestAndGetResults(ctx context.Context, orgId string, body *testApi.CreateTestApplicationVndAPIPlusJSONRequestBody, progressString string) (*sarif.SarifResponse, error) {
+func (a *analysisOrchestrator) createTestAndGetResults(ctx context.Context, orgId string, body *testApi.CreateTestApplicationVndAPIPlusJSONRequestBody, progressString string) (*sarif.SarifResponse, *scan.ResultMetaData, error) {
 	tracker := a.trackerFactory.GenerateTracker()
 	tracker.Begin(progressString, "Retrieving results...")
 
-	innerFunction := func() (*sarif.SarifResponse, error) {
+	innerFunction := func() (*sarif.SarifResponse, *scan.ResultMetaData, error) {
 		params := testApi.CreateTestParams{Version: testApi.ApiVersion}
 		orgUuid := uuid.MustParse(orgId)
 		host := a.host(true)
 
 		client, err := testApi.NewClient(host, testApi.WithHTTPClient(a.httpClient))
 		if err != nil {
-			return nil, err
+			return nil, nil, err
 		}
 
 		// create test
 		resp, err := client.CreateTestWithApplicationVndAPIPlusJSONBody(ctx, orgUuid, &params, *body)
 		if err != nil {
-			return nil, err
+			return nil, nil, err
 		}
 
 		parsedResponse, err := testApi.ParseCreateTestResponse(resp)
@@ -514,7 +516,7 @@ func (a *analysisOrchestrator) createTestAndGetResults(ctx context.Context, orgI
 		}()
 		if err != nil {
 			a.logger.Debug().Msg(err.Error())
-			return nil, err
+			return nil, nil, err
 		}
 
 		switch parsedResponse.StatusCode() {
@@ -522,20 +524,20 @@ func (a *analysisOrchestrator) createTestAndGetResults(ctx context.Context, orgI
 			// poll results
 			return a.pollTestForFindings(ctx, client, orgUuid, parsedResponse.ApplicationvndApiJSON201.Data.Id)
 		}
-		return nil, nil
+		return nil, nil, nil
 	}
 
-	result, err := innerFunction()
+	result, metadata, err := innerFunction()
 	if err != nil {
 		tracker.End("Analysis failed.")
 	} else {
 		tracker.End("Analysis completed.")
 	}
 
-	return result, err
+	return result, metadata, err
 }
 
-func (a *analysisOrchestrator) RunTest(ctx context.Context, orgId string, b bundle.Bundle, target scan.Target, reportingConfig AnalysisConfig) (*sarif.SarifResponse, error) {
+func (a *analysisOrchestrator) RunTest(ctx context.Context, orgId string, b bundle.Bundle, target scan.Target, reportingConfig AnalysisConfig) (*sarif.SarifResponse, *scan.ResultMetaData, error) {
 	var repoUrl *string = nil
 	if repoTarget, ok := target.(*scan.RepositoryTarget); ok {
 		tmp := repoTarget.GetRepositoryUrl()
@@ -553,9 +555,9 @@ func (a *analysisOrchestrator) RunTest(ctx context.Context, orgId string, b bund
 	return a.createTestAndGetResults(ctx, orgId, body, "Snyk Code analysis for "+target.GetPath())
 }
 
-func (a *analysisOrchestrator) RunTestRemote(ctx context.Context, orgId string, interactionId string, cfg AnalysisConfig) (*sarif.SarifResponse, error) {
+func (a *analysisOrchestrator) RunTestRemote(ctx context.Context, orgId string, cfg AnalysisConfig) (*sarif.SarifResponse, *scan.ResultMetaData, error) {
 	if cfg.ProjectId == nil || cfg.CommitId == nil {
-		return nil, errors.New("projectId and commitId are required")
+		return nil, nil, errors.New("projectId and commitId are required")
 	}
 
 	legacyScmProject := testApi.NewTestInputLegacyScmProject(*cfg.ProjectId, *cfg.CommitId)
@@ -569,7 +571,7 @@ func (a *analysisOrchestrator) RunTestRemote(ctx context.Context, orgId string, 
 	return a.createTestAndGetResults(ctx, orgId, body, "Snyk Code analysis for remote project")
 }
 
-func (a *analysisOrchestrator) pollTestForFindings(ctx context.Context, client *testApi.Client, org uuid.UUID, testId openapi_types.UUID) (*sarif.SarifResponse, error) {
+func (a *analysisOrchestrator) pollTestForFindings(ctx context.Context, client *testApi.Client, org uuid.UUID, testId openapi_types.UUID) (*sarif.SarifResponse, *scan.ResultMetaData, error) {
 	method := "analysis.pollTestForFindings"
 	logger := a.logger.With().Str("method", method).Logger()
 
@@ -582,24 +584,24 @@ func (a *analysisOrchestrator) pollTestForFindings(ctx context.Context, client *
 		case <-timeoutTimer.C:
 			msg := "Snyk Code analysis timed out"
 			logger.Error().Str("scanJobId", testId.String()).Msg(msg)
-			return nil, errors.New(msg)
+			return nil, nil, errors.New(msg)
 		case <-pollingTicker.C:
-			findingsUrl, complete, err := a.retrieveTestURL(ctx, client, org, testId)
+			resultMetaData, complete, err := a.retrieveTestURL(ctx, client, org, testId)
 			if err != nil {
-				return nil, err
+				return nil, nil, err
 			}
 			if complete {
-				findings, findingsErr := a.retrieveFindings(ctx, testId, findingsUrl)
+				findings, findingsErr := a.retrieveFindings(ctx, testId, resultMetaData.FindingsUrl)
 				if findingsErr != nil {
-					return nil, findingsErr
+					return nil, nil, findingsErr
 				}
-				return findings, nil
+				return findings, resultMetaData, nil
 			}
 		}
 	}
 }
 
-func (a *analysisOrchestrator) retrieveTestURL(ctx context.Context, client *testApi.Client, org uuid.UUID, testId openapi_types.UUID) (url string, completed bool, err error) {
+func (a *analysisOrchestrator) retrieveTestURL(ctx context.Context, client *testApi.Client, org uuid.UUID, testId openapi_types.UUID) (resultMetaData *scan.ResultMetaData, completed bool, err error) {
 	method := "analysis.retrieveTestURL"
 	logger := a.logger.With().Str("method", method).Logger()
 	logger.Debug().Msg("retrieving Test URL")
@@ -612,7 +614,7 @@ func (a *analysisOrchestrator) retrieveTestURL(ctx context.Context, client *test
 	)
 	if err != nil {
 		logger.Err(err).Str("testId", testId.String()).Msg("error requesting the ScanJobResult")
-		return "", false, err
+		return nil, false, err
 	}
 	defer func() {
 		closeErr := httpResponse.Body.Close()
@@ -623,33 +625,42 @@ func (a *analysisOrchestrator) retrieveTestURL(ctx context.Context, client *test
 
 	parsedResponse, err := testApi.ParseGetTestResultResponse(httpResponse)
 	if err != nil {
-		return "", false, err
+		return nil, false, err
 	}
 
 	switch parsedResponse.StatusCode() {
 	case 200:
 		stateDiscriminator, stateError := parsedResponse.ApplicationvndApiJSON200.Data.Attributes.Discriminator()
 		if stateError != nil {
-			return "", false, stateError
+			return nil, false, stateError
 		}
 
 		switch stateDiscriminator {
 		case string(testModels.TestAcceptedStateStatusAccepted):
 			fallthrough
 		case string(testModels.TestInProgressStateStatusInProgress):
-			return "", false, nil
+			return nil, false, nil
 		case string(testModels.TestCompletedStateStatusCompleted):
 			testCompleted, stateCompleteError := parsedResponse.ApplicationvndApiJSON200.Data.Attributes.AsTestCompletedState()
 			if stateCompleteError != nil {
-				return "", false, stateCompleteError
+				return nil, false, stateCompleteError
 			}
 
+			tes := "/org/team-cli-testing/project/ff7a6ceb-fab5-4f68-bdbf-4dbc919e8074/history/65e25f20-af06-45ff-8515-40aea39af878"
+
 			findingsUrl := a.host(true) + testCompleted.Documents.EnrichedSarif + "?version=" + testApi.DocumentApiVersion
-			return findingsUrl, true, nil
+			result := &scan.ResultMetaData{
+				FindingsUrl: findingsUrl,
+				WebUiUrl:    tes,
+			}
+			if testCompleted.Results.Webui != nil && testCompleted.Results.Webui.Link != nil {
+				result.WebUiUrl = *testCompleted.Results.Webui.Link
+			}
+			return result, true, nil
 		default:
-			return "", false, fmt.Errorf("unexpected test status \"%s\"", stateDiscriminator)
+			return nil, false, fmt.Errorf("unexpected test status \"%s\"", stateDiscriminator)
 		}
 	default:
-		return "", false, fmt.Errorf("unexpected response status \"%d\"", parsedResponse.StatusCode())
+		return nil, false, fmt.Errorf("unexpected response status \"%d\"", parsedResponse.StatusCode())
 	}
 }

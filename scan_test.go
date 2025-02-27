@@ -84,7 +84,7 @@ func Test_UploadAndAnalyze(t *testing.T) {
 				codeclient.WithLogger(&logger),
 			)
 
-			response, bundleHash, err := codeScanner.WithBundleManager(mockBundleManager).UploadAndAnalyze(context.Background(), "testRequestId", target, docs, map[string]bool{})
+			response, bundleHash, _, err := codeScanner.WithBundleManager(mockBundleManager).UploadAndAnalyze(context.Background(), "testRequestId", target, docs, map[string]bool{})
 			require.NoError(t, err)
 			assert.Equal(t, "", bundleHash)
 			assert.Nil(t, response)
@@ -105,7 +105,7 @@ func Test_UploadAndAnalyze(t *testing.T) {
 				gomock.Any(),
 				gomock.Any(),
 				gomock.Any(),
-			).Return(&sarif.SarifResponse{Status: "COMPLETE"}, nil)
+			).Return(&sarif.SarifResponse{Status: "COMPLETE"}, &scan.ResultMetaData{}, nil)
 
 			codeScanner := codeclient.NewCodeScanner(
 				mockConfig,
@@ -116,7 +116,7 @@ func Test_UploadAndAnalyze(t *testing.T) {
 				codeclient.WithLogger(&logger),
 			)
 
-			response, bundleHash, err := codeScanner.
+			response, bundleHash, _, err := codeScanner.
 				WithBundleManager(mockBundleManager).
 				WithAnalysisOrchestrator(mockAnalysisOrchestrator).
 				UploadAndAnalyze(context.Background(), "b372d1db-b465-4764-99e1-ecedad03b06a", target, docs, map[string]bool{})
@@ -142,7 +142,7 @@ func Test_UploadAndAnalyze(t *testing.T) {
 				gomock.Any(),
 				gomock.Any(),
 				gomock.Any(),
-			).Return(&sarif.SarifResponse{Status: "COMPLETE"}, nil)
+			).Return(&sarif.SarifResponse{Status: "COMPLETE"}, &scan.ResultMetaData{}, nil)
 
 			codeScanner := codeclient.NewCodeScanner(
 				mockConfig,
@@ -153,7 +153,7 @@ func Test_UploadAndAnalyze(t *testing.T) {
 				codeclient.WithLogger(&logger),
 			)
 
-			response, _, err := codeScanner.
+			response, _, _, err := codeScanner.
 				WithBundleManager(mockBundleManager).
 				WithAnalysisOrchestrator(mockAnalysisOrchestrator).
 				UploadAndAnalyze(context.Background(), "b372d1db-b465-4764-99e1-ecedad03b06a", target, docs, map[string]bool{})
@@ -193,11 +193,10 @@ func TestAnalyzeRemote(t *testing.T) {
 		mockAnalysisOrchestrator.EXPECT().RunTestRemote(
 			gomock.Any(),
 			"mockOrgId",
-			"mockInteractionId",
 			gomock.Any(),
-		).Return(&sarif.SarifResponse{Status: "COMPLETE"}, nil)
+		).Return(&sarif.SarifResponse{Status: "COMPLETE"}, &scan.ResultMetaData{}, nil)
 
-		response, err := codeScanner.AnalyzeRemote(context.Background(), "mockInteractionId")
+		response, _, err := codeScanner.AnalyzeRemote(context.Background())
 		if err != nil {
 			t.Fatalf("AnalyzeRemote failed: %v", err)
 		}
@@ -211,10 +210,9 @@ func TestAnalyzeRemote(t *testing.T) {
 			gomock.Any(),
 			gomock.Any(),
 			gomock.Any(),
-			gomock.Any(),
-		).Return(nil, assert.AnError)
+		).Return(nil, nil, assert.AnError)
 
-		response, err := codeScanner.AnalyzeRemote(context.Background(), "mockInteractionId")
+		response, _, err := codeScanner.AnalyzeRemote(context.Background())
 		assert.Nil(t, response)
 		assert.Error(t, err)
 	})

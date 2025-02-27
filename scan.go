@@ -55,7 +55,7 @@ type CodeScanner interface {
 		files <-chan string,
 		changedFiles map[string]bool,
 		options ...AnalysisOption,
-	) (*sarif.SarifResponse, string, error)
+	) (*sarif.SarifResponse, string, *scan.ResultMetaData, error)
 }
 
 var _ CodeScanner = (*codeScanner)(nil)
@@ -190,7 +190,7 @@ func (c *codeScanner) UploadAndAnalyze(
 	files <-chan string,
 	changedFiles map[string]bool,
 	options ...AnalysisOption,
-) (*sarif.SarifResponse, string, error) {
+) (*sarif.SarifResponse, string, *scan.ResultMetaData, error) {
 	cfg := analysis.AnalysisConfig{}
 	for _, opt := range options {
 		opt(&cfg)
@@ -198,20 +198,20 @@ func (c *codeScanner) UploadAndAnalyze(
 
 	if ctx.Err() != nil {
 		c.logger.Info().Msg("Canceling Code scan - Code scanner received cancellation signal")
-		return nil, "", nil
+		return nil, "", nil, nil
 	}
 	b, err := c.bundleManager.Create(ctx, requestId, target.GetPath(), files, changedFiles)
 	if err != nil {
 		if bundle.IsNoFilesError(err) {
-			return nil, "", nil
+			return nil, "", nil, nil
 		}
 		if ctx.Err() == nil { // Only report errors that are not intentional cancellations
 			msg := "error creating bundle..."
 			c.errorReporter.CaptureError(errors.Wrap(err, msg), observability.ErrorReporterOptions{ErrorDiagnosticPath: target.GetPath()})
-			return nil, "", err
+			return nil, "", nil, err
 		} else {
 			c.logger.Info().Msg("Canceling Code scan - Code scanner received cancellation signal")
-			return nil, "", nil
+			return nil, "", nil, nil
 		}
 	}
 
@@ -223,29 +223,29 @@ func (c *codeScanner) UploadAndAnalyze(
 		if ctx.Err() != nil { // Only handle errors that are not intentional cancellations
 			msg := "error uploading files..."
 			c.errorReporter.CaptureError(errors.Wrap(err, msg), observability.ErrorReporterOptions{ErrorDiagnosticPath: target.GetPath()})
-			return nil, bundleHash, err
+			return nil, bundleHash, nil, err
 		} else {
 			c.logger.Info().Msg("Canceling Code scan - Code scanner received cancellation signal")
-			return nil, bundleHash, nil
+			return nil, bundleHash, nil, nil
 		}
 	}
 
 	if bundleHash == "" {
 		c.logger.Debug().Msg("empty bundle, no Snyk Code analysis")
-		return nil, bundleHash, nil
+		return nil, bundleHash, nil, nil
 	}
 
-	response, err := c.analysisOrchestrator.RunTest(ctx, c.config.Organization(), b, target, cfg)
+	response, metadata, err := c.analysisOrchestrator.RunTest(ctx, c.config.Organization(), b, target, cfg)
 
 	if ctx.Err() != nil {
 		c.logger.Info().Msg("Canceling Code scan - Code scanner received cancellation signal")
-		return nil, bundleHash, nil
+		return nil, bundleHash, nil, nil
 	}
 
-	return response, bundleHash, err
+	return response, bundleHash, metadata, err
 }
 
-func (c *codeScanner) AnalyzeRemote(ctx context.Context, interactionId string, options ...AnalysisOption) (*sarif.SarifResponse, error) {
+func (c *codeScanner) AnalyzeRemote(ctx context.Context, options ...AnalysisOption) (*sarif.SarifResponse, *scan.ResultMetaData, error) {
 	cfg := analysis.AnalysisConfig{}
 	for _, opt := range options {
 		opt(&cfg)
@@ -253,14 +253,14 @@ func (c *codeScanner) AnalyzeRemote(ctx context.Context, interactionId string, o
 
 	if ctx.Err() != nil {
 		c.logger.Info().Msg("Canceling Code scan - Code scanner received cancellation signal")
-		return nil, nil
+		return nil, nil, nil
 	}
-	response, err := c.analysisOrchestrator.RunTestRemote(ctx, c.config.Organization(), interactionId, cfg)
+	response, metadata, err := c.analysisOrchestrator.RunTestRemote(ctx, c.config.Organization(), cfg)
 
 	if ctx.Err() != nil {
 		c.logger.Info().Msg("Canceling Code scan - Code scanner received cancellation signal")
-		return nil, nil
+		return nil, nil, nil
 	}
 
-	return response, err
+	return response, metadata, err
 }

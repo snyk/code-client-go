@@ -780,10 +780,9 @@ func TestAnalysis_RunTestRemote(t *testing.T) {
 		analysis.WithErrorReporter(mockErrorReporter),
 	)
 
-	result, err := analysisOrchestrator.RunTestRemote(
+	result, _, err := analysisOrchestrator.RunTestRemote(
 		context.Background(),
 		"4a72d1db-b465-4764-99e1-ecedad03b06a",
-		"b372d1db-b465-4764-99e1-ecedad03b06a",
 		analysis.AnalysisConfig{
 			ProjectId: &projectId,
 			CommitId:  &commitId,
@@ -809,10 +808,9 @@ func TestAnalysis_RunTestRemote_MissingRequiredParams(t *testing.T) {
 	)
 
 	t.Run("missing both projectId and commitId", func(t *testing.T) {
-		result, err := analysisOrchestrator.RunTestRemote(
+		result, _, err := analysisOrchestrator.RunTestRemote(
 			context.Background(),
 			"4a72d1db-b465-4764-99e1-ecedad03b06a",
-			"b372d1db-b465-4764-99e1-ecedad03b06a",
 			analysis.AnalysisConfig{},
 		)
 
@@ -823,10 +821,9 @@ func TestAnalysis_RunTestRemote_MissingRequiredParams(t *testing.T) {
 
 	t.Run("missing projectId", func(t *testing.T) {
 		commitId := "abc123"
-		result, err := analysisOrchestrator.RunTestRemote(
+		result, _, err := analysisOrchestrator.RunTestRemote(
 			context.Background(),
 			"4a72d1db-b465-4764-99e1-ecedad03b06a",
-			"b372d1db-b465-4764-99e1-ecedad03b06a",
 			analysis.AnalysisConfig{
 				CommitId: &commitId,
 			},
@@ -839,10 +836,9 @@ func TestAnalysis_RunTestRemote_MissingRequiredParams(t *testing.T) {
 
 	t.Run("missing commitId", func(t *testing.T) {
 		projectId := uuid.New()
-		result, err := analysisOrchestrator.RunTestRemote(
+		result, _, err := analysisOrchestrator.RunTestRemote(
 			context.Background(),
 			"4a72d1db-b465-4764-99e1-ecedad03b06a",
-			"b372d1db-b465-4764-99e1-ecedad03b06a",
 			analysis.AnalysisConfig{
 				ProjectId: &projectId,
 			},
