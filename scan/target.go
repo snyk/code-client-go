@@ -19,6 +19,15 @@ func (r RepositoryTarget) GetRepositoryUrl() string {
 	return r.repositoryUrl
 }
 
+func (r RepositoryTarget) String() string {
+	result := "[path=" + r.LocalFilePath
+	if r.repositoryUrl != "" {
+		result += "; repository=" + r.repositoryUrl
+	}
+	result += "]"
+	return result
+}
+
 type TargetOptions func(*RepositoryTarget) error
 
 func WithRepositoryUrl(repositoryUrl string) TargetOptions {

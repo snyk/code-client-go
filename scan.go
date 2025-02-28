@@ -20,6 +20,7 @@ package codeclient
 import (
 	"context"
 
+	"github.com/google/uuid"
 	"github.com/pkg/errors"
 	"github.com/rs/zerolog"
 
@@ -95,6 +96,24 @@ func WithTrackerFactory(trackerFactory scan.TrackerFactory) OptionFunc {
 	}
 }
 
+type AnalysisOption func(*analysis.AnalysisConfig)
+
+func ReportLocalTest(projectName string, targetName string) AnalysisOption {
+	return func(c *analysis.AnalysisConfig) {
+		c.Report = true
+		c.ProjectName = &projectName
+		c.TargetName = &targetName
+	}
+}
+
+func ReportRemoteTest(projectId uuid.UUID, commitId string) AnalysisOption {
+	return func(c *analysis.AnalysisConfig) {
+		c.Report = true
+		c.ProjectId = &projectId
+		c.CommitId = &commitId
+	}
+}
+
 // NewCodeScanner creates a Code Scanner which can be used to trigger Snyk Code on a folder.
 func NewCodeScanner(
 	config config.Config,
@@ -162,7 +181,6 @@ func (c *codeScanner) WithAnalysisOrchestrator(analysisOrchestrator analysis.Ana
 	}
 }
 
-// UploadAndAnalyze returns a fake SARIF response for testing. Use target-service to run analysis on.
 func (c *codeScanner) UploadAndAnalyze(
 	ctx context.Context,
 	requestId string,
@@ -170,22 +188,40 @@ func (c *codeScanner) UploadAndAnalyze(
 	files <-chan string,
 	changedFiles map[string]bool,
 ) (*sarif.SarifResponse, string, error) {
+	sarif, bundleHash, _, err := c.UploadAndAnalyzeWithOptions(ctx, requestId, target, files, changedFiles)
+	return sarif, bundleHash, err
+}
+
+// UploadAndAnalyze returns a fake SARIF response for testing. Use target-service to run analysis on.
+func (c *codeScanner) UploadAndAnalyzeWithOptions(
+	ctx context.Context,
+	requestId string,
+	target scan.Target,
+	files <-chan string,
+	changedFiles map[string]bool,
+	options ...AnalysisOption,
+) (*sarif.SarifResponse, string, *scan.ResultMetaData, error) {
+	cfg := analysis.AnalysisConfig{}
+	for _, opt := range options {
+		opt(&cfg)
+	}
+
 	if ctx.Err() != nil {
 		c.logger.Info().Msg("Canceling Code scan - Code scanner received cancellation signal")
-		return nil, "", nil
+		return nil, "", nil, nil
 	}
 	b, err := c.bundleManager.Create(ctx, requestId, target.GetPath(), files, changedFiles)
 	if err != nil {
 		if bundle.IsNoFilesError(err) {
-			return nil, "", nil
+			return nil, "", nil, nil
 		}
 		if ctx.Err() == nil { // Only report errors that are not intentional cancellations
 			msg := "error creating bundle..."
 			c.errorReporter.CaptureError(errors.Wrap(err, msg), observability.ErrorReporterOptions{ErrorDiagnosticPath: target.GetPath()})
-			return nil, "", err
+			return nil, "", nil, err
 		} else {
 			c.logger.Info().Msg("Canceling Code scan - Code scanner received cancellation signal")
-			return nil, "", nil
+			return nil, "", nil, nil
 		}
 	}
 
@@ -197,24 +233,44 @@ func (c *codeScanner) UploadAndAnalyze(
 		if ctx.Err() != nil { // Only handle errors that are not intentional cancellations
 			msg := "error uploading files..."
 			c.errorReporter.CaptureError(errors.Wrap(err, msg), observability.ErrorReporterOptions{ErrorDiagnosticPath: target.GetPath()})
-			return nil, bundleHash, err
+			return nil, bundleHash, nil, err
 		} else {
 			c.logger.Info().Msg("Canceling Code scan - Code scanner received cancellation signal")
-			return nil, bundleHash, nil
+			return nil, bundleHash, nil, nil
 		}
 	}
 
 	if bundleHash == "" {
 		c.logger.Debug().Msg("empty bundle, no Snyk Code analysis")
-		return nil, bundleHash, nil
+		return nil, bundleHash, nil, nil
 	}
 
-	response, err := c.analysisOrchestrator.RunTest(ctx, c.config.Organization(), b, target)
+	response, metadata, err := c.analysisOrchestrator.RunTest(ctx, c.config.Organization(), b, target, cfg)
 
 	if ctx.Err() != nil {
 		c.logger.Info().Msg("Canceling Code scan - Code scanner received cancellation signal")
-		return nil, bundleHash, nil
+		return nil, bundleHash, nil, nil
 	}
 
-	return response, bundleHash, err
+	return response, bundleHash, metadata, err
+}
+
+func (c *codeScanner) AnalyzeRemote(ctx context.Context, options ...AnalysisOption) (*sarif.SarifResponse, *scan.ResultMetaData, error) {
+	cfg := analysis.AnalysisConfig{}
+	for _, opt := range options {
+		opt(&cfg)
+	}
+
+	if ctx.Err() != nil {
+		c.logger.Info().Msg("Canceling Code scan - Code scanner received cancellation signal")
+		return nil, nil, nil
+	}
+	response, metadata, err := c.analysisOrchestrator.RunTestRemote(ctx, c.config.Organization(), cfg)
+
+	if ctx.Err() != nil {
+		c.logger.Info().Msg("Canceling Code scan - Code scanner received cancellation signal")
+		return nil, nil, nil
+	}
+
+	return response, metadata, err
 }
