@@ -4,20 +4,19 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"github.com/snyk/code-client-go/observability"
 	"io"
 	"net/http"
 	"net/url"
-
-	"github.com/snyk/code-client-go/observability"
 )
 
-const (
+var (
 	completeStatus                = "COMPLETE"
 	failedToObtainRequestIdString = "Failed to obtain request id. "
 	defaultEndpointURL            = "http://localhost:10000/explain"
 )
 
-func (d *DeepCodeLLMBindingImpl) runExplain(ctx context.Context, options ExplainOptions) (explainResponse, error) {
+func (d *DeepCodeLLMBindingImpl) runExplain(ctx context.Context, options ExplainOptions) (Explanations, error) {
 	span := d.instrumentor.StartSpan(ctx, "code.RunExplain")
 	defer span.Finish()
 
@@ -25,7 +24,7 @@ func (d *DeepCodeLLMBindingImpl) runExplain(ctx context.Context, options Explain
 	logger := d.logger.With().Str("method", "code.RunExplain").Str("requestId", requestId).Logger()
 	if err != nil {
 		logger.Err(err).Msg(failedToObtainRequestIdString + err.Error())
-		return explainResponse{}, err
+		return Explanations{}, err
 	}
 
 	logger.Debug().Msg("API: Retrieving explain for bundle")
@@ -34,7 +33,7 @@ func (d *DeepCodeLLMBindingImpl) runExplain(ctx context.Context, options Explain
 	requestBody, err := d.explainRequestBody(&options)
 	if err != nil {
 		logger.Err(err).Str("requestBody", string(requestBody)).Msg("error creating request body")
-		return explainResponse{}, err
+		return Explanations{}, err
 	}
 	logger.Debug().Str("payload body: %s\n", string(requestBody)).Msg("Marshaled payload")
 
@@ -43,13 +42,13 @@ func (d *DeepCodeLLMBindingImpl) runExplain(ctx context.Context, options Explain
 		u, err = url.Parse(defaultEndpointURL)
 		if err != nil {
 			logger.Err(err).Send()
-			return explainResponse{}, err
+			return Explanations{}, err
 		}
 	}
 	req, err := http.NewRequestWithContext(ctx, http.MethodPost, u.String(), bytes.NewBuffer(requestBody))
 	if err != nil {
 		logger.Err(err).Str("requestBody", string(requestBody)).Msg("error creating request")
-		return explainResponse{}, err
+		return Explanations{}, err
 	}
 
 	d.addDefaultHeaders(req, requestId)
@@ -57,7 +56,7 @@ func (d *DeepCodeLLMBindingImpl) runExplain(ctx context.Context, options Explain
 	resp, err := d.httpClientFunc().Do(req) //nolint:bodyclose // this seems to be a false positive
 	if err != nil {
 		logger.Err(err).Str("requestBody", string(requestBody)).Msg("error getting response")
-		return explainResponse{}, err
+		return Explanations{}, err
 	}
 	defer func(Body io.ReadCloser) {
 		bodyCloseErr := Body.Close()
@@ -70,25 +69,28 @@ func (d *DeepCodeLLMBindingImpl) runExplain(ctx context.Context, options Explain
 	responseBody, err := io.ReadAll(resp.Body)
 	if err != nil {
 		logger.Err(err).Str("requestBody", string(requestBody)).Msg("error reading all response")
-		return explainResponse{}, err
+		return Explanations{}, err
 	}
 	logger.Debug().Str("response body: %s\n", string(responseBody)).Msg("Got the response")
-
 	var response explainResponse
+	var explains Explanations
 	response.Status = completeStatus
 	err = json.Unmarshal(responseBody, &response)
 	if err != nil {
 		logger.Err(err).Str("responseBody", string(responseBody)).Msg("error unmarshalling")
-		return explainResponse{}, err
+		return Explanations{}, err
 	}
-	return response, nil
+
+	explains = response.Explanation
+
+	return explains, nil
 }
 
 func (d *DeepCodeLLMBindingImpl) explainRequestBody(options *ExplainOptions) ([]byte, error) {
 	logger := d.logger.With().Str("method", "code.explainRequestBody").Logger()
 
 	var request explainRequest
-	if options.Diff == "" {
+	if len(options.Diffs) == 0 {
 		request.VulnExplanation = &explainVulnerabilityRequest{
 			RuleId:            options.RuleKey,
 			Derivation:        options.Derivation,
@@ -99,7 +101,7 @@ func (d *DeepCodeLLMBindingImpl) explainRequestBody(options *ExplainOptions) ([]
 	} else {
 		request.FixExplanation = &explainFixRequest{
 			RuleId:            options.RuleKey,
-			Diff:              options.Diff,
+			Diffs:             options.Diffs,
 			ExplanationLength: SHORT,
 		}
 		logger.Debug().Msg("payload for FixExplanation")

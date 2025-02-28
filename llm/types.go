@@ -9,15 +9,15 @@ const (
 )
 
 type explainVulnerabilityRequest struct {
-	RuleId            string            `json:"rule_key"`
+	RuleId            string            `json:"rule_id"`
 	RuleMessage       string            `json:"rule_message"`
 	Derivation        string            `json:"Derivation"`
 	ExplanationLength explanationLength `json:"explanation_length"`
 }
 
 type explainFixRequest struct {
-	RuleId            string            `json:"rule_key"`
-	Diff              string            `json:"diff"`
+	RuleId            string            `json:"rule_id"`
+	Diffs             []string          `json:"diffs"`
 	ExplanationLength explanationLength `json:"explanation_length"`
 }
 
@@ -27,10 +27,10 @@ type explainRequest struct {
 }
 
 type explainResponse struct {
-	Status      string `json:"status"`
-	Explanation string `json:"explanation"`
+	Status      string       `json:"status"`
+	Explanation Explanations `json:"explanation"`
 }
-
+type Explanations map[string]string
 type ExplainOptions struct {
 	// Derivation = Code Flow
 	// const derivationLineNumbers: Set<number> = new Set<number>();
@@ -62,5 +62,5 @@ type ExplainOptions struct {
 	RuleMessage string `json:"rule_message"`
 
 	// fix difference
-	Diff string `json:"diff"`
+	Diffs []string `json:"diffs"`
 }
