@@ -1,8 +1,0 @@
-package: v20240216
-generate:
-  models: true
-output-options:
-  skip-prune: true
-import-mapping:
-  ../common/common.yaml: github.com/snyk/code-client-go/internal/workspace/2024-05-14/common
-output: scans/scans.go

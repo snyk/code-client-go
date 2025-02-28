@@ -1,9 +1,0 @@
-package: v20240514
-generate:
-  models: true
-output-options:
-  skip-prune: true
-import-mapping:
-  ../common/common.yaml: github.com/snyk/code-client-go/internal/workspace/2024-05-14/common
-  ../links/links.yaml: github.com/snyk/code-client-go/internal/workspace/2024-05-14/links
-output: workspaces/workspaces.go

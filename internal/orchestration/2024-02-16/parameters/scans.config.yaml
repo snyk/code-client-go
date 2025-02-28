@@ -1,6 +1,0 @@
-package: v20240216
-generate:
-  models: true
-output-options:
-  skip-prune: true
-output: parameters/scans.go
