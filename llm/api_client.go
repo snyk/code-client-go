@@ -10,13 +10,11 @@ import (
 	"net/url"
 )
 
-const (
+var (
 	completeStatus                = "COMPLETE"
 	failedToObtainRequestIdString = "Failed to obtain request id. "
 	defaultEndpointURL            = "http://localhost:10000/explain"
 )
-
-var HardCodedResponse = "{\n    \"explanation\": \n        {\n            \"explanation1\": \"This is the first explanation\",\n            \"explanation2\": \"this is the second explanation\",\n            \"explanation3\": \"This is the third explanation\",\n            \"explanation4\": \"This is the fourth explanation\",\n            \"explanation5\": \"This is the fifth explanation\"\n        }\n}"
 
 func (d *DeepCodeLLMBindingImpl) runExplain(ctx context.Context, options ExplainOptions) (Explanations, error) {
 	span := d.instrumentor.StartSpan(ctx, "code.RunExplain")
@@ -69,11 +67,10 @@ func (d *DeepCodeLLMBindingImpl) runExplain(ctx context.Context, options Explain
 
 	// Read the response body
 	responseBody, err := io.ReadAll(resp.Body)
-	responseBody = []byte(HardCodedResponse)
-	//if err != nil {
-	//	logger.Err(err).Str("requestBody", string(requestBody)).Msg("error reading all response")
-	//	return Explanations{}, err
-	//}
+	if err != nil {
+		logger.Err(err).Str("requestBody", string(requestBody)).Msg("error reading all response")
+		return Explanations{}, err
+	}
 	logger.Debug().Str("response body: %s\n", string(responseBody)).Msg("Got the response")
 	var response explainResponse
 	var explains Explanations
