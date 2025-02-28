@@ -47,8 +47,7 @@ func TestExplainWithOptions(t *testing.T) {
 		var exptectedExplanationsResponse explainResponse
 		err = json.Unmarshal(expectedResponseBody, &exptectedExplanationsResponse)
 		assert.NoError(t, err)
-		var expectedResExplanations Explanations
-		expectedResExplanations = exptectedExplanationsResponse.Explanation
+		expectedResExplanations := exptectedExplanationsResponse.Explanation
 		assert.Equal(t, expectedResExplanations["explanation1"], explanation[testDiff])
 	})
 
