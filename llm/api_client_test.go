@@ -22,7 +22,7 @@ func TestDeepcodeLLMBinding_runExplain(t *testing.T) {
 		options            ExplainOptions
 		serverResponse     string
 		serverStatusCode   int
-		expectedResponse   explainResponse
+		expectedResponse   Explanations
 		expectedError      string
 		expectedLogMessage string
 	}{
@@ -33,25 +33,19 @@ func TestDeepcodeLLMBinding_runExplain(t *testing.T) {
 				Derivation:  "Derivation",
 				RuleMessage: "rule-message",
 			},
-			serverResponse:   `{"explanation": "This is a vulnerability explanation"}`,
+			serverResponse:   "{\n    \"explanation\": \n        {\n            \"explanation1\": \"This is the first explanation\",\n            \"explanation2\": \"this is the second explanation\"\n                    }\n}",
 			serverStatusCode: http.StatusOK,
-			expectedResponse: explainResponse{
-				Status:      completeStatus,
-				Explanation: "This is a vulnerability explanation",
-			},
+			expectedResponse: map[string]string{"explanation1": "This is the first explanation", "explanation2": "this is the second explanation"},
 		},
 		{
 			name: "successful fix explanation",
 			options: ExplainOptions{
 				RuleKey: "rule-key",
-				Diff:    "Diff",
+				Diffs:   []string{"Diffs"},
 			},
-			serverResponse:   `{"explanation": "This is a fix explanation"}`,
+			serverResponse:   "{\n    \"explanation\": \n        {\n            \"explanation1\": \"This is the first explanation\",\n            \"explanation2\": \"this is the second explanation\"\n                    }\n}",
 			serverStatusCode: http.StatusOK,
-			expectedResponse: explainResponse{
-				Status:      completeStatus,
-				Explanation: "This is a fix explanation",
-			},
+			expectedResponse: map[string]string{"explanation1": "This is the first explanation", "explanation2": "this is the second explanation"},
 		},
 		{
 			name:               "error creating request body",
@@ -146,7 +140,7 @@ func TestDeepcodeLLMBinding_explainRequestBody(t *testing.T) {
 	t.Run("FixExplanation", func(t *testing.T) {
 		options := &ExplainOptions{
 			RuleKey: "test-rule-key",
-			Diff:    "test-Diff",
+			Diffs:   []string{"test-Diffs"},
 		}
 		requestBody, err := d.explainRequestBody(options)
 		require.NoError(t, err)
@@ -158,7 +152,7 @@ func TestDeepcodeLLMBinding_explainRequestBody(t *testing.T) {
 		assert.Nil(t, request.VulnExplanation)
 		assert.NotNil(t, request.FixExplanation)
 		assert.Equal(t, "test-rule-key", request.FixExplanation.RuleId)
-		assert.Equal(t, "test-Diff", request.FixExplanation.Diff)
+		assert.Equal(t, []string{"test-Diffs"}, request.FixExplanation.Diffs)
 		assert.Equal(t, SHORT, request.FixExplanation.ExplanationLength)
 	})
 }

@@ -30,7 +30,7 @@ func TestExplainWithOptions(t *testing.T) {
 
 		explainResponseJSON := explainResponse{
 			Status:      completeStatus,
-			Explanation: "mock explanation",
+			Explanation: map[string]string{"explanation1": "This is the first explanation"},
 		}
 
 		expectedResponseBody, err := json.Marshal(explainResponseJSON)
@@ -41,9 +41,15 @@ func TestExplainWithOptions(t *testing.T) {
 			Body:       io.NopCloser(strings.NewReader(string(expectedResponseBody))),
 		}
 		mockHTTPClient.EXPECT().Do(gomock.Any()).Return(&mockResponse, nil)
-		explanation, err := d.ExplainWithOptions(context.Background(), ExplainOptions{})
+		testDiff := "test diff"
+		explanation, err := d.ExplainWithOptions(context.Background(), ExplainOptions{Diffs: []string{testDiff}})
 		assert.NoError(t, err)
-		assert.Equal(t, explainResponseJSON.Explanation, explanation)
+		var exptectedExplanationsResponse explainResponse
+		err = json.Unmarshal(expectedResponseBody, &exptectedExplanationsResponse)
+		assert.NoError(t, err)
+		var expectedResExplanations Explanations
+		expectedResExplanations = exptectedExplanationsResponse.Explanation
+		assert.Equal(t, expectedResExplanations["explanation1"], explanation[testDiff])
 	})
 
 	t.Run("runExplain error", func(t *testing.T) {

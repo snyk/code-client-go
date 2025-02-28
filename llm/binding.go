@@ -44,10 +44,11 @@ type SnykLLMBindings interface {
 	// output - a channel that can be used to stream the results
 	Explain(ctx context.Context, input AIRequest, format OutputFormat, output chan<- string) error
 }
+type ExplainResult map[string]string
 
 type DeepCodeLLMBinding interface {
 	SnykLLMBindings
-	ExplainWithOptions(ctx context.Context, options ExplainOptions) (string, error)
+	ExplainWithOptions(ctx context.Context, options ExplainOptions) (ExplainResult, error)
 }
 
 // DeepCodeLLMBindingImpl is an LLM binding for the Snyk Code LLM.
@@ -60,15 +61,23 @@ type DeepCodeLLMBindingImpl struct {
 	endpoint       *url.URL
 }
 
-func (d *DeepCodeLLMBindingImpl) ExplainWithOptions(ctx context.Context, options ExplainOptions) (string, error) {
+func (d *DeepCodeLLMBindingImpl) ExplainWithOptions(ctx context.Context, options ExplainOptions) (ExplainResult, error) {
 	s := d.instrumentor.StartSpan(ctx, "code.ExplainWithOptions")
 	defer d.instrumentor.Finish(s)
 	response, err := d.runExplain(s.Context(), options)
+	explainResult := ExplainResult{}
 	if err != nil {
-		return "", err
+		return explainResult, err
+	}
+	index := 0
+	for _, explanation := range response {
+		if index < len(options.Diffs) {
+			explainResult[options.Diffs[index]] = explanation
+		}
+		index++
 	}
 
-	return response.Explanation, nil
+	return explainResult, nil
 }
 
 func (d *DeepCodeLLMBindingImpl) PublishIssues(_ context.Context, _ []map[string]string) error {
@@ -85,7 +94,11 @@ func (d *DeepCodeLLMBindingImpl) Explain(ctx context.Context, input AIRequest, _
 	if err != nil {
 		return err
 	}
-	output <- response
+	jsonBytes, err := json.Marshal(response)
+	if err != nil {
+		return err
+	}
+	output <- string(jsonBytes)
 	return nil
 }
 
