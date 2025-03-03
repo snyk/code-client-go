@@ -120,3 +120,38 @@ func NewTestInputLegacyScmProject(projectId openapi_types.UUID, commitId string)
 		Type:      v20241221.LegacyScmProject,
 	}
 }
+
+func NewTestResponse() *v20241221.TestResult {
+	return &v20241221.TestResult{
+		Data: struct {
+			Attributes v20241221.TestState          `json:"attributes"`
+			Id         openapi_types.UUID           `json:"id"`
+			Type       v20241221.TestResultDataType `json:"type"`
+		}{},
+	}
+}
+
+func NewTestCompleteState() *v20241221.TestCompletedState {
+	return &v20241221.TestCompletedState{
+		Status: v20241221.TestCompletedStateStatusCompleted,
+		Documents: struct {
+			EnrichedSarif string `json:"enriched_sarif"`
+		}{},
+		Results: struct {
+			Outcome struct {
+				Result v20241221.TestCompletedStateResultsOutcomeResult `json:"result"`
+			} `json:"outcome"`
+			Webui *struct {
+				Link       *string             `json:"link,omitempty"`
+				ProjectId  *openapi_types.UUID `json:"project_id,omitempty"`
+				SnapshotId *openapi_types.UUID `json:"snapshot_id,omitempty"`
+			} `json:"webui,omitempty"`
+		}{
+			Webui: &struct {
+				Link       *string             `json:"link,omitempty"`
+				ProjectId  *openapi_types.UUID `json:"project_id,omitempty"`
+				SnapshotId *openapi_types.UUID `json:"snapshot_id,omitempty"`
+			}{},
+		},
+	}
+}
