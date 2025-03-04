@@ -55,9 +55,6 @@ jobs:
       - run:
           name: Run contract tests
           command: make contract-test
-      - run:
-          name: Publish contract
-          command: make publish-contract
   build:
     executor: default
     steps:

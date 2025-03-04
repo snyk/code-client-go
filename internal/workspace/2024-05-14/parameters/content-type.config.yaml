@@ -1,6 +1,0 @@
-package: v20240514
-generate:
-  models: true
-output-options:
-  skip-prune: true
-output: parameters/content-type.go
