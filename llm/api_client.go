@@ -4,10 +4,11 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
-	"github.com/snyk/code-client-go/observability"
 	"io"
 	"net/http"
 	"net/url"
+
+	"github.com/snyk/code-client-go/observability"
 )
 
 var (
@@ -89,25 +90,25 @@ func (d *DeepCodeLLMBindingImpl) runExplain(ctx context.Context, options Explain
 func (d *DeepCodeLLMBindingImpl) explainRequestBody(options *ExplainOptions) ([]byte, error) {
 	logger := d.logger.With().Str("method", "code.explainRequestBody").Logger()
 
-	var request explainRequest
+	var requestBody []byte
+	var marshalErr error
 	if len(options.Diffs) == 0 {
-		request.VulnExplanation = &explainVulnerabilityRequest{
+		requestBody, marshalErr = json.Marshal(explainVulnerabilityRequest{
 			RuleId:            options.RuleKey,
 			Derivation:        options.Derivation,
 			RuleMessage:       options.RuleMessage,
 			ExplanationLength: SHORT,
-		}
+		})
 		logger.Debug().Msg("payload for VulnExplanation")
 	} else {
-		request.FixExplanation = &explainFixRequest{
+		requestBody, marshalErr = json.Marshal(explainFixRequest{
 			RuleId:            options.RuleKey,
 			Diffs:             options.Diffs,
 			ExplanationLength: SHORT,
-		}
+		})
 		logger.Debug().Msg("payload for FixExplanation")
 	}
-	requestBody, err := json.Marshal(request)
-	return requestBody, err
+	return requestBody, marshalErr
 }
 
 func (d *DeepCodeLLMBindingImpl) addDefaultHeaders(req *http.Request, requestId string) {
