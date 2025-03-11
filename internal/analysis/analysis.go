@@ -49,11 +49,12 @@ type AnalysisOrchestrator interface {
 }
 
 type AnalysisConfig struct {
-	Report      bool
-	ProjectName *string
-	TargetName  *string
-	ProjectId   *uuid.UUID
-	CommitId    *string
+	Report          bool
+	ProjectName     *string
+	TargetName      *string
+	TargetReference *string
+	ProjectId       *uuid.UUID
+	CommitId        *string
 }
 type analysisOrchestrator struct {
 	httpClient     codeClientHTTP.HTTPClient
@@ -238,6 +239,7 @@ func (a *analysisOrchestrator) RunTest(ctx context.Context, orgId string, b bund
 		testApi.WithScanType(a.testType),
 		testApi.WithProjectName(reportingConfig.ProjectName),
 		testApi.WithTargetName(reportingConfig.TargetName),
+		testApi.WithTargetReference(reportingConfig.TargetReference),
 		testApi.WithReporting(&reportingConfig.Report),
 	)
 

@@ -92,6 +92,17 @@ func WithTargetName(name *string) CreateTestOption {
 		out.TargetName = name
 	}
 }
+
+func WithTargetReference(targetRef *string) CreateTestOption {
+	return func(body *CreateTestApplicationVndAPIPlusJSONRequestBody) {
+		if targetRef == nil || len(*targetRef) == 0 {
+			return
+		}
+		out := ensureOutput(body)
+		out.TargetReference = targetRef
+	}
+}
+
 func WithReporting(report *bool) CreateTestOption {
 	return func(body *CreateTestApplicationVndAPIPlusJSONRequestBody) {
 		if report == nil {
