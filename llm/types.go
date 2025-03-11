@@ -21,11 +21,6 @@ type explainFixRequest struct {
 	ExplanationLength explanationLength `json:"explanation_length"`
 }
 
-type explainRequest struct {
-	VulnExplanation *explainVulnerabilityRequest `json:"vuln_explanation,omitempty"`
-	FixExplanation  *explainFixRequest           `json:"fix_explanation,omitempty"`
-}
-
 type explainResponse struct {
 	Status      string       `json:"status"`
 	Explanation Explanations `json:"explanation"`

@@ -125,16 +125,15 @@ func TestDeepcodeLLMBinding_explainRequestBody(t *testing.T) {
 		requestBody, err := d.explainRequestBody(options)
 		require.NoError(t, err)
 
-		var request explainRequest
+		var request explainVulnerabilityRequest
 		err = json.Unmarshal(requestBody, &request)
 		require.NoError(t, err)
 
-		assert.Nil(t, request.FixExplanation)
-		assert.NotNil(t, request.VulnExplanation)
-		assert.Equal(t, "test-rule-key", request.VulnExplanation.RuleId)
-		assert.Equal(t, "test-Derivation", request.VulnExplanation.Derivation)
-		assert.Equal(t, "test-rule-message", request.VulnExplanation.RuleMessage)
-		assert.Equal(t, SHORT, request.VulnExplanation.ExplanationLength)
+		assert.NotNil(t, request)
+		assert.Equal(t, "test-rule-key", request.RuleId)
+		assert.Equal(t, "test-Derivation", request.Derivation)
+		assert.Equal(t, "test-rule-message", request.RuleMessage)
+		assert.Equal(t, SHORT, request.ExplanationLength)
 	})
 
 	t.Run("FixExplanation", func(t *testing.T) {
@@ -145,15 +144,14 @@ func TestDeepcodeLLMBinding_explainRequestBody(t *testing.T) {
 		requestBody, err := d.explainRequestBody(options)
 		require.NoError(t, err)
 
-		var request explainRequest
+		var request explainFixRequest
 		err = json.Unmarshal(requestBody, &request)
 		require.NoError(t, err)
 
-		assert.Nil(t, request.VulnExplanation)
-		assert.NotNil(t, request.FixExplanation)
-		assert.Equal(t, "test-rule-key", request.FixExplanation.RuleId)
-		assert.Equal(t, []string{"test-Diffs"}, request.FixExplanation.Diffs)
-		assert.Equal(t, SHORT, request.FixExplanation.ExplanationLength)
+		assert.NotNil(t, request)
+		assert.Equal(t, "test-rule-key", request.RuleId)
+		assert.Equal(t, []string{"test-Diffs"}, request.Diffs)
+		assert.Equal(t, SHORT, request.ExplanationLength)
 	})
 }
 
