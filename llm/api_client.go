@@ -7,26 +7,18 @@ import (
 	"io"
 	"net/http"
 	"net/url"
-
-	"github.com/snyk/code-client-go/observability"
 )
 
 var (
-	completeStatus                = "COMPLETE"
-	failedToObtainRequestIdString = "Failed to obtain request id. "
-	defaultEndpointURL            = "http://localhost:10000/explain"
+	completeStatus     = "COMPLETE"
+	defaultEndpointURL = "http://localhost:10000/explain"
 )
 
 func (d *DeepCodeLLMBindingImpl) runExplain(ctx context.Context, options ExplainOptions) (Explanations, error) {
 	span := d.instrumentor.StartSpan(ctx, "code.RunExplain")
 	defer span.Finish()
 
-	requestId, err := observability.GetTraceId(ctx)
-	logger := d.logger.With().Str("method", "code.RunExplain").Str("requestId", requestId).Logger()
-	if err != nil {
-		logger.Err(err).Msg(failedToObtainRequestIdString + err.Error())
-		return Explanations{}, err
-	}
+	logger := d.logger.With().Str("method", "code.RunExplain").Logger()
 
 	logger.Debug().Msg("API: Retrieving explain for bundle")
 	defer logger.Debug().Msg("API: Retrieving explain done")
@@ -52,7 +44,7 @@ func (d *DeepCodeLLMBindingImpl) runExplain(ctx context.Context, options Explain
 		return Explanations{}, err
 	}
 
-	d.addDefaultHeaders(req, requestId)
+	d.addDefaultHeaders(req)
 
 	resp, err := d.httpClientFunc().Do(req) //nolint:bodyclose // this seems to be a false positive
 	if err != nil {
@@ -111,8 +103,7 @@ func (d *DeepCodeLLMBindingImpl) explainRequestBody(options *ExplainOptions) ([]
 	return requestBody, marshalErr
 }
 
-func (d *DeepCodeLLMBindingImpl) addDefaultHeaders(req *http.Request, requestId string) {
-	req.Header.Set("snyk-request-id", requestId)
+func (d *DeepCodeLLMBindingImpl) addDefaultHeaders(req *http.Request) {
 	req.Header.Set("Cache-Control", "private, max-age=0, no-cache")
 	req.Header.Set("Content-Type", "application/json")
 }
