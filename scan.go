@@ -98,11 +98,12 @@ func WithTrackerFactory(trackerFactory scan.TrackerFactory) OptionFunc {
 
 type AnalysisOption func(*analysis.AnalysisConfig)
 
-func ReportLocalTest(projectName string, targetName string) AnalysisOption {
+func ReportLocalTest(projectName string, targetName string, targetReference string) AnalysisOption {
 	return func(c *analysis.AnalysisConfig) {
 		c.Report = true
 		c.ProjectName = &projectName
 		c.TargetName = &targetName
+		c.TargetReference = &targetReference
 	}
 }
 
