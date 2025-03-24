@@ -3,6 +3,7 @@ package llm
 import (
 	"bytes"
 	"context"
+	"encoding/base64"
 	"encoding/json"
 	"io"
 	"net/http"
@@ -95,12 +96,20 @@ func (d *DeepCodeLLMBindingImpl) explainRequestBody(options *ExplainOptions) ([]
 	} else {
 		requestBody, marshalErr = json.Marshal(explainFixRequest{
 			RuleId:            options.RuleKey,
-			Diffs:             options.Diffs,
+			Diffs:             encodeDiffs(options.Diffs),
 			ExplanationLength: SHORT,
 		})
 		logger.Debug().Msg("payload for FixExplanation")
 	}
 	return requestBody, marshalErr
+}
+
+func encodeDiffs(diffs []string) []string {
+	var encodedDiffs []string
+	for _, diff := range diffs {
+		encodedDiffs = append(encodedDiffs, base64.StdEncoding.EncodeToString([]byte(diff)))
+	}
+	return encodedDiffs
 }
 
 func (d *DeepCodeLLMBindingImpl) addDefaultHeaders(req *http.Request) {
