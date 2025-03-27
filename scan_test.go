@@ -61,7 +61,6 @@ func Test_UploadAndAnalyze(t *testing.T) {
 	mockConfig.EXPECT().Organization().AnyTimes().Return(testOrgId)
 	mockConfig.EXPECT().SnykApi().AnyTimes().Return("")
 	mockSpan := mocks.NewMockSpan(ctrl)
-	//	mockSpan.EXPECT().GetTraceId().Return("testTraceId").AnyTimes()
 	mockSpan.EXPECT().Context().Return(context.Background()).AnyTimes()
 	mockInstrumentor := mocks.NewMockInstrumentor(ctrl)
 	mockInstrumentor.EXPECT().StartSpan(gomock.Any(), gomock.Any()).Return(mockSpan).AnyTimes()
