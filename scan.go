@@ -190,20 +190,20 @@ func (c *codeScanner) Upload(
 	files <-chan string,
 	changedFiles map[string]bool,
 ) (bundle.Bundle, error) {
-	err := c.checkCancellationOrLogError(ctx, target, nil, "")
+	err := c.checkCancellationOrLogError(ctx, target.GetPath(), nil, "")
 	if err != nil {
 		return nil, err
 	}
 
 	originalBundle, err := c.bundleManager.Create(ctx, requestId, target.GetPath(), files, changedFiles)
-	err = c.checkCancellationOrLogError(ctx, target, err, "error creating bundle...")
+	err = c.checkCancellationOrLogError(ctx, target.GetPath(), err, "error creating bundle...")
 	if err != nil {
 		return nil, err
 	}
 
 	filesToUpload := originalBundle.GetFiles()
 	uploadedBundle, err := c.bundleManager.Upload(ctx, requestId, originalBundle, filesToUpload)
-	err = c.checkCancellationOrLogError(ctx, target, err, "error uploading bundle...")
+	err = c.checkCancellationOrLogError(ctx, target.GetPath(), err, "error uploading bundle...")
 	if err != nil {
 		return uploadedBundle, err
 	}
@@ -213,7 +213,7 @@ func (c *codeScanner) Upload(
 
 // Utility function to check for cancellations before optionally logging an error (if one is provided). Cancellations
 // always take precedence. Returns any error or cancellation that was handled, nil otherwise.
-func (c *codeScanner) checkCancellationOrLogError(ctx context.Context, target scan.Target, err error, message string) error {
+func (c *codeScanner) checkCancellationOrLogError(ctx context.Context, targetPath string, err error, message string) error {
 	returnError := ctx.Err()
 	if returnError != nil {
 		c.logger.Info().Msg("Canceling Code scan - Code scanner received cancellation signal")
@@ -221,7 +221,7 @@ func (c *codeScanner) checkCancellationOrLogError(ctx context.Context, target sc
 		if message != "" {
 			err = errors.Wrap(err, message)
 		}
-		c.errorReporter.CaptureError(err, observability.ErrorReporterOptions{ErrorDiagnosticPath: target.GetPath()})
+		c.errorReporter.CaptureError(err, observability.ErrorReporterOptions{ErrorDiagnosticPath: targetPath})
 		returnError = err
 	}
 	return returnError
@@ -261,7 +261,7 @@ func (c *codeScanner) UploadAndAnalyzeWithOptions(
 	}
 
 	response, metadata, err := c.analysisOrchestrator.RunTest(ctx, c.config.Organization(), uploadedBundle, target, cfg)
-	err = c.checkCancellationOrLogError(ctx, target, err, "error running analysis...")
+	err = c.checkCancellationOrLogError(ctx, target.GetPath(), err, "error running analysis...")
 	if err != nil {
 		return nil, "", nil, err
 	}
@@ -275,13 +275,13 @@ func (c *codeScanner) AnalyzeRemote(ctx context.Context, options ...AnalysisOpti
 		opt(&cfg)
 	}
 
-	err := c.checkCancellationOrLogError(ctx, nil, nil, "")
+	err := c.checkCancellationOrLogError(ctx, "", nil, "")
 	if err != nil {
 		return nil, nil, err
 	}
 	response, metadata, err := c.analysisOrchestrator.RunTestRemote(ctx, c.config.Organization(), cfg)
 
-	err = c.checkCancellationOrLogError(ctx, nil, err, "")
+	err = c.checkCancellationOrLogError(ctx, "", err, "")
 	if err != nil {
 		return nil, nil, err
 	}

@@ -241,6 +241,8 @@ func TestAnalyzeRemote(t *testing.T) {
 			gomock.Any(),
 		).Return(nil, nil, assert.AnError)
 
+		mockErrorReporter.EXPECT().CaptureError(gomock.Any(), gomock.Any())
+
 		response, _, err := codeScanner.AnalyzeRemote(context.Background())
 		assert.Nil(t, response)
 		assert.Error(t, err)
