@@ -281,7 +281,7 @@ func (c *codeScanner) AnalyzeRemote(ctx context.Context, options ...AnalysisOpti
 	}
 	response, metadata, err := c.analysisOrchestrator.RunTestRemote(ctx, c.config.Organization(), cfg)
 
-	err = c.checkCancellationOrLogError(ctx, nil, nil, "")
+	err = c.checkCancellationOrLogError(ctx, nil, err, "")
 	if err != nil {
 		return nil, nil, err
 	}
