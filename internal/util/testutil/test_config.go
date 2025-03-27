@@ -24,7 +24,7 @@ type localConfig struct {
 }
 
 func (l localConfig) Organization() string {
-	return "b29cf58e-6684-481d-aca4-b24b58821b85"
+	return "3964634d-2142-4ae5-ba98-c414620609b4"
 }
 
 func (l localConfig) IsFedramp() bool {
@@ -32,11 +32,11 @@ func (l localConfig) IsFedramp() bool {
 }
 
 func (l localConfig) SnykCodeApi() string {
-	return "https://deeproxy.dev.snyk.io"
+	return "https://deeproxy.snyk.io"
 }
 
 func (l localConfig) SnykApi() string {
-	return "https://app.dev.snyk.io/api"
+	return "https://api.snyk.io"
 }
 
 func (l localConfig) SnykCodeAnalysisTimeout() time.Duration {
