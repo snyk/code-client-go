@@ -182,6 +182,41 @@ func (c *codeScanner) WithAnalysisOrchestrator(analysisOrchestrator analysis.Ana
 	}
 }
 
+// Upload creates a bundle from changed files and uploads it, returning the uploaded Bundle.
+func (c *codeScanner) Upload(
+	ctx context.Context,
+	requestId string,
+	target scan.Target,
+	files <-chan string,
+	changedFiles map[string]bool,
+) (bundle.Bundle, error) {
+	c.checkCancellationOrLogError(ctx, target, "", nil)
+
+	originalBundle, err := c.bundleManager.Create(ctx, requestId, target.GetPath(), files, changedFiles)
+	if err != nil {
+		c.checkCancellationOrLogError(ctx, target, "error creating bundle...", err)
+		return nil, err
+	}
+
+	filesToUpload := originalBundle.GetFiles()
+	uploadedBundle, err := c.bundleManager.Upload(ctx, requestId, originalBundle, filesToUpload)
+	if err != nil {
+		c.checkCancellationOrLogError(ctx, target, "error uploading files...", err)
+		return uploadedBundle, err
+	}
+
+	return uploadedBundle, nil
+}
+
+func (c *codeScanner) checkCancellationOrLogError(ctx context.Context, target scan.Target, message string, err error) {
+	if ctx.Err() != nil {
+		c.logger.Info().Msg("Canceling Code scan - Code scanner received cancellation signal")
+	} else if err != nil {
+		err = errors.Wrap(err, message)
+		c.errorReporter.CaptureError(err, observability.ErrorReporterOptions{ErrorDiagnosticPath: target.GetPath()})
+	}
+}
+
 func (c *codeScanner) UploadAndAnalyze(
 	ctx context.Context,
 	requestId string,
@@ -202,58 +237,24 @@ func (c *codeScanner) UploadAndAnalyzeWithOptions(
 	changedFiles map[string]bool,
 	options ...AnalysisOption,
 ) (*sarif.SarifResponse, string, *scan.ResultMetaData, error) {
+	uploadedBundle, err := c.Upload(ctx, requestId, target, files, changedFiles)
+
+	if err != nil || uploadedBundle == nil || uploadedBundle.GetBundleHash() == "" {
+		c.logger.Debug().Msg("empty bundle, no Snyk Code analysis")
+		return nil, "", nil, nil
+	}
+
 	cfg := analysis.AnalysisConfig{}
 	for _, opt := range options {
 		opt(&cfg)
 	}
 
-	if ctx.Err() != nil {
-		c.logger.Info().Msg("Canceling Code scan - Code scanner received cancellation signal")
-		return nil, "", nil, nil
-	}
-	b, err := c.bundleManager.Create(ctx, requestId, target.GetPath(), files, changedFiles)
+	response, metadata, err := c.analysisOrchestrator.RunTest(ctx, c.config.Organization(), uploadedBundle, target, cfg)
 	if err != nil {
-		if bundle.IsNoFilesError(err) {
-			return nil, "", nil, nil
-		}
-		if ctx.Err() == nil { // Only report errors that are not intentional cancellations
-			msg := "error creating bundle..."
-			c.errorReporter.CaptureError(errors.Wrap(err, msg), observability.ErrorReporterOptions{ErrorDiagnosticPath: target.GetPath()})
-			return nil, "", nil, err
-		} else {
-			c.logger.Info().Msg("Canceling Code scan - Code scanner received cancellation signal")
-			return nil, "", nil, nil
-		}
+		c.checkCancellationOrLogError(ctx, target, "error running analysis...", err)
 	}
 
-	uploadedFiles := b.GetFiles()
-
-	b, err = c.bundleManager.Upload(ctx, requestId, b, uploadedFiles)
-	bundleHash := b.GetBundleHash()
-	if err != nil {
-		if ctx.Err() != nil { // Only handle errors that are not intentional cancellations
-			msg := "error uploading files..."
-			c.errorReporter.CaptureError(errors.Wrap(err, msg), observability.ErrorReporterOptions{ErrorDiagnosticPath: target.GetPath()})
-			return nil, bundleHash, nil, err
-		} else {
-			c.logger.Info().Msg("Canceling Code scan - Code scanner received cancellation signal")
-			return nil, bundleHash, nil, nil
-		}
-	}
-
-	if bundleHash == "" {
-		c.logger.Debug().Msg("empty bundle, no Snyk Code analysis")
-		return nil, bundleHash, nil, nil
-	}
-
-	response, metadata, err := c.analysisOrchestrator.RunTest(ctx, c.config.Organization(), b, target, cfg)
-
-	if ctx.Err() != nil {
-		c.logger.Info().Msg("Canceling Code scan - Code scanner received cancellation signal")
-		return nil, bundleHash, nil, nil
-	}
-
-	return response, bundleHash, metadata, err
+	return response, uploadedBundle.GetBundleHash(), metadata, err
 }
 
 func (c *codeScanner) AnalyzeRemote(ctx context.Context, options ...AnalysisOption) (*sarif.SarifResponse, *scan.ResultMetaData, error) {
