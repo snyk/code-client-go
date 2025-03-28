@@ -106,8 +106,8 @@ func (b *bundleManager) Create(ctx context.Context,
 			continue
 		}
 
-		fileInfo, statErr := os.Stat(absoluteFilePath)
-		if statErr != nil {
+		fileInfo, fileErr := os.Stat(absoluteFilePath)
+		if fileErr != nil {
 			b.logger.Error().Err(err).Str("filePath", absoluteFilePath).Msg("Failed to read file info")
 			continue
 		}
@@ -116,14 +116,14 @@ func (b *bundleManager) Create(ctx context.Context,
 			continue
 		}
 
-		fileContent, readErr := os.ReadFile(absoluteFilePath)
-		if readErr != nil {
+		fileContent, fileErr := os.ReadFile(absoluteFilePath)
+		if fileErr != nil {
 			b.logger.Error().Err(err).Str("filePath", absoluteFilePath).Msg("Failed to load content of file")
 			continue
 		}
 
-		relativePath, err := util.ToRelativeUnixPath(rootPath, absoluteFilePath)
-		if err != nil {
+		relativePath, fileErr := util.ToRelativeUnixPath(rootPath, absoluteFilePath)
+		if fileErr != nil {
 			b.errorReporter.CaptureError(err, observability.ErrorReporterOptions{ErrorDiagnosticPath: rootPath})
 		}
 		relativePath = util.EncodePath(relativePath)
