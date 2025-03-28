@@ -150,7 +150,8 @@ func TestDeepcodeLLMBinding_explainRequestBody(t *testing.T) {
 
 		assert.NotNil(t, request)
 		assert.Equal(t, "test-rule-key", request.RuleId)
-		assert.Equal(t, []string{"test-Diffs"}, request.Diffs)
+		expectedEncodedDiffs := encodeDiffs([]string{"test-Diffs"})
+		assert.Equal(t, expectedEncodedDiffs, request.Diffs)
 		assert.Equal(t, SHORT, request.ExplanationLength)
 	})
 }
