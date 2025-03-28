@@ -64,18 +64,6 @@ func (mr *MockBundleMockRecorder) GetFiles() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetFiles", reflect.TypeOf((*MockBundle)(nil).GetFiles))
 }
 
-// ClearFiles mocks base method
-func (m *MockBundle) ClearFiles() {
-	m.ctrl.T.Helper()
-	m.ctrl.Call(m, "ClearFiles")
-}
-
-// ClearFiles indicates and expected call of ClearFiles
-func (mr *MockBundleMockRecorder) ClearFiles() *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ClearFiles", reflect.TypeOf((*MockBundle)(nil).ClearFiles))
-}
-
 // GetLimitToFiles mocks base method.
 func (m *MockBundle) GetLimitToFiles() []string {
 	m.ctrl.T.Helper()
