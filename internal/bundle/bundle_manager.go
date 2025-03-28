@@ -116,17 +116,17 @@ func (b *bundleManager) Create(ctx context.Context,
 			continue
 		}
 
-		var relativePath string
-		relativePath, err = util.ToRelativeUnixPath(rootPath, absoluteFilePath)
+		fileContent, readErr := os.ReadFile(absoluteFilePath)
+		if readErr != nil {
+			b.logger.Error().Err(err).Str("filePath", absoluteFilePath).Msg("Failed to load content of file")
+			continue
+		}
+
+		relativePath, err := util.ToRelativeUnixPath(rootPath, absoluteFilePath)
 		if err != nil {
 			b.errorReporter.CaptureError(err, observability.ErrorReporterOptions{ErrorDiagnosticPath: rootPath})
 		}
 		relativePath = util.EncodePath(relativePath)
-
-		fileContent, readErr := os.ReadFile(absoluteFilePath)
-		if readErr != nil {
-			b.logger.Error().Err(err).Str("filePath", absoluteFilePath).Msg("Failed to load content of file")
-		}
 
 		bundleFile := deepcode.BundleFileFrom(fileContent)
 		bundleFiles[relativePath] = bundleFile
