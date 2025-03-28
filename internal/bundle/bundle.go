@@ -83,7 +83,7 @@ func (b *deepCodeBundle) GetFiles() map[string]deepcode.BundleFile {
 }
 
 func (b *deepCodeBundle) ClearFiles() {
-	b.files = map[string]deepcode.BundleFile{}
+	b.files = make(map[string]deepcode.BundleFile)
 }
 
 func (b *deepCodeBundle) GetMissingFiles() []string {
