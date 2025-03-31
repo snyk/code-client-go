@@ -212,7 +212,14 @@ func (b *bundleManager) enrichBatchWithFileContent(batch *Batch, rootPath string
 			b.logger.Error().Err(err).Str("file", filePath).Msg("Failed to read bundle file")
 			continue
 		}
-		bundleFile.Content = string(content)
+
+		utf8Content, err := util.ConvertToUTF8(content)
+		if err != nil {
+			b.logger.Error().Err(err).Str("file", filePath).Msg("Failed to convert bundle file to UTF-8")
+			continue
+		}
+
+		bundleFile.Content = string(utf8Content)
 		batch.documents[filePath] = bundleFile
 	}
 }
