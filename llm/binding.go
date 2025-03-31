@@ -19,8 +19,9 @@ const JSON OutputFormat = "json"
 const MarkDown OutputFormat = "md"
 
 type AIRequest struct {
-	Id    string `json:"id"`
-	Input string `json:"inputs"`
+	Id       string   `json:"id"`
+	Input    string   `json:"inputs"`
+	Endpoint *url.URL `json:"endpoint"`
 }
 
 var _ DeepCodeLLMBinding = (*DeepCodeLLMBindingImpl)(nil)
@@ -58,7 +59,6 @@ type DeepCodeLLMBindingImpl struct {
 	logger         *zerolog.Logger
 	outputFormat   OutputFormat
 	instrumentor   observability.Instrumentor
-	endpoint       *url.URL
 }
 
 func (d *DeepCodeLLMBindingImpl) ExplainWithOptions(ctx context.Context, options ExplainOptions) (ExplainResult, error) {
@@ -103,12 +103,6 @@ func (d *DeepCodeLLMBindingImpl) Explain(ctx context.Context, input AIRequest, _
 }
 
 func NewDeepcodeLLMBinding(opts ...Option) *DeepCodeLLMBindingImpl {
-	endpoint, err := url.Parse(defaultEndpointURL)
-	if err != nil {
-		// time to panic, as our default should never be invalid
-		panic(err)
-	}
-
 	nopLogger := zerolog.Nop()
 	binding := &DeepCodeLLMBindingImpl{
 		logger: &nopLogger,
@@ -121,7 +115,6 @@ func NewDeepcodeLLMBinding(opts ...Option) *DeepCodeLLMBindingImpl {
 		},
 		outputFormat: MarkDown,
 		instrumentor: observability.NewInstrumentor(),
-		endpoint:     endpoint,
 	}
 	for _, opt := range opts {
 		opt(binding)

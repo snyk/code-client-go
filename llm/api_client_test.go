@@ -92,8 +92,9 @@ func TestDeepcodeLLMBinding_runExplain(t *testing.T) {
 
 			u, err := url.Parse(server.URL)
 			assert.NoError(t, err)
+			tt.options.Endpoint = u
 
-			d := NewDeepcodeLLMBinding(WithEndpoint(u))
+			d := NewDeepcodeLLMBinding()
 
 			ctx := context.Background()
 			ctx = observability.GetContextWithTraceId(ctx, "test-trace-id")
@@ -154,6 +155,55 @@ func TestDeepcodeLLMBinding_explainRequestBody(t *testing.T) {
 		assert.Equal(t, expectedEncodedDiffs, request.Diffs)
 		assert.Equal(t, SHORT, request.ExplanationLength)
 	})
+}
+
+func TestEndpoint(t *testing.T) {
+	testCases := []struct {
+		name     string
+		inputURL string
+		expected url.URL
+	}{
+		{
+			name:     "Valid URL",
+			inputURL: "http://localhost:8080",
+			expected: url.URL{Scheme: "http", Host: "localhost:8080"},
+		},
+		{
+			name:     "URL with Path",
+			inputURL: "https://example.com/path/to/resource",
+			expected: url.URL{Scheme: "https", Host: "example.com", Path: "/path/to/resource"},
+		},
+		{
+			name:     "URL with Query Params",
+			inputURL: "http://api.example.com?param1=value1&param2=value2",
+			expected: url.URL{Scheme: "http", Host: "api.example.com", RawQuery: "param1=value1&param2=value2"},
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			parsedURL, err := url.Parse(tc.inputURL)
+			if err != nil {
+				t.Fatalf("Failed to parse URL: %v", err)
+			}
+
+			options := &ExplainOptions{}
+			options.Endpoint = parsedURL
+
+			if options.Endpoint.Scheme != tc.expected.Scheme {
+				t.Errorf("Expected Scheme: %s, Got: %s", tc.expected.Scheme, options.Endpoint.Scheme)
+			}
+			if options.Endpoint.Host != tc.expected.Host {
+				t.Errorf("Expected Host: %s, Got: %s", tc.expected.Host, options.Endpoint.Host)
+			}
+			if options.Endpoint.Path != tc.expected.Path {
+				t.Errorf("Expected Path: %s, Got: %s", tc.expected.Path, options.Endpoint.Path)
+			}
+			if options.Endpoint.RawQuery != tc.expected.RawQuery {
+				t.Errorf("Expected RawQuery: %s, Got: %s", tc.expected.RawQuery, options.Endpoint.RawQuery)
+			}
+		})
+	}
 }
 
 // Helper function for testing

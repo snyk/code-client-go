@@ -1,5 +1,7 @@
 package llm
 
+import "net/url"
+
 type explanationLength string
 
 const (
@@ -58,4 +60,7 @@ type ExplainOptions struct {
 
 	// fix difference
 	Diffs []string `json:"diffs"`
+
+	// Endpoint to call
+	Endpoint *url.URL `json:"endpoint"`
 }

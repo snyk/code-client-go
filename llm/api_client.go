@@ -31,7 +31,7 @@ func (d *DeepCodeLLMBindingImpl) runExplain(ctx context.Context, options Explain
 	}
 	logger.Debug().Str("payload body: %s\n", string(requestBody)).Msg("Marshaled payload")
 
-	u := d.endpoint
+	u := options.Endpoint
 	if u == nil {
 		u, err = url.Parse(defaultEndpointURL)
 		if err != nil {
