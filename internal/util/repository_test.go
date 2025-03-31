@@ -24,8 +24,8 @@ import (
 
 	"github.com/stretchr/testify/assert"
 
-	"github.com/snyk/code-client-go/internal/util"
-	"github.com/snyk/code-client-go/internal/util/testutil"
+	"github.com/snyk/code-client-go/v2/internal/util"
+	"github.com/snyk/code-client-go/v2/internal/util/testutil"
 )
 
 func Test_GetRepositoryUrl_repo_with_credentials(t *testing.T) {

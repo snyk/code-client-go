@@ -13,7 +13,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/snyk/code-client-go/observability"
+	"github.com/snyk/code-client-go/v2/observability"
 )
 
 func TestDeepcodeLLMBinding_runExplain(t *testing.T) {

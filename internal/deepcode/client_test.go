@@ -29,11 +29,11 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 
-	confMocks "github.com/snyk/code-client-go/config/mocks"
-	httpmocks "github.com/snyk/code-client-go/http/mocks"
-	"github.com/snyk/code-client-go/internal/deepcode"
-	"github.com/snyk/code-client-go/internal/util"
-	"github.com/snyk/code-client-go/observability/mocks"
+	confMocks "github.com/snyk/code-client-go/v2/config/mocks"
+	httpmocks "github.com/snyk/code-client-go/v2/http/mocks"
+	"github.com/snyk/code-client-go/v2/internal/deepcode"
+	"github.com/snyk/code-client-go/v2/internal/util"
+	"github.com/snyk/code-client-go/v2/observability/mocks"
 )
 
 const (

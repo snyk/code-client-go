@@ -27,8 +27,8 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	codeClientHTTP "github.com/snyk/code-client-go/http"
-	"github.com/snyk/code-client-go/observability/mocks"
+	codeClientHTTP "github.com/snyk/code-client-go/v2/http"
+	"github.com/snyk/code-client-go/v2/observability/mocks"
 )
 
 // dummyTransport is a transport struct that always returns the response code specified in the constructor

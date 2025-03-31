@@ -9,7 +9,7 @@ import (
 	"github.com/rs/zerolog"
 	"github.com/stretchr/testify/assert"
 
-	"github.com/snyk/code-client-go/http"
+	"github.com/snyk/code-client-go/v2/http"
 )
 
 func TestDeepcodeLLMBinding_Explain_Smoke(t *testing.T) {

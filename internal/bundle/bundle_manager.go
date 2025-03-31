@@ -18,16 +18,16 @@ package bundle
 
 import (
 	"context"
-	"github.com/snyk/code-client-go/scan"
+	"github.com/snyk/code-client-go/v2/scan"
 	"os"
 	"path/filepath"
 
 	"github.com/puzpuzpuz/xsync"
 	"github.com/rs/zerolog"
 
-	"github.com/snyk/code-client-go/internal/deepcode"
-	"github.com/snyk/code-client-go/internal/util"
-	"github.com/snyk/code-client-go/observability"
+	"github.com/snyk/code-client-go/v2/internal/deepcode"
+	"github.com/snyk/code-client-go/v2/internal/util"
+	"github.com/snyk/code-client-go/v2/observability"
 )
 
 type bundleManager struct {

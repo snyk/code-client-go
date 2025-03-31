@@ -1,4 +1,4 @@
-module github.com/snyk/code-client-go
+module github.com/snyk/code-client-go/v2
 
 go 1.23.6
 

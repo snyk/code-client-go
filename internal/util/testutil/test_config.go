@@ -16,8 +16,9 @@
 package testutil
 
 import (
-	"github.com/snyk/code-client-go/config"
 	"time"
+
+	"github.com/snyk/code-client-go/v2/config"
 )
 
 type localConfig struct {

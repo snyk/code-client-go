@@ -31,10 +31,10 @@ linters-settings:
   gocyclo:
     min-complexity: 15
   gofumpt:
-    module-path: github.com/snyk/code-client-go
+    module-path: github.com/snyk/code-client-go/v2
     extra-rules: true
   goimports:
-    local-prefixes: github.com/snyk/code-client-go
+    local-prefixes: github.com/snyk/code-client-go/v2
   gosimple:
     checks: ['all']
   govet:

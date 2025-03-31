@@ -28,13 +28,13 @@ import (
 	"regexp"
 	"strconv"
 
-	"github.com/snyk/code-client-go/config"
-	"github.com/snyk/code-client-go/internal/util/encoding"
+	"github.com/snyk/code-client-go/v2/config"
+	"github.com/snyk/code-client-go/v2/internal/util/encoding"
 
 	"github.com/rs/zerolog"
 
-	codeClientHTTP "github.com/snyk/code-client-go/http"
-	"github.com/snyk/code-client-go/observability"
+	codeClientHTTP "github.com/snyk/code-client-go/v2/http"
+	"github.com/snyk/code-client-go/v2/observability"
 )
 
 //go:generate mockgen -destination=mocks/client.go -source=client.go -package mocks

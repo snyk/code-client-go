@@ -24,15 +24,15 @@ import (
 	"github.com/pkg/errors"
 	"github.com/rs/zerolog"
 
-	"github.com/snyk/code-client-go/config"
-	codeClientHTTP "github.com/snyk/code-client-go/http"
-	"github.com/snyk/code-client-go/internal/analysis"
-	testModels "github.com/snyk/code-client-go/internal/api/test/2024-12-21/models"
-	"github.com/snyk/code-client-go/internal/bundle"
-	"github.com/snyk/code-client-go/internal/deepcode"
-	"github.com/snyk/code-client-go/observability"
-	"github.com/snyk/code-client-go/sarif"
-	"github.com/snyk/code-client-go/scan"
+	"github.com/snyk/code-client-go/v2/config"
+	codeClientHTTP "github.com/snyk/code-client-go/v2/http"
+	"github.com/snyk/code-client-go/v2/internal/analysis"
+	testModels "github.com/snyk/code-client-go/v2/internal/api/test/2024-12-21/models"
+	"github.com/snyk/code-client-go/v2/internal/bundle"
+	"github.com/snyk/code-client-go/v2/internal/deepcode"
+	"github.com/snyk/code-client-go/v2/observability"
+	"github.com/snyk/code-client-go/v2/sarif"
+	"github.com/snyk/code-client-go/v2/scan"
 )
 
 type codeScanner struct {

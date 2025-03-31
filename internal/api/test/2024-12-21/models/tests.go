@@ -11,7 +11,7 @@ import (
 
 	"github.com/oapi-codegen/runtime"
 	openapi_types "github.com/oapi-codegen/runtime/types"
-	externalRef0 "github.com/snyk/code-client-go/internal/api/test/2024-12-21/common"
+	externalRef0 "github.com/snyk/code-client-go/v2/internal/api/test/2024-12-21/common"
 )
 
 // Defines values for CreateTestRequestBodyDataType.

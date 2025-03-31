@@ -5,4 +5,4 @@ output-options:
   skip-prune: true
 output: models/tests.go
 import-mapping:
-  ../common/common.yaml: github.com/snyk/code-client-go/internal/api/test/2024-12-21/common
+  ../common/common.yaml: github.com/snyk/code-client-go/v2/internal/api/test/2024-12-21/common

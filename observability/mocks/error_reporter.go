@@ -8,7 +8,7 @@ import (
 	reflect "reflect"
 
 	gomock "github.com/golang/mock/gomock"
-	observability "github.com/snyk/code-client-go/observability"
+	observability "github.com/snyk/code-client-go/v2/observability"
 )
 
 // MockErrorReporter is a mock of ErrorReporter interface.

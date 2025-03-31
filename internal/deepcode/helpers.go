@@ -16,7 +16,7 @@
 package deepcode
 
 import (
-	"github.com/snyk/code-client-go/internal/util"
+	"github.com/snyk/code-client-go/v2/internal/util"
 )
 
 type BundleFile struct {

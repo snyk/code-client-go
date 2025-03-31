@@ -1,5 +1,3 @@
-
-
 # code-client-go
 
 A library that exposes scanning capabilities for Snyk Code that can be used in the [Snyk CLI](https://github.com/snyk/cli) as well as Snyk IDE plugins using the [Snyk Language Server](https://github.com/snyk/snyk-ls).
@@ -7,7 +5,7 @@ A library that exposes scanning capabilities for Snyk Code that can be used in t
 ## Installation
 
 ```shell script
-$ go get github.com/snyk/code-client-go
+$ go get github.com/snyk/code-client-go/v2
 ```
 
 ## Usage
@@ -25,8 +23,8 @@ import (
     "net/http"
 
     "github.com/rs/zerolog"
-    codeClientHTTP "github.com/snyk/code-client-go/http"
-    codeClientObservability  "github.com/snyk/code-client-go/observability"
+    codeClientHTTP "github.com/snyk/code-client-go/v2/http"
+    codeClientObservability  "github.com/snyk/code-client-go/v2/observability"
 )
 
 logger := zerlog.NewLogger(...)
@@ -49,27 +47,28 @@ The HTTP client exposes a `Do` function.
 
 ### Target
 
-Use the target to record the target of a scan, which can be either a folder enhanced with repository metadata 
+Use the target to record the target of a scan, which can be either a folder enhanced with repository metadata
 or a repository.
 
 ```go
 import (
-    codeClientScan  "github.com/snyk/code-client-go/scan"
+    codeClientScan  "github.com/snyk/code-client-go/v2/scan"
 )
 
 target, _ := codeClientScan.NewRepositoryTarget(path)
 
-target, _ := codeClientScan.NewRepositoryTarget(path, codeClientScan.WithRepositoryUrl("https://github.com/snyk/code-client-go.git"))
+target, _ := codeClientScan.NewRepositoryTarget(path, codeClientScan.WithRepositoryUrl("https://github.com/snyk/code-client-go/v2.git"))
 ```
+
 ### Tracker Factory
 
-Use the tracker factory to generate a tracker used to update the consumer of the client with frequent progress updates. 
+Use the tracker factory to generate a tracker used to update the consumer of the client with frequent progress updates.
 
 The tracker either exposes an interface with two `Begin` and `End` functions or an implementation that doesn't do anything.
 
 ```go
 import (
-    codeClientScan  "github.com/snyk/code-client-go/scan"
+    codeClientScan  "github.com/snyk/code-client-go/v2/scan"
 )
 
 trackerFactory := codeClientScan.NewNoopTrackerFactory()
@@ -92,7 +91,7 @@ The Code Scanner exposes a `UploadAndAnalyze` function, which can be used like t
 
 ```go
 import (
-    codeClient  "github.com/snyk/code-client-go"
+    codeClient  "github.com/snyk/code-client-go/v2"
 )
 
 config := newConfigForMyApp()

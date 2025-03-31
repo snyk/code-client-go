@@ -8,7 +8,7 @@ import (
 	reflect "reflect"
 
 	gomock "github.com/golang/mock/gomock"
-	scan "github.com/snyk/code-client-go/scan"
+	scan "github.com/snyk/code-client-go/v2/scan"
 )
 
 // MockTrackerFactory is a mock of TrackerFactory interface.

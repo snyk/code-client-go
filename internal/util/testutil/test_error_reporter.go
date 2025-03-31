@@ -1,7 +1,7 @@
 package testutil
 
 import (
-	"github.com/snyk/code-client-go/observability"
+	"github.com/snyk/code-client-go/v2/observability"
 )
 
 type localErrorReporter struct {

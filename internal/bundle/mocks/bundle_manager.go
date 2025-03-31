@@ -9,8 +9,8 @@ import (
 	reflect "reflect"
 
 	gomock "github.com/golang/mock/gomock"
-	bundle "github.com/snyk/code-client-go/internal/bundle"
-	deepcode "github.com/snyk/code-client-go/internal/deepcode"
+	bundle "github.com/snyk/code-client-go/v2/internal/bundle"
+	deepcode "github.com/snyk/code-client-go/v2/internal/deepcode"
 )
 
 // MockBundleManager is a mock of BundleManager interface.

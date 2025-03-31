@@ -21,8 +21,8 @@ import (
 
 	"github.com/rs/zerolog"
 
-	"github.com/snyk/code-client-go/internal/deepcode"
-	"github.com/snyk/code-client-go/observability"
+	"github.com/snyk/code-client-go/v2/internal/deepcode"
+	"github.com/snyk/code-client-go/v2/observability"
 )
 
 //go:generate mockgen -destination=mocks/bundle.go -source=bundle.go -package mocks

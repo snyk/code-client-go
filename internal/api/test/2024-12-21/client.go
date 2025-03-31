@@ -14,9 +14,9 @@ import (
 	"strings"
 
 	"github.com/oapi-codegen/runtime"
-	externalRef0 "github.com/snyk/code-client-go/internal/api/test/2024-12-21/common"
-	externalRef1 "github.com/snyk/code-client-go/internal/api/test/2024-12-21/models"
-	externalRef2 "github.com/snyk/code-client-go/internal/api/test/2024-12-21/parameters"
+	externalRef0 "github.com/snyk/code-client-go/v2/internal/api/test/2024-12-21/common"
+	externalRef1 "github.com/snyk/code-client-go/v2/internal/api/test/2024-12-21/models"
+	externalRef2 "github.com/snyk/code-client-go/v2/internal/api/test/2024-12-21/parameters"
 )
 
 const (

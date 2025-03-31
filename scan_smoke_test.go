@@ -31,10 +31,10 @@ import (
 	"github.com/rs/zerolog"
 	"github.com/stretchr/testify/require"
 
-	codeClient "github.com/snyk/code-client-go"
-	codeClientHTTP "github.com/snyk/code-client-go/http"
-	"github.com/snyk/code-client-go/internal/util/testutil"
-	"github.com/snyk/code-client-go/scan"
+	codeClient "github.com/snyk/code-client-go/v2"
+	codeClientHTTP "github.com/snyk/code-client-go/v2/http"
+	"github.com/snyk/code-client-go/v2/internal/util/testutil"
+	"github.com/snyk/code-client-go/v2/scan"
 )
 
 func TestSmoke_Scan_IDE(t *testing.T) {

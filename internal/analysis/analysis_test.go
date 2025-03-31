@@ -33,15 +33,15 @@ import (
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 
-	confMocks "github.com/snyk/code-client-go/config/mocks"
-	httpmocks "github.com/snyk/code-client-go/http/mocks"
-	"github.com/snyk/code-client-go/internal/analysis"
-	v20241221 "github.com/snyk/code-client-go/internal/api/test/2024-12-21"
-	mocks2 "github.com/snyk/code-client-go/internal/bundle/mocks"
-	"github.com/snyk/code-client-go/observability/mocks"
-	"github.com/snyk/code-client-go/sarif"
-	"github.com/snyk/code-client-go/scan"
-	trackerMocks "github.com/snyk/code-client-go/scan/mocks"
+	confMocks "github.com/snyk/code-client-go/v2/config/mocks"
+	httpmocks "github.com/snyk/code-client-go/v2/http/mocks"
+	"github.com/snyk/code-client-go/v2/internal/analysis"
+	v20241221 "github.com/snyk/code-client-go/v2/internal/api/test/2024-12-21"
+	mocks2 "github.com/snyk/code-client-go/v2/internal/bundle/mocks"
+	"github.com/snyk/code-client-go/v2/observability/mocks"
+	"github.com/snyk/code-client-go/v2/sarif"
+	"github.com/snyk/code-client-go/v2/scan"
+	trackerMocks "github.com/snyk/code-client-go/v2/scan/mocks"
 )
 
 func mockDeriveErrorFromStatusCode(statusCode int) error {

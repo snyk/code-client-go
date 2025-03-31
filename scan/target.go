@@ -1,6 +1,6 @@
 package scan
 
-import "github.com/snyk/code-client-go/internal/util"
+import "github.com/snyk/code-client-go/v2/internal/util"
 
 type RepositoryTarget struct {
 	LocalFilePath string

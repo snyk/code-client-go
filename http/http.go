@@ -25,7 +25,7 @@ import (
 
 	"github.com/rs/zerolog"
 
-	"github.com/snyk/code-client-go/observability"
+	"github.com/snyk/code-client-go/v2/observability"
 )
 
 //go:generate mockgen -destination=mocks/http.go -source=http.go -package mocks

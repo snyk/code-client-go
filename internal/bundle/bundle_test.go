@@ -25,10 +25,10 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/snyk/code-client-go/internal/bundle"
-	"github.com/snyk/code-client-go/internal/deepcode"
-	deepcodeMocks "github.com/snyk/code-client-go/internal/deepcode/mocks"
-	"github.com/snyk/code-client-go/observability/mocks"
+	"github.com/snyk/code-client-go/v2/internal/bundle"
+	"github.com/snyk/code-client-go/v2/internal/deepcode"
+	deepcodeMocks "github.com/snyk/code-client-go/v2/internal/deepcode/mocks"
+	"github.com/snyk/code-client-go/v2/observability/mocks"
 )
 
 var bundleWithFiles = bundle.NewBatch(map[string]deepcode.BundleFile{"file": {}})

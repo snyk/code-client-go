@@ -7,9 +7,9 @@ import (
 
 	"github.com/rs/zerolog"
 
-	"github.com/snyk/code-client-go/http"
+	"github.com/snyk/code-client-go/v2/http"
 
-	"github.com/snyk/code-client-go/observability"
+	"github.com/snyk/code-client-go/v2/observability"
 )
 
 type OutputFormat string

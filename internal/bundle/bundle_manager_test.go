@@ -29,12 +29,12 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/snyk/code-client-go/internal/bundle"
-	"github.com/snyk/code-client-go/internal/deepcode"
-	deepcodeMocks "github.com/snyk/code-client-go/internal/deepcode/mocks"
-	"github.com/snyk/code-client-go/internal/util"
-	"github.com/snyk/code-client-go/observability/mocks"
-	trackerMocks "github.com/snyk/code-client-go/scan/mocks"
+	"github.com/snyk/code-client-go/v2/internal/bundle"
+	"github.com/snyk/code-client-go/v2/internal/deepcode"
+	deepcodeMocks "github.com/snyk/code-client-go/v2/internal/deepcode/mocks"
+	"github.com/snyk/code-client-go/v2/internal/util"
+	"github.com/snyk/code-client-go/v2/observability/mocks"
+	trackerMocks "github.com/snyk/code-client-go/v2/scan/mocks"
 )
 
 func Test_Create(t *testing.T) {
