@@ -22,10 +22,7 @@ func TestDeepcodeLLMBinding_Explain_Smoke(t *testing.T) {
 	)
 	outputChain := make(chan string)
 	endpoint, errEndpoint := url.Parse(defaultEndpointURL)
-	if errEndpoint != nil {
-		// time to panic, as our default should never be invalid
-		panic(errEndpoint)
-	}
+	assert.NoError(t, errEndpoint)
 
 	err := binding.Explain(context.Background(), AIRequest{Id: uuid.New().String(), Input: "{}", Endpoint: endpoint}, HTML, outputChain)
 	assert.NoError(t, err)
