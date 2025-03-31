@@ -245,11 +245,11 @@ func (b *bundleManager) groupInBatches(
 		}
 
 		file := files[filePath]
-		if batch.canFitFile(filePath, file.Size) {
-			b.logger.Trace().Str("path", filePath).Int("size", file.Size).Msgf("added to deepCodeBundle #%v", len(batches))
+		if batch.canFitFile(filePath, file.ContentSize) {
+			b.logger.Trace().Str("path", filePath).Int("size", file.ContentSize).Msgf("added to deepCodeBundle #%v", len(batches))
 			batch.documents[filePath] = file
 		} else {
-			b.logger.Trace().Str("path", filePath).Int("size", file.Size).Msgf("created new deepCodeBundle - %v bundles in this upload so far", len(batches))
+			b.logger.Trace().Str("path", filePath).Int("size", file.ContentSize).Msgf("created new deepCodeBundle - %v bundles in this upload so far", len(batches))
 			newUploadBatch := NewBatch(map[string]deepcode.BundleFile{})
 			newUploadBatch.documents[filePath] = file
 			batches = append(batches, newUploadBatch)

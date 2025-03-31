@@ -444,7 +444,7 @@ func createTempFileInDir(t *testing.T, name string, size int, temporaryDir strin
 	t.Helper()
 
 	documentURI, fileContent := createFileOfSize(t, name, size, temporaryDir)
-	return documentURI, deepcode.BundleFile{Hash: util.Hash(fileContent), Size: size}
+	return documentURI, deepcode.BundleFile{Hash: util.Hash(fileContent), ContentSize: size}
 }
 
 func Test_IsSupported_Extensions(t *testing.T) {
