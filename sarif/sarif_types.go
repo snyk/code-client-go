@@ -188,8 +188,10 @@ type Run struct {
 }
 
 type Suppression struct {
+	Guid          string                `json:"guid"`
 	Justification string                `json:"justification"`
 	Properties    SuppressionProperties `json:"properties"`
+	Status        SuppresionStatus      `json:"status"`
 }
 
 type SuppressionProperties struct {
@@ -200,11 +202,15 @@ type SuppressionProperties struct {
 }
 
 type Category string
+type SuppresionStatus string
 
 const (
-	WontFix         Category = "wont-fix"
-	NotVulnerable   Category = "not-vulnerable"
-	TemporaryIgnore Category = "temporary-ignore"
+	WontFix         Category         = "wont-fix"
+	NotVulnerable   Category         = "not-vulnerable"
+	TemporaryIgnore Category         = "temporary-ignore"
+	UnderReview     SuppresionStatus = "underReview"
+	Accepted        SuppresionStatus = "accepted"
+	Rejected        SuppresionStatus = "rejected"
 )
 
 type IgnoredBy struct {
