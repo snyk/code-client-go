@@ -18,7 +18,7 @@ func TestDeepcodeLLMBindingWithMockHTTP_ExplainWithOptions(t *testing.T) {
 		expectError    bool
 		responseBody   []byte
 		expectedResult llm.ExplainResult
-		httpError      error
+		errorToThrow   error
 	}{
 		{
 			name: "success: fix explanation for multiple diffs",
@@ -41,8 +41,8 @@ func TestDeepcodeLLMBindingWithMockHTTP_ExplainWithOptions(t *testing.T) {
 				Diffs:    []string{"some diff"},
 				Endpoint: getExplainEndpoint(t),
 			},
-			expectError: true,
-			httpError:   errors.New("connection error"),
+			expectError:  true,
+			errorToThrow: errors.New("connection error"),
 		},
 		{
 			name: "failure: response unmarshal error",
@@ -60,11 +60,8 @@ func TestDeepcodeLLMBindingWithMockHTTP_ExplainWithOptions(t *testing.T) {
 		t.Run(testCase.name, func(t *testing.T) {
 			// Set up mocked response
 			mockHTTP := llm.NewMockHTTPClient()
-			if testCase.httpError != nil {
-				mockHTTP.Response.Error = testCase.httpError
-			} else if testCase.responseBody != nil {
-				mockHTTP.Response.Body = testCase.responseBody
-			}
+			mockHTTP.Response.Error = testCase.errorToThrow
+			mockHTTP.Response.Body = testCase.responseBody
 
 			binding := llm.NewDeepcodeLLMBinding(
 				llm.WithMockHTTP(mockHTTP),
@@ -74,8 +71,8 @@ func TestDeepcodeLLMBindingWithMockHTTP_ExplainWithOptions(t *testing.T) {
 
 			if testCase.expectError {
 				require.Error(t, err)
-				if testCase.httpError != nil {
-					assert.ErrorIs(t, err, testCase.httpError)
+				if testCase.errorToThrow != nil {
+					assert.ErrorIs(t, err, testCase.errorToThrow)
 				}
 			} else {
 				require.NoError(t, err)
