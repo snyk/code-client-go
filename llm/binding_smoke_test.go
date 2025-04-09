@@ -2,6 +2,7 @@ package llm
 
 import (
 	"context"
+	"net/url"
 	"testing"
 
 	"github.com/google/uuid"
@@ -20,6 +21,9 @@ func TestDeepcodeLLMBinding_Explain_Smoke(t *testing.T) {
 		WithLogger(&logger),
 	)
 	outputChain := make(chan string)
-	err := binding.Explain(context.Background(), AIRequest{Id: uuid.New().String(), Input: "{}"}, HTML, outputChain)
+	endpoint, errEndpoint := url.Parse(defaultEndpointURL)
+	assert.NoError(t, errEndpoint)
+
+	err := binding.Explain(context.Background(), AIRequest{Id: uuid.New().String(), Input: "{}", Endpoint: endpoint}, HTML, outputChain)
 	assert.NoError(t, err)
 }

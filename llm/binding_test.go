@@ -26,7 +26,7 @@ func TestDeepcodeLLMBinding_PublishIssues(t *testing.T) {
 
 func TestExplainWithOptions(t *testing.T) {
 	t.Run("success", func(t *testing.T) {
-		d, mockHTTPClient := getHTTPMockedBinding(t, &url.URL{Scheme: "http", Host: "test.com"})
+		d, mockHTTPClient := getHTTPMockedBinding(t)
 
 		explainResponseJSON := explainResponse{
 			Status:      completeStatus,
@@ -42,7 +42,8 @@ func TestExplainWithOptions(t *testing.T) {
 		}
 		mockHTTPClient.EXPECT().Do(gomock.Any()).Return(&mockResponse, nil)
 		testDiff := "test diff"
-		explanation, err := d.ExplainWithOptions(context.Background(), ExplainOptions{Diffs: []string{testDiff}})
+		endpoint := &url.URL{Scheme: "http", Host: "test.com"}
+		explanation, err := d.ExplainWithOptions(context.Background(), ExplainOptions{Diffs: []string{testDiff}, Endpoint: endpoint})
 		assert.NoError(t, err)
 		var exptectedExplanationsResponse explainResponse
 		err = json.Unmarshal(expectedResponseBody, &exptectedExplanationsResponse)
@@ -56,13 +57,12 @@ func TestExplainWithOptions(t *testing.T) {
 	})
 }
 
-func getHTTPMockedBinding(t *testing.T, endpoint *url.URL) (*DeepCodeLLMBindingImpl, *mocks.MockHTTPClient) {
+func getHTTPMockedBinding(t *testing.T) (*DeepCodeLLMBindingImpl, *mocks.MockHTTPClient) {
 	t.Helper()
 	ctrl := gomock.NewController(t)
 	mockHTTPClient := mocks.NewMockHTTPClient(ctrl)
 	d := NewDeepcodeLLMBinding(
 		WithHTTPClient(func() http.HTTPClient { return mockHTTPClient }),
-		WithEndpoint(endpoint),
 	)
 	return d, mockHTTPClient
 }
@@ -83,7 +83,6 @@ func TestNewDeepcodeLLMBinding(t *testing.T) {
 func TestNewDeepcodeLLMBinding_Defaults(t *testing.T) {
 	binding := NewDeepcodeLLMBinding()
 
-	assert.NotNil(t, binding.endpoint)
 	assert.NotNil(t, binding.logger)
 	assert.NotNil(t, binding.httpClientFunc)
 	assert.NotNil(t, binding.instrumentor)
@@ -126,55 +125,6 @@ func TestWithOutputFormat(t *testing.T) {
 	invalidFormat := OutputFormat("invalid")
 	WithOutputFormat(invalidFormat)(binding)
 	assert.Equal(t, MarkDown, binding.outputFormat)
-}
-
-func TestWithEndpoint(t *testing.T) {
-	testCases := []struct {
-		name     string
-		inputURL string
-		expected url.URL
-	}{
-		{
-			name:     "Valid URL",
-			inputURL: "http://localhost:8080",
-			expected: url.URL{Scheme: "http", Host: "localhost:8080"},
-		},
-		{
-			name:     "URL with Path",
-			inputURL: "https://example.com/path/to/resource",
-			expected: url.URL{Scheme: "https", Host: "example.com", Path: "/path/to/resource"},
-		},
-		{
-			name:     "URL with Query Params",
-			inputURL: "http://api.example.com?param1=value1&param2=value2",
-			expected: url.URL{Scheme: "http", Host: "api.example.com", RawQuery: "param1=value1&param2=value2"},
-		},
-	}
-
-	for _, tc := range testCases {
-		t.Run(tc.name, func(t *testing.T) {
-			parsedURL, err := url.Parse(tc.inputURL)
-			if err != nil {
-				t.Fatalf("Failed to parse URL: %v", err)
-			}
-
-			binding := &DeepCodeLLMBindingImpl{}
-			WithEndpoint(parsedURL)(binding)
-
-			if binding.endpoint.Scheme != tc.expected.Scheme {
-				t.Errorf("Expected Scheme: %s, Got: %s", tc.expected.Scheme, binding.endpoint.Scheme)
-			}
-			if binding.endpoint.Host != tc.expected.Host {
-				t.Errorf("Expected Host: %s, Got: %s", tc.expected.Host, binding.endpoint.Host)
-			}
-			if binding.endpoint.Path != tc.expected.Path {
-				t.Errorf("Expected Path: %s, Got: %s", tc.expected.Path, binding.endpoint.Path)
-			}
-			if binding.endpoint.RawQuery != tc.expected.RawQuery {
-				t.Errorf("Expected RawQuery: %s, Got: %s", tc.expected.RawQuery, binding.endpoint.RawQuery)
-			}
-		})
-	}
 }
 
 func TestWithInstrumentor(t *testing.T) {
