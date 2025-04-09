@@ -36,18 +36,6 @@ func (m *MockBundle) EXPECT() *MockBundleMockRecorder {
 	return m.recorder
 }
 
-// ClearFiles mocks base method.
-func (m *MockBundle) ClearFiles() {
-	m.ctrl.T.Helper()
-	m.ctrl.Call(m, "ClearFiles")
-}
-
-// ClearFiles indicates an expected call of ClearFiles.
-func (mr *MockBundleMockRecorder) ClearFiles() *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ClearFiles", reflect.TypeOf((*MockBundle)(nil).ClearFiles))
-}
-
 // GetBundleHash mocks base method.
 func (m *MockBundle) GetBundleHash() string {
 	m.ctrl.T.Helper()
