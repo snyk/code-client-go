@@ -22,7 +22,7 @@ import (
 type BundleFile struct {
 	Hash        string `json:"hash"`
 	Content     string `json:"content"`
-	ContentSize int    `json:"size"`
+	ContentSize int    `json:"-"`
 }
 
 func BundleFileFrom(content []byte) BundleFile {
