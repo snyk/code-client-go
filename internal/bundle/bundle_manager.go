@@ -105,20 +105,25 @@ func (b *bundleManager) Create(ctx context.Context,
 		if !supported {
 			continue
 		}
-		var fileContent []byte
-		fileContent, err = os.ReadFile(absoluteFilePath)
-		if err != nil {
-			b.logger.Error().Err(err).Str("filePath", absoluteFilePath).Msg("could not load content of file")
+
+		fileInfo, fileErr := os.Stat(absoluteFilePath)
+		if fileErr != nil {
+			b.logger.Error().Err(err).Str("filePath", absoluteFilePath).Msg("Failed to read file info")
 			continue
 		}
 
-		if !(len(fileContent) > 0 && len(fileContent) <= maxFileSize) {
+		if fileInfo.Size() == 0 || fileInfo.Size() > maxFileSize {
 			continue
 		}
 
-		var relativePath string
-		relativePath, err = util.ToRelativeUnixPath(rootPath, absoluteFilePath)
-		if err != nil {
+		fileContent, fileErr := os.ReadFile(absoluteFilePath)
+		if fileErr != nil {
+			b.logger.Error().Err(err).Str("filePath", absoluteFilePath).Msg("Failed to load content of file")
+			continue
+		}
+
+		relativePath, fileErr := util.ToRelativeUnixPath(rootPath, absoluteFilePath)
+		if fileErr != nil {
 			b.errorReporter.CaptureError(err, observability.ErrorReporterOptions{ErrorDiagnosticPath: rootPath})
 		}
 		relativePath = util.EncodePath(relativePath)
@@ -181,14 +186,42 @@ func (b *bundleManager) Upload(
 			if err := ctx.Err(); err != nil {
 				return bundle, err
 			}
+			b.enrichBatchWithFileContent(batch, bundle.GetRootPath())
 			err := bundle.UploadBatch(s.Context(), requestId, batch)
 			if err != nil {
 				return bundle, err
 			}
+			batch.documents = make(map[string]deepcode.BundleFile)
 		}
 	}
 
+	// bundle doesn't need file map anymore since they are already grouped and uploaded
+	bundle.ClearFiles()
 	return bundle, nil
+}
+
+func (b *bundleManager) enrichBatchWithFileContent(batch *Batch, rootPath string) {
+	for filePath, bundleFile := range batch.documents {
+		absPath, err := util.DecodePath(util.ToAbsolutePath(rootPath, filePath))
+		if err != nil {
+			b.logger.Error().Err(err).Str("file", filePath).Msg("Failed to decode Path")
+			continue
+		}
+		content, err := os.ReadFile(absPath)
+		if err != nil {
+			b.logger.Error().Err(err).Str("file", filePath).Msg("Failed to read bundle file")
+			continue
+		}
+
+		utf8Content, err := util.ConvertToUTF8(content)
+		if err != nil {
+			b.logger.Error().Err(err).Str("file", filePath).Msg("Failed to convert bundle file to UTF-8")
+			continue
+		}
+
+		bundleFile.Content = string(utf8Content)
+		batch.documents[filePath] = bundleFile
+	}
 }
 
 func (b *bundleManager) groupInBatches(
@@ -212,12 +245,11 @@ func (b *bundleManager) groupInBatches(
 		}
 
 		file := files[filePath]
-		var fileContent = []byte(file.Content)
-		if batch.canFitFile(filePath, fileContent) {
-			b.logger.Trace().Str("path", filePath).Int("size", len(fileContent)).Msgf("added to deepCodeBundle #%v", len(batches))
+		if batch.canFitFile(filePath, file.ContentSize) {
+			b.logger.Trace().Str("path", filePath).Int("size", file.ContentSize).Msgf("added to deepCodeBundle #%v", len(batches))
 			batch.documents[filePath] = file
 		} else {
-			b.logger.Trace().Str("path", filePath).Int("size", len(fileContent)).Msgf("created new deepCodeBundle - %v bundles in this upload so far", len(batches))
+			b.logger.Trace().Str("path", filePath).Int("size", file.ContentSize).Msgf("created new deepCodeBundle - %v bundles in this upload so far", len(batches))
 			newUploadBatch := NewBatch(map[string]deepcode.BundleFile{})
 			newUploadBatch.documents[filePath] = file
 			batches = append(batches, newUploadBatch)
