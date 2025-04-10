@@ -23,13 +23,11 @@ type BundleFile struct {
 	Hash        string `json:"hash"`
 	Content     string `json:"content"`
 	ContentSize int    `json:"-"`
-}
 
 func BundleFileFrom(content []byte) BundleFile {
 	file := BundleFile{
-		Hash:        util.Hash(content),
-		Content:     "", // We create the bundleFile empty, and enrich  with content later.
-		ContentSize: len(content),
+		Hash:    util.Hash(content),
+		Content: string(content),
 	}
 	return file
 }

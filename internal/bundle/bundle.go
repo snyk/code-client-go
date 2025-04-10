@@ -30,7 +30,6 @@ type Bundle interface {
 	UploadBatch(ctx context.Context, requestId string, batch *Batch) error
 	GetBundleHash() string
 	GetFiles() map[string]deepcode.BundleFile
-	ClearFiles()
 	GetMissingFiles() []string
 	GetLimitToFiles() []string
 	GetRootPath() string
@@ -80,10 +79,6 @@ func (b *deepCodeBundle) GetBundleHash() string {
 
 func (b *deepCodeBundle) GetFiles() map[string]deepcode.BundleFile {
 	return b.files
-}
-
-func (b *deepCodeBundle) ClearFiles() {
-	b.files = make(map[string]deepcode.BundleFile)
 }
 
 func (b *deepCodeBundle) GetMissingFiles() []string {
@@ -141,15 +136,15 @@ func NewBatch(documents map[string]deepcode.BundleFile) *Batch {
 
 // todo simplify the size computation
 // maybe consider an addFile / canFitFile interface with proper error handling
-func (b *Batch) canFitFile(uri string, contentSize int) bool {
-	docPayloadSize := b.getTotalDocPayloadSize(uri, contentSize)
+func (b *Batch) canFitFile(uri string, content []byte) bool {
+	docPayloadSize := b.getTotalDocPayloadSize(uri, content)
 	newSize := docPayloadSize + b.getSize()
 	b.size += docPayloadSize
 	return newSize < maxUploadBatchSize
 }
 
-func (b *Batch) getTotalDocPayloadSize(documentURI string, contentSize int) int {
-	return len(jsonHashSizePerFile) + len(jsonOverheadPerFile) + len([]byte(documentURI)) + contentSize
+func (b *Batch) getTotalDocPayloadSize(documentURI string, content []byte) int {
+	return len(jsonHashSizePerFile) + len(jsonOverheadPerFile) + len([]byte(documentURI)) + len(content)
 }
 
 func (b *Batch) getSize() int {
