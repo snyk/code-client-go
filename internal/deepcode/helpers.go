@@ -27,8 +27,9 @@ type BundleFile struct {
 
 func BundleFileFrom(content []byte) BundleFile {
 	file := BundleFile{
-		Hash:    util.Hash(content),
-		Content: string(content),
+		Hash:        util.Hash(content),
+		Content:     "", // We create the bundleFile empty, and enrich  with content later.
+		ContentSize: len(content),
 	}
 	return file
 }
