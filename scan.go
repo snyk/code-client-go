@@ -48,6 +48,14 @@ type codeScanner struct {
 }
 
 type CodeScanner interface {
+	Upload(
+		ctx context.Context,
+		requestId string,
+		target scan.Target,
+		files <-chan string,
+		changedFiles map[string]bool,
+	) (bundle.Bundle, error)
+
 	UploadAndAnalyze(
 		ctx context.Context,
 		requestId string,
