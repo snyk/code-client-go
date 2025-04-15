@@ -27,12 +27,20 @@ import (
 
 func Hash(content []byte) string {
 	byteReader := bytes.NewReader(content)
-	reader, _ := charset.NewReaderLabel("UTF-8", byteReader)
-	utf8content, err := io.ReadAll(reader)
+	utf8content, err := ConvertToUTF8(byteReader)
 	if err != nil {
 		utf8content = content
 	}
 	b := sha256.Sum256(utf8content)
 	sum256 := hex.EncodeToString(b[:])
 	return sum256
+}
+
+func ConvertToUTF8(reader io.Reader) ([]byte, error) {
+	utf8Reader, err := charset.NewReaderLabel("UTF-8", reader)
+	if err != nil {
+		return nil, err
+	}
+	utf8content, err := io.ReadAll(utf8Reader)
+	return utf8content, err
 }

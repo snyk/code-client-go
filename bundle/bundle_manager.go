@@ -17,10 +17,12 @@
 package bundle
 
 import (
+	"bytes"
 	"context"
-	"github.com/snyk/code-client-go/scan"
 	"os"
 	"path/filepath"
+
+	"github.com/snyk/code-client-go/scan"
 
 	"github.com/puzpuzpuz/xsync"
 	"github.com/rs/zerolog"
@@ -105,10 +107,16 @@ func (b *bundleManager) Create(ctx context.Context,
 		if !supported {
 			continue
 		}
-		var fileContent []byte
-		fileContent, err = os.ReadFile(absoluteFilePath)
+		var rawContent []byte
+		rawContent, err = os.ReadFile(absoluteFilePath)
 		if err != nil {
 			b.logger.Error().Err(err).Str("filePath", absoluteFilePath).Msg("could not load content of file")
+			continue
+		}
+		var fileContent []byte
+		fileContent, err = util.ConvertToUTF8(bytes.NewReader(rawContent))
+		if err != nil {
+			b.logger.Error().Err(err).Str("filePath", absoluteFilePath).Msg("could not convert content of file to UTF-8")
 			continue
 		}
 
