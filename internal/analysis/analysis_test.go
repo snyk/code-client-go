@@ -33,11 +33,11 @@ import (
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 
+	mocks2 "github.com/snyk/code-client-go/bundle/mocks"
 	confMocks "github.com/snyk/code-client-go/config/mocks"
 	httpmocks "github.com/snyk/code-client-go/http/mocks"
 	"github.com/snyk/code-client-go/internal/analysis"
 	v20241221 "github.com/snyk/code-client-go/internal/api/test/2024-12-21"
-	mocks2 "github.com/snyk/code-client-go/internal/bundle/mocks"
 	"github.com/snyk/code-client-go/observability/mocks"
 	"github.com/snyk/code-client-go/sarif"
 	"github.com/snyk/code-client-go/scan"

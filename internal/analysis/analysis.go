@@ -32,11 +32,11 @@ import (
 	"github.com/pkg/errors"
 	"github.com/rs/zerolog"
 
+	"github.com/snyk/code-client-go/bundle"
 	"github.com/snyk/code-client-go/config"
 	codeClientHTTP "github.com/snyk/code-client-go/http"
 	testApi "github.com/snyk/code-client-go/internal/api/test/2024-12-21"
 	testModels "github.com/snyk/code-client-go/internal/api/test/2024-12-21/models"
-	"github.com/snyk/code-client-go/internal/bundle"
 	"github.com/snyk/code-client-go/observability"
 	"github.com/snyk/code-client-go/sarif"
 	"github.com/snyk/code-client-go/scan"
