@@ -28,11 +28,11 @@ import (
 	"github.com/stretchr/testify/require"
 
 	codeclient "github.com/snyk/code-client-go"
+	"github.com/snyk/code-client-go/bundle"
+	bundleMocks "github.com/snyk/code-client-go/bundle/mocks"
 	confMocks "github.com/snyk/code-client-go/config/mocks"
 	httpmocks "github.com/snyk/code-client-go/http/mocks"
 	mockAnalysis "github.com/snyk/code-client-go/internal/analysis/mocks"
-	"github.com/snyk/code-client-go/internal/bundle"
-	bundleMocks "github.com/snyk/code-client-go/internal/bundle/mocks"
 	"github.com/snyk/code-client-go/internal/deepcode"
 	deepcodeMocks "github.com/snyk/code-client-go/internal/deepcode/mocks"
 	"github.com/snyk/code-client-go/observability/mocks"
