@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/base64"
 	"encoding/json"
+	"errors"
 	"io"
 	"net/http"
 	"net/url"
@@ -29,7 +30,6 @@ func (d *DeepCodeLLMBindingImpl) runExplain(ctx context.Context, options Explain
 		logger.Err(err).Str("requestBody", string(requestBody)).Msg("error creating request body")
 		return Explanations{}, err
 	}
-	logger.Debug().Str("payload body: %s\n", string(requestBody)).Msg("Marshaled payload")
 
 	u := options.Endpoint
 	if u == nil {
@@ -39,33 +39,12 @@ func (d *DeepCodeLLMBindingImpl) runExplain(ctx context.Context, options Explain
 			return Explanations{}, err
 		}
 	}
-	req, err := http.NewRequestWithContext(ctx, http.MethodPost, u.String(), bytes.NewBuffer(requestBody))
+
+	responseBody, err := d.submitRequest(ctx, u, requestBody)
 	if err != nil {
-		logger.Err(err).Str("requestBody", string(requestBody)).Msg("error creating request")
 		return Explanations{}, err
 	}
 
-	d.addDefaultHeaders(req)
-
-	resp, err := d.httpClientFunc().Do(req) //nolint:bodyclose // this seems to be a false positive
-	if err != nil {
-		logger.Err(err).Str("requestBody", string(requestBody)).Msg("error getting response")
-		return Explanations{}, err
-	}
-	defer func(Body io.ReadCloser) {
-		bodyCloseErr := Body.Close()
-		if bodyCloseErr != nil {
-			logger.Err(err).Str("requestBody", string(requestBody)).Msg("error closing response")
-		}
-	}(resp.Body)
-
-	// Read the response body
-	responseBody, err := io.ReadAll(resp.Body)
-	if err != nil {
-		logger.Err(err).Str("requestBody", string(requestBody)).Msg("error reading all response")
-		return Explanations{}, err
-	}
-	logger.Debug().Str("response body: %s\n", string(responseBody)).Msg("Got the response")
 	var response explainResponse
 	var explains Explanations
 	response.Status = completeStatus
@@ -78,6 +57,41 @@ func (d *DeepCodeLLMBindingImpl) runExplain(ctx context.Context, options Explain
 	explains = response.Explanation
 
 	return explains, nil
+}
+
+func (d *DeepCodeLLMBindingImpl) submitRequest(ctx context.Context, url *url.URL, requestBody []byte) (response []byte, err error) {
+	logger := d.logger.With().Str("method", "aubmitRequest").Logger()
+	logger.Debug().Str("payload body: %s\n", string(requestBody)).Msg("Marshaled payload")
+
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, url.String(), bytes.NewBuffer(requestBody))
+	if err != nil {
+		logger.Err(err).Str("requestBody", string(requestBody)).Msg("error creating request")
+		return response, err
+	}
+
+	d.addDefaultHeaders(req)
+
+	resp, err := d.httpClientFunc().Do(req) //nolint:bodyclose // this seems to be a false positive
+	if err != nil {
+		logger.Err(err).Str("requestBody", string(requestBody)).Msg("error getting response")
+		return response, err
+	}
+	defer func(Body io.ReadCloser) {
+		bodyCloseErr := Body.Close()
+		if bodyCloseErr != nil {
+			logger.Err(err).Str("requestBody", string(requestBody)).Msg("error closing response")
+		}
+	}(resp.Body)
+
+	// Read the response body
+	responseBody, err := io.ReadAll(resp.Body)
+	if err != nil {
+		logger.Err(err).Str("requestBody", string(requestBody)).Msg("error reading all response")
+		return response, err
+	}
+	logger.Debug().Str("response body: %s\n", string(responseBody)).Msg("Got the response")
+
+	return response, nil
 }
 
 func (d *DeepCodeLLMBindingImpl) explainRequestBody(options *ExplainOptions) ([]byte, error) {
@@ -102,6 +116,78 @@ func (d *DeepCodeLLMBindingImpl) explainRequestBody(options *ExplainOptions) ([]
 		logger.Debug().Msg("payload for FixExplanation")
 	}
 	return requestBody, marshalErr
+}
+
+var failed = AutofixStatus{Message: "FAILED"}
+
+func (d *DeepCodeLLMBindingImpl) runAutofix(ctx context.Context, requestId string, options AutofixOptions) (AutofixResponse, AutofixStatus, error) {
+
+	span := d.instrumentor.StartSpan(ctx, "code.RunAutofix")
+	defer span.Finish()
+
+	logger := d.logger.With().Str("method", "code.RunAutofix").Logger()
+
+	requestBody, err := d.autofixRequestBody(&options)
+	if err != nil {
+		logger.Err(err).Str("requestBody", string(requestBody)).Msg("error creating request body")
+		return AutofixResponse{}, failed, err
+	}
+
+	logger.Info().Str("requestId", requestId).Msg("Started obtaining autofix Response")
+	responseBody, err := d.submitRequest(ctx, options.Endpoint, requestBody)
+	logger.Info().Str("requestId", requestId).Msg("Finished obtaining autofix Response")
+
+	if err != nil {
+		logger.Err(err).Str("responseBody", string(responseBody)).Msg("error response from autofix")
+		return AutofixResponse{}, failed, err
+	}
+
+	var response AutofixResponse
+	err = json.Unmarshal(responseBody, &response)
+	if err != nil {
+		logger.Err(err).Str("responseBody", string(responseBody)).Msg("error unmarshalling")
+		return AutofixResponse{}, failed, err
+	}
+
+	logger.Debug().Msgf("Status: %s", response.Status)
+
+	if response.Status == failed.Message {
+		logger.Error().Str("responseStatus", response.Status).Msg("autofix failed")
+		return response, failed, errors.New("Autofix failed")
+	}
+
+	if response.Status == "" {
+		logger.Error().Str("responseStatus", response.Status).Msg("unknown response status (empty)")
+		return response, failed, errors.New("Unknown response status (empty)")
+	}
+
+	status := AutofixStatus{Message: response.Status}
+	if response.Status != completeStatus {
+		return response, status, nil
+	}
+
+	return response, status, nil
+}
+
+func (d *DeepCodeLLMBindingImpl) autofixRequestBody(options *AutofixOptions) ([]byte, error) {
+
+	request := AutofixRequest{
+		Key: AutofixRequestKey{
+			Type:     "file",
+			Hash:     options.BundleHash,
+			FilePath: options.FilePath,
+			RuleId:   options.RuleID,
+			LineNum:  options.LineNum,
+		},
+		AnalysisContext:     options.CodeRequestContext,
+		IdeExtensionDetails: options.IdeExtensionDetails,
+	}
+	if len(options.ShardKey) > 0 {
+		request.Key.Shard = options.ShardKey
+	}
+
+	requestBody, err := json.Marshal(request)
+	return requestBody, err
 }
 
 func encodeDiffs(diffs []string) []string {

@@ -6,6 +6,7 @@ require (
 	github.com/go-git/go-git/v5 v5.14.0
 	github.com/golang/mock v1.6.0
 	github.com/google/uuid v1.6.0
+	github.com/hexops/gotextdiff v1.0.3
 	github.com/oapi-codegen/oapi-codegen/v2 v2.4.1
 	github.com/oapi-codegen/runtime v1.1.1
 	github.com/pact-foundation/pact-go/v2 v2.0.5
