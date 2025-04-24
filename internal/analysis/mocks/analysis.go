@@ -9,8 +9,8 @@ import (
 	reflect "reflect"
 
 	gomock "github.com/golang/mock/gomock"
+	bundle "github.com/snyk/code-client-go/bundle"
 	analysis "github.com/snyk/code-client-go/internal/analysis"
-	bundle "github.com/snyk/code-client-go/internal/bundle"
 	sarif "github.com/snyk/code-client-go/sarif"
 	scan "github.com/snyk/code-client-go/scan"
 )
