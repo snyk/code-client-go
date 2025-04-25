@@ -8,6 +8,7 @@ import (
 	"io"
 	"net/http"
 	"net/url"
+	"strings"
 )
 
 var (
@@ -96,7 +97,7 @@ func (d *DeepCodeLLMBindingImpl) explainRequestBody(options *ExplainOptions) ([]
 	} else {
 		requestBody, marshalErr = json.Marshal(explainFixRequest{
 			RuleId:            options.RuleKey,
-			Diffs:             encodeDiffs(options.Diffs),
+			Diffs:             prepareDiffs(options.Diffs),
 			ExplanationLength: SHORT,
 		})
 		logger.Debug().Msg("payload for FixExplanation")
@@ -104,9 +105,20 @@ func (d *DeepCodeLLMBindingImpl) explainRequestBody(options *ExplainOptions) ([]
 	return requestBody, marshalErr
 }
 
-func encodeDiffs(diffs []string) []string {
-	var encodedDiffs []string
+func prepareDiffs(diffs []string) []string {
+	cleanedDiffs := make([]string, 0, len(diffs))
 	for _, diff := range diffs {
+		diffLines := strings.Split(diff, "\n")
+		cleanedLines := ""
+		for i, line := range diffLines {
+			if !strings.HasPrefix(line, "---") && !strings.HasPrefix(line, "+++") && i > 1 {
+				cleanedLines += line + "\n"
+			}
+		}
+		cleanedDiffs = append(cleanedDiffs, cleanedLines)
+	}
+	var encodedDiffs []string
+	for _, diff := range cleanedDiffs {
 		encodedDiffs = append(encodedDiffs, base64.StdEncoding.EncodeToString([]byte(diff)))
 	}
 	return encodedDiffs
