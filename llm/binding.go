@@ -77,7 +77,7 @@ func (d *DeepCodeLLMBindingImpl) ExplainWithOptions(ctx context.Context, options
 		explanationNumber, parseErr := strconv.Atoi(strings.ReplaceAll(strings.ToLower(k), "explanation", ""))
 		if parseErr != nil || (explanationNumber-1) < 0 {
 			logger.Err(parseErr).Msgf("error parsing explanationNumber%s", k)
-			return explainResult, parseErr
+			continue
 		}
 		index := explanationNumber - 1
 		explainResult[index] = v
