@@ -4,6 +4,8 @@ import (
 	"context"
 	"encoding/json"
 	"net/url"
+	"strconv"
+	"strings"
 
 	"github.com/rs/zerolog"
 
@@ -45,7 +47,7 @@ type SnykLLMBindings interface {
 	// output - a channel that can be used to stream the results
 	Explain(ctx context.Context, input AIRequest, format OutputFormat, output chan<- string) error
 }
-type ExplainResult map[string]string
+type ExplainResult map[int]string
 
 type DeepCodeLLMBinding interface {
 	SnykLLMBindings
@@ -64,17 +66,21 @@ type DeepCodeLLMBindingImpl struct {
 func (d *DeepCodeLLMBindingImpl) ExplainWithOptions(ctx context.Context, options ExplainOptions) (ExplainResult, error) {
 	s := d.instrumentor.StartSpan(ctx, "code.ExplainWithOptions")
 	defer d.instrumentor.Finish(s)
+	logger := d.logger.With().Str("method", "code.ExplainWithOptions").Logger()
 	response, err := d.runExplain(s.Context(), options)
 	explainResult := ExplainResult{}
 	if err != nil {
 		return explainResult, err
 	}
-	index := 0
-	for _, explanation := range response {
-		if index < len(options.Diffs) {
-			explainResult[options.Diffs[index]] = explanation
+	for k, v := range response {
+		// response key is "explanation1", "explanation2", etc
+		explanationNumber, parseErr := strconv.Atoi(strings.ReplaceAll(strings.ToLower(k), "explanation", ""))
+		if parseErr != nil || (explanationNumber-1) < 0 {
+			logger.Err(parseErr).Msgf("error parsing explanationNumber%s", k)
+			return explainResult, parseErr
 		}
-		index++
+		index := explanationNumber - 1
+		explainResult[index] = v
 	}
 
 	return explainResult, nil
