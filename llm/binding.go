@@ -4,8 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"net/url"
-	"strconv"
-	"strings"
+	"slices"
 
 	"github.com/rs/zerolog"
 
@@ -47,7 +46,7 @@ type SnykLLMBindings interface {
 	// output - a channel that can be used to stream the results
 	Explain(ctx context.Context, input AIRequest, format OutputFormat, output chan<- string) error
 }
-type ExplainResult map[int]string
+type ExplainResult []string
 
 type DeepCodeLLMBinding interface {
 	SnykLLMBindings
@@ -66,24 +65,29 @@ type DeepCodeLLMBindingImpl struct {
 func (d *DeepCodeLLMBindingImpl) ExplainWithOptions(ctx context.Context, options ExplainOptions) (ExplainResult, error) {
 	s := d.instrumentor.StartSpan(ctx, "code.ExplainWithOptions")
 	defer d.instrumentor.Finish(s)
-	logger := d.logger.With().Str("method", "code.ExplainWithOptions").Logger()
 	response, err := d.runExplain(s.Context(), options)
 	explainResult := ExplainResult{}
 	if err != nil {
 		return explainResult, err
 	}
-	for k, v := range response {
-		// response key is "explanation1", "explanation2", etc
-		explanationNumber, parseErr := strconv.Atoi(strings.ReplaceAll(strings.ToLower(k), "explanation", ""))
-		if parseErr != nil || (explanationNumber-1) < 0 {
-			logger.Err(parseErr).Msgf("error parsing explanationNumber%s", k)
-			continue
-		}
-		index := explanationNumber - 1
-		explainResult[index] = v
-	}
 
-	return explainResult, nil
+	orderedExplainResults := getOrderedResponse(response)
+
+	return orderedExplainResults, nil
+}
+
+func getOrderedResponse(explainResponse Explanations) []string {
+	explainMapKeys := make([]string, 0, len(explainResponse))
+	for k := range explainResponse {
+		explainMapKeys = append(explainMapKeys, k)
+	}
+	slices.Sort(explainMapKeys)
+
+	orderedValues := make([]string, 0, len(explainResponse))
+	for _, key := range explainMapKeys {
+		orderedValues = append(orderedValues, explainResponse[key])
+	}
+	return orderedValues
 }
 
 func (d *DeepCodeLLMBindingImpl) PublishIssues(_ context.Context, _ []map[string]string) error {
