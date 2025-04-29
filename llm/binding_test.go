@@ -30,7 +30,13 @@ func TestExplainWithOptions(t *testing.T) {
 
 		explainResponseJSON := explainResponse{
 			Status:      completeStatus,
-			Explanation: map[string]string{"explanation1": "This is the first explanation"},
+			Explanation: map[string]string{
+				"explanation1": "This is the first explanation",
+				"explanation2": "this is the second explanation",
+				"explanation3": "this is the third explanation",
+				"explanation4": "this is the fourth explanation",
+				"explanation5": "this is the fifth explanation",
+			},
 		}
 
 		expectedResponseBody, err := json.Marshal(explainResponseJSON)
@@ -49,7 +55,7 @@ func TestExplainWithOptions(t *testing.T) {
 		err = json.Unmarshal(expectedResponseBody, &exptectedExplanationsResponse)
 		assert.NoError(t, err)
 		expectedResExplanations := exptectedExplanationsResponse.Explanation
-		assert.Equal(t, expectedResExplanations["explanation1"], explanation[testDiff])
+		assert.Equal(t, expectedResExplanations["explanation1"], explanation[0])
 	})
 
 	t.Run("runExplain error", func(t *testing.T) {
