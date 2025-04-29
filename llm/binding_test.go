@@ -56,6 +56,10 @@ func TestExplainWithOptions(t *testing.T) {
 		assert.NoError(t, err)
 		expectedResExplanations := exptectedExplanationsResponse.Explanation
 		assert.Equal(t, expectedResExplanations["explanation1"], explanation[0])
+		assert.Equal(t, expectedResExplanations["explanation2"], explanation[1])
+		assert.Equal(t, expectedResExplanations["explanation3"], explanation[2])
+		assert.Equal(t, expectedResExplanations["explanation4"], explanation[3])
+		assert.Equal(t, expectedResExplanations["explanation5"], explanation[4])
 	})
 
 	t.Run("runExplain error", func(t *testing.T) {
