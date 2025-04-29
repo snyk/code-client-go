@@ -2,6 +2,7 @@ package llm
 
 import (
 	"context"
+	"encoding/base64"
 	"encoding/json"
 	"io"
 	"net/http"
@@ -202,6 +203,52 @@ func TestEndpoint(t *testing.T) {
 			if options.Endpoint.RawQuery != tc.expected.RawQuery {
 				t.Errorf("Expected RawQuery: %s, Got: %s", tc.expected.RawQuery, options.Endpoint.RawQuery)
 			}
+		})
+	}
+}
+
+func TestPrepareDiffs(t *testing.T) {
+	testCases := []struct {
+		name     string
+		input    []string
+		expected []string
+	}{
+		{
+			name: "Single diff with headers and content",
+			input: []string{
+				"--- a/file.txt\n" +
+					"+++ b/file.txt\n" +
+					"@@ -1,1 +1,1 @@\n" +
+					"-old line\n" +
+					"+new line\n",
+			},
+			expected: []string{
+				base64.StdEncoding.EncodeToString([]byte("@@ -1,1 +1,1 @@\n-old line\n+new line\n\n")),
+			},
+		},
+		{
+			name: "Multiple diffs",
+			input: []string{
+				"--- a/file1.txt\n" +
+					"+++ b/file1.txt\n" +
+					"-line 1\n" +
+					"+line 2\n",
+				"--- a/file2.txt\n" +
+					"+++ b/file2.txt\n" +
+					"content2a\n" +
+					"+content2b\n",
+			},
+			expected: []string{
+				base64.StdEncoding.EncodeToString([]byte("-line 1\n+line 2\n\n")),
+				base64.StdEncoding.EncodeToString([]byte("content2a\n+content2b\n\n")),
+			},
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			actual := prepareDiffs(tc.input)
+			assert.Equal(t, tc.expected, actual)
 		})
 	}
 }
