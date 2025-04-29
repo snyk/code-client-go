@@ -110,8 +110,8 @@ func prepareDiffs(diffs []string) []string {
 	for _, diff := range diffs {
 		diffLines := strings.Split(diff, "\n")
 		cleanedLines := ""
-		for i, line := range diffLines {
-			if !strings.HasPrefix(line, "---") && !strings.HasPrefix(line, "+++") && i > 1 {
+		for _, line := range diffLines {
+			if !strings.HasPrefix(line, "---") && !strings.HasPrefix(line, "+++") {
 				cleanedLines += line + "\n"
 			}
 		}
