@@ -29,7 +29,7 @@ func TestExplainWithOptions(t *testing.T) {
 		d, mockHTTPClient := getHTTPMockedBinding(t)
 
 		explainResponseJSON := explainResponse{
-			Status:      completeStatus,
+			Status: completeStatus,
 			Explanation: map[string]string{
 				"explanation1": "This is the first explanation",
 				"explanation2": "this is the second explanation",
