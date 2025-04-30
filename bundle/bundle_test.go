@@ -17,13 +17,19 @@
 package bundle_test
 
 import (
+	"bytes"
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
+	"io"
+	"os"
 	"testing"
 
 	"github.com/golang/mock/gomock"
 	"github.com/rs/zerolog"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"golang.org/x/net/html/charset"
 
 	"github.com/snyk/code-client-go/bundle"
 	"github.com/snyk/code-client-go/internal/deepcode"
@@ -102,5 +108,38 @@ func Test_UploadBatch(t *testing.T) {
 		require.NoError(t, err)
 		newHash := b.GetBundleHash()
 		assert.NotEqual(t, oldHash, newHash)
+	})
+}
+
+func Test_BundleEncoding(t *testing.T) {
+	t.Run("utf-8 encoded content", func(t *testing.T) {
+		content := []byte("hello")
+		bundle := deepcode.BundleFileFrom(content)
+
+		utf8Reader, err := charset.NewReaderLabel("UTF-8", bytes.NewReader([]byte(bundle.Content)))
+		assert.NoError(t, err)
+
+		actualContent, err := io.ReadAll(utf8Reader)
+		assert.NoError(t, err)
+
+		actualShasum := sha256.Sum256(actualContent)
+		assert.Equal(t, bundle.Hash, hex.EncodeToString(actualShasum[:]))
+	})
+
+	t.Run("non utf-8 / binary file", func(t *testing.T) {
+		content, err := os.ReadFile("testdata/rshell_font.php")
+		assert.NoError(t, err)
+
+		bundle := deepcode.BundleFileFrom(content)
+
+		utf8Reader, err := charset.NewReaderLabel("UTF-8", bytes.NewReader(content))
+		assert.NoError(t, err)
+
+		actualContent, err := io.ReadAll(utf8Reader)
+		assert.NoError(t, err)
+
+		actualHash := sha256.Sum256(actualContent)
+
+		assert.Equal(t, bundle.Hash, hex.EncodeToString(actualHash[:]))
 	})
 }
