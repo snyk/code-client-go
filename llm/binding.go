@@ -63,8 +63,15 @@ type DeepCodeLLMBindingImpl struct {
 }
 
 func (d *DeepCodeLLMBindingImpl) SubmitAutofixFeedback(ctx context.Context, requestId string, options AutofixFeedbackOptions) error {
-	//TODO implement me
-	panic("implement me")
+	method := "SubmitAutofixFeedback"
+	span := d.instrumentor.StartSpan(ctx, method)
+	defer d.instrumentor.Finish(span)
+	logger := d.logger.With().Str("method", method).Logger()
+	logger.Info().Str("requestId", requestId).Msg("Started submitting autofix feedback")
+	defer logger.Info().Str("requestId", requestId).Msg("Finished submitting autofix feedback")
+
+	err := d.submitAutofixFeedback(ctx, requestId, options)
+	return err
 }
 
 func (d *DeepCodeLLMBindingImpl) GetAutofixDiffs(ctx context.Context, requestId string, options AutofixOptions) (unifiedDiffSuggestions []AutofixUnifiedDiffSuggestion, status AutofixStatus, err error) {

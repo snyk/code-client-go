@@ -89,11 +89,11 @@ type AutofixStatus struct {
 }
 
 type AutofixRequestKey struct {
-	Type     string         `json:"type"`
-	Hash     string         `json:"hash"`
-	Shard    string         `json:"shard"`
-	FilePath string 		`json:"filePath"`
-	RuleId   string         `json:"ruleId"`
+	Type     string `json:"type"`
+	Hash     string `json:"hash"`
+	Shard    string `json:"shard"`
+	FilePath string `json:"filePath"`
+	RuleId   string `json:"ruleId"`
 	// 1-based to comply with Sarif and Code API, see
 	// https://docs.oasis-open.org/sarif/sarif/v2.1.0/sarif-v2.1.0.html#_Ref493492556
 	LineNum int `json:"lineNum"`
@@ -131,19 +131,30 @@ type AutofixOptions struct {
 	ShardKey   string
 	BaseDir    string
 	FilePath   string
-	LineNum	   int
+	LineNum    int
 
-	Endpoint                   *url.URL
-	CodeRequestContext         CodeRequestContext
-	IdeExtensionDetails        AutofixIdeExtensionDetails
+	Endpoint            *url.URL
+	CodeRequestContext  CodeRequestContext
+	IdeExtensionDetails AutofixIdeExtensionDetails
 }
 
-
 type AutofixFeedbackOptions struct {
-	FixID      string
-	Result	   string
+	FixID  string
+	Result string
 
-	Endpoint                   *url.URL
-	CodeRequestContext         CodeRequestContext
-	IdeExtensionDetails        AutofixIdeExtensionDetails
+	Endpoint            *url.URL
+	CodeRequestContext  CodeRequestContext
+	IdeExtensionDetails AutofixIdeExtensionDetails
+}
+
+type AutofixEventDetails struct {
+	FixId string `json:"fixId"`
+}
+
+type AutofixUserEvent struct {
+	AnalysisContext     CodeRequestContext         `json:"analysisContext"`
+	Channel             string                     `json:"channel"`
+	EventType           string                     `json:"eventType"`
+	EventDetails        AutofixEventDetails        `json:"eventDetails"`
+	IdeExtensionDetails AutofixIdeExtensionDetails `json:"ideExtensionDetails"`
 }

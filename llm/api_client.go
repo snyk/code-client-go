@@ -190,6 +190,39 @@ func (d *DeepCodeLLMBindingImpl) autofixRequestBody(options *AutofixOptions) ([]
 	return requestBody, err
 }
 
+func (d *DeepCodeLLMBindingImpl) submitAutofixFeedback(ctx context.Context, requestId string, options AutofixFeedbackOptions) error {
+	span := d.instrumentor.StartSpan(ctx, "code.SubmitAutofixFeedback")
+	defer span.Finish()
+
+	logger := d.logger.With().Str("method", "code.SubmitAutofixFeedback").Logger()
+
+	requestBody, err := d.autofixFeedbackRequestBody(&options)
+	if err != nil {
+		logger.Err(err).Str("requestBody", string(requestBody)).Msg("error creating request body")
+		return err
+	}
+
+	logger.Info().Str("requestId", requestId).Msg("Started obtaining autofix Response")
+	_, err = d.submitRequest(ctx, options.Endpoint, requestBody)
+	logger.Info().Str("requestId", requestId).Msg("Finished obtaining autofix Response")
+
+	return err
+}
+
+func (d *DeepCodeLLMBindingImpl) autofixFeedbackRequestBody(options *AutofixFeedbackOptions) ([]byte, error) {
+	request := AutofixUserEvent{
+		Channel:             "IDE",
+		EventType:           options.Result,
+		EventDetails:        AutofixEventDetails{FixId: options.FixID},
+		AnalysisContext:     options.CodeRequestContext,
+		IdeExtensionDetails: options.IdeExtensionDetails,
+	}
+
+	requestBody, err := json.Marshal(request)
+
+	return requestBody, err
+}
+
 func encodeDiffs(diffs []string) []string {
 	var encodedDiffs []string
 	for _, diff := range diffs {
