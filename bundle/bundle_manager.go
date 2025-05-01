@@ -17,7 +17,6 @@
 package bundle
 
 import (
-	"bytes"
 	"context"
 	"os"
 	"path/filepath"
@@ -113,14 +112,14 @@ func (b *bundleManager) Create(ctx context.Context,
 			b.logger.Error().Err(err).Str("filePath", absoluteFilePath).Msg("could not load content of file")
 			continue
 		}
-		var fileContent []byte
-		fileContent, err = util.ConvertToUTF8(bytes.NewReader(rawContent))
-		if err != nil {
-			b.logger.Error().Err(err).Str("filePath", absoluteFilePath).Msg("could not convert content of file to UTF-8")
+
+		bundleFile, bundleError := deepcode.BundleFileFrom(rawContent)
+		if bundleError != nil {
+			b.logger.Error().Err(bundleError).Str("filePath", absoluteFilePath).Msg("could not convert content of file to UTF-8")
 			continue
 		}
 
-		if !(len(fileContent) > 0 && len(fileContent) <= maxFileSize) {
+		if !(len(bundleFile.Content) > 0 && len(bundleFile.Content) <= maxFileSize) {
 			continue
 		}
 
@@ -131,7 +130,6 @@ func (b *bundleManager) Create(ctx context.Context,
 		}
 		relativePath = util.EncodePath(relativePath)
 
-		bundleFile := deepcode.BundleFileFrom(fileContent)
 		bundleFiles[relativePath] = bundleFile
 		fileHashes[relativePath] = bundleFile.Hash
 		b.logger.Trace().Str("method", "BundleFileFrom").Str("hash", bundleFile.Hash).Str("filePath", absoluteFilePath).Msg("")

@@ -17,10 +17,11 @@ package codeclient_test
 
 import (
 	"context"
-	"github.com/google/uuid"
 	"os"
 	"path/filepath"
 	"testing"
+
+	"github.com/google/uuid"
 
 	"github.com/golang/mock/gomock"
 	"github.com/rs/zerolog"
@@ -44,9 +45,14 @@ import (
 func Test_UploadAndAnalyze(t *testing.T) {
 	baseDir, firstDocPath, secondDocPath, firstDocContent, secondDocContent := setupDocs(t)
 	docs := sliceToChannel([]string{firstDocPath, secondDocPath})
+	firstBundle, err := deepcode.BundleFileFrom(firstDocContent)
+	assert.NoError(t, err)
+	secondBundle, err := deepcode.BundleFileFrom(secondDocContent)
+	assert.NoError(t, err)
+
 	files := map[string]deepcode.BundleFile{
-		firstDocPath: deepcode.BundleFileFrom(firstDocContent),
-		firstDocPath: deepcode.BundleFileFrom(secondDocContent),
+		firstDocPath: firstBundle,
+		firstDocPath: secondBundle,
 	}
 
 	logger := zerolog.Nop()
