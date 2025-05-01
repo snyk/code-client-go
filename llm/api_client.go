@@ -9,6 +9,7 @@ import (
 	"io"
 	"net/http"
 	"net/url"
+	"strings"
 )
 
 var (
@@ -30,6 +31,7 @@ func (d *DeepCodeLLMBindingImpl) runExplain(ctx context.Context, options Explain
 		logger.Err(err).Str("requestBody", string(requestBody)).Msg("error creating request body")
 		return Explanations{}, err
 	}
+	logger.Debug().Str("payload body: %s\n", string(requestBody)).Msg("Marshaled payload")
 
 	u := options.Endpoint
 	if u == nil {
@@ -110,7 +112,7 @@ func (d *DeepCodeLLMBindingImpl) explainRequestBody(options *ExplainOptions) ([]
 	} else {
 		requestBody, marshalErr = json.Marshal(explainFixRequest{
 			RuleId:            options.RuleKey,
-			Diffs:             encodeDiffs(options.Diffs),
+			Diffs:             prepareDiffs(options.Diffs),
 			ExplanationLength: SHORT,
 		})
 		logger.Debug().Msg("payload for FixExplanation")
@@ -153,12 +155,12 @@ func (d *DeepCodeLLMBindingImpl) runAutofix(ctx context.Context, requestId strin
 
 	if response.Status == failed.Message {
 		logger.Error().Str("responseStatus", response.Status).Msg("autofix failed")
-		return response, failed, errors.New("Autofix failed")
+		return response, failed, errors.New("autofix failed")
 	}
 
 	if response.Status == "" {
 		logger.Error().Str("responseStatus", response.Status).Msg("unknown response status (empty)")
-		return response, failed, errors.New("Unknown response status (empty)")
+		return response, failed, errors.New("unknown response status (empty)")
 	}
 
 	status := AutofixStatus{Message: response.Status}
@@ -223,9 +225,20 @@ func (d *DeepCodeLLMBindingImpl) autofixFeedbackRequestBody(options *AutofixFeed
 	return requestBody, err
 }
 
-func encodeDiffs(diffs []string) []string {
-	var encodedDiffs []string
+func prepareDiffs(diffs []string) []string {
+	cleanedDiffs := make([]string, 0, len(diffs))
 	for _, diff := range diffs {
+		diffLines := strings.Split(diff, "\n")
+		cleanedLines := ""
+		for _, line := range diffLines {
+			if !strings.HasPrefix(line, "---") && !strings.HasPrefix(line, "+++") {
+				cleanedLines += line + "\n"
+			}
+		}
+		cleanedDiffs = append(cleanedDiffs, cleanedLines)
+	}
+	var encodedDiffs []string
+	for _, diff := range cleanedDiffs {
 		encodedDiffs = append(encodedDiffs, base64.StdEncoding.EncodeToString([]byte(diff)))
 	}
 	return encodedDiffs

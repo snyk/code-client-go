@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"net/url"
+	"slices"
 
 	"github.com/rs/zerolog"
 
@@ -45,7 +46,7 @@ type SnykLLMBindings interface {
 	// output - a channel that can be used to stream the results
 	Explain(ctx context.Context, input AIRequest, format OutputFormat, output chan<- string) error
 }
-type ExplainResult map[string]string
+type ExplainResult []string
 
 type DeepCodeLLMBinding interface {
 	SnykLLMBindings
@@ -97,15 +98,24 @@ func (d *DeepCodeLLMBindingImpl) ExplainWithOptions(ctx context.Context, options
 	if err != nil {
 		return explainResult, err
 	}
-	index := 0
-	for _, explanation := range response {
-		if index < len(options.Diffs) {
-			explainResult[options.Diffs[index]] = explanation
-		}
-		index++
-	}
 
-	return explainResult, nil
+	orderedExplainResults := getOrderedResponse(response)
+
+	return orderedExplainResults, nil
+}
+
+func getOrderedResponse(explainResponse Explanations) []string {
+	explainMapKeys := make([]string, 0, len(explainResponse))
+	for k := range explainResponse {
+		explainMapKeys = append(explainMapKeys, k)
+	}
+	slices.Sort(explainMapKeys)
+
+	orderedValues := make([]string, 0, len(explainResponse))
+	for _, key := range explainMapKeys {
+		orderedValues = append(orderedValues, explainResponse[key])
+	}
+	return orderedValues
 }
 
 func (d *DeepCodeLLMBindingImpl) PublishIssues(_ context.Context, _ []map[string]string) error {
