@@ -33,7 +33,7 @@ func BundleFileFrom(rawContent []byte) (BundleFile, error) {
 	}
 
 	file := BundleFile{
-		Hash:    util.Hash(rawContent),
+		Hash:    util.Hash(fileContent),
 		Content: string(fileContent),
 	}
 	return file, nil

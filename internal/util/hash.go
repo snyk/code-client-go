@@ -17,7 +17,6 @@
 package util
 
 import (
-	"bytes"
 	"crypto/sha256"
 	"encoding/hex"
 	"io"
@@ -26,12 +25,7 @@ import (
 )
 
 func Hash(content []byte) string {
-	byteReader := bytes.NewReader(content)
-	utf8content, err := ConvertToUTF8(byteReader)
-	if err != nil {
-		utf8content = content
-	}
-	b := sha256.Sum256(utf8content)
+	b := sha256.Sum256(content)
 	sum256 := hex.EncodeToString(b[:])
 	return sum256
 }
