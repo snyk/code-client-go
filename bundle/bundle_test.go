@@ -18,6 +18,9 @@ package bundle_test
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
+	"os"
 	"testing"
 
 	"github.com/golang/mock/gomock"
@@ -102,5 +105,27 @@ func Test_UploadBatch(t *testing.T) {
 		require.NoError(t, err)
 		newHash := b.GetBundleHash()
 		assert.NotEqual(t, oldHash, newHash)
+	})
+}
+
+func Test_BundleEncoding(t *testing.T) {
+	t.Run("utf-8 encoded content", func(t *testing.T) {
+		content := []byte("hello")
+		bundle, err := deepcode.BundleFileFrom(content)
+		assert.NoError(t, err)
+
+		actualShasum := sha256.Sum256([]byte(bundle.Content))
+		assert.Equal(t, bundle.Hash, hex.EncodeToString(actualShasum[:]))
+	})
+
+	t.Run("non utf-8 / binary file", func(t *testing.T) {
+		content, err := os.ReadFile("testdata/rshell_font.php")
+		assert.NoError(t, err)
+
+		bundle, err := deepcode.BundleFileFrom(content)
+		assert.NoError(t, err)
+
+		actualShasum := sha256.Sum256([]byte(bundle.Content))
+		assert.Equal(t, bundle.Hash, hex.EncodeToString(actualShasum[:]))
 	})
 }
