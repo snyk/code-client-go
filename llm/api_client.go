@@ -123,7 +123,6 @@ func (d *DeepCodeLLMBindingImpl) explainRequestBody(options *ExplainOptions) ([]
 var failed = AutofixStatus{Message: "FAILED"}
 
 func (d *DeepCodeLLMBindingImpl) runAutofix(ctx context.Context, requestId string, options AutofixOptions) (AutofixResponse, AutofixStatus, error) {
-
 	span := d.instrumentor.StartSpan(ctx, "code.RunAutofix")
 	defer span.Finish()
 
@@ -172,7 +171,6 @@ func (d *DeepCodeLLMBindingImpl) runAutofix(ctx context.Context, requestId strin
 }
 
 func (d *DeepCodeLLMBindingImpl) autofixRequestBody(options *AutofixOptions) ([]byte, error) {
-
 	request := AutofixRequest{
 		Key: AutofixRequestKey{
 			Type:     "file",
