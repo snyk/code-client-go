@@ -62,7 +62,7 @@ func (d *DeepCodeLLMBindingImpl) runExplain(ctx context.Context, options Explain
 }
 
 func (d *DeepCodeLLMBindingImpl) submitRequest(ctx context.Context, url *url.URL, requestBody []byte) (response []byte, err error) {
-	logger := d.logger.With().Str("method", "aubmitRequest").Logger()
+	logger := d.logger.With().Str("method", "submitRequest").Logger()
 	logger.Debug().Str("payload body: %s\n", string(requestBody)).Msg("Marshaled payload")
 
 	req, err := http.NewRequestWithContext(ctx, http.MethodPost, url.String(), bytes.NewBuffer(requestBody))
@@ -93,7 +93,7 @@ func (d *DeepCodeLLMBindingImpl) submitRequest(ctx context.Context, url *url.URL
 	}
 	logger.Debug().Str("response body: %s\n", string(responseBody)).Msg("Got the response")
 
-	return response, nil
+	return responseBody, nil
 }
 
 func (d *DeepCodeLLMBindingImpl) explainRequestBody(options *ExplainOptions) ([]byte, error) {
