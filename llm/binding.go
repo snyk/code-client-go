@@ -67,9 +67,9 @@ func (d *DeepCodeLLMBindingImpl) SubmitAutofixFeedback(ctx context.Context, requ
 	method := "SubmitAutofixFeedback"
 	span := d.instrumentor.StartSpan(ctx, method)
 	defer d.instrumentor.Finish(span)
-	logger := d.logger.With().Str("method", method).Logger()
-	logger.Info().Str("requestId", requestId).Msg("Started submitting autofix feedback")
-	defer logger.Info().Str("requestId", requestId).Msg("Finished submitting autofix feedback")
+	logger := d.logger.With().Str("method", method).Str("requestId", requestId).Logger()
+	logger.Info().Msg("Started submitting autofix feedback")
+	defer logger.Info().Msg("Finished submitting autofix feedback")
 
 	err := d.submitAutofixFeedback(ctx, requestId, options)
 	return err
@@ -79,9 +79,9 @@ func (d *DeepCodeLLMBindingImpl) GetAutofixDiffs(ctx context.Context, requestId 
 	method := "GetAutofixDiffs"
 	span := d.instrumentor.StartSpan(ctx, method)
 	defer d.instrumentor.Finish(span)
-	logger := d.logger.With().Str("method", method).Logger()
-	logger.Info().Str("requestId", requestId).Msg("Started obtaining autofix diffs")
-	defer logger.Info().Str("requestId", requestId).Msg("Finished obtaining autofix diffs")
+	logger := d.logger.With().Str("method", method).Str("requestId", requestId).Logger()
+	logger.Info().Msg("Started obtaining autofix diffs")
+	defer logger.Info().Msg("Finished obtaining autofix diffs")
 
 	autofixResponse, status, err := d.runAutofix(ctx, requestId, options)
 	if err != nil {
