@@ -18,6 +18,7 @@ package bundle
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/rs/zerolog"
 
@@ -131,6 +132,25 @@ type Batch struct {
 func NewBatch(documents map[string]deepcode.BundleFile) *Batch {
 	return &Batch{
 		documents: documents,
+	}
+}
+
+func NewBatchFromRawContent(documents map[string][]byte) *Batch {
+	bundleFiles := make(map[string]deepcode.BundleFile)
+
+	for key, rawData := range documents {
+		bundleFile, err := deepcode.BundleFileFrom(rawData)
+		if err != nil {
+			// TODO: logging the error
+			fmt.Printf("error creating a bundle from the file")
+			continue
+		}
+
+		bundleFiles[key] = bundleFile
+	}
+
+	return &Batch{
+		documents: bundleFiles,
 	}
 }
 
