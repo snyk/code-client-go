@@ -18,6 +18,7 @@ package bundle
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/rs/zerolog"
 
@@ -132,6 +133,23 @@ func NewBatch(documents map[string]deepcode.BundleFile) *Batch {
 	return &Batch{
 		documents: documents,
 	}
+}
+
+func NewBatchFromRawContent(documents map[string][]byte) (*Batch, error) {
+	bundleFiles := make(map[string]deepcode.BundleFile)
+
+	for key, rawData := range documents {
+		bundleFile, err := deepcode.BundleFileFrom(rawData)
+		if err != nil {
+			return nil, fmt.Errorf("failed to create file from raw data: %v", err)
+		}
+
+		bundleFiles[key] = bundleFile
+	}
+
+	return &Batch{
+		documents: bundleFiles,
+	}, nil
 }
 
 // todo simplify the size computation
