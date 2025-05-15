@@ -20,6 +20,7 @@ import (
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
+	"fmt"
 	"os"
 	"testing"
 
@@ -39,6 +40,29 @@ var bundleWithMultipleFiles = bundle.NewBatch(map[string]deepcode.BundleFile{
 	"file":    {},
 	"another": {},
 })
+var bundleFromRawContent, batchErr = bundle.NewBatchFromRawContent(map[string][]byte{"hello": []byte("world")})
+
+// Matcher for BundleFile that matches on key and content (ignores hash)
+type bundleFilePartialMatcher struct {
+	expectedKey     string
+	expectedContent string
+}
+
+func (m bundleFilePartialMatcher) Matches(x interface{}) bool {
+	files, ok := x.(map[string]deepcode.BundleFile)
+	if !ok {
+		return false
+	}
+	file, exists := files[m.expectedKey]
+	if !exists {
+		return false
+	}
+	return file.Content == m.expectedContent
+}
+
+func (m bundleFilePartialMatcher) String() string {
+	return fmt.Sprintf("{ Key : '%s', Content : '%s' }", m.expectedKey, m.expectedContent)
+}
 
 func Test_UploadBatch(t *testing.T) {
 	testLogger := zerolog.Nop()
@@ -89,6 +113,7 @@ func Test_UploadBatch(t *testing.T) {
 		mockSnykCodeClient.EXPECT().ExtendBundle(gomock.Any(), "testBundleHash", map[string]deepcode.BundleFile{
 			"file": {},
 		}, []string{}).Return("testBundleHash", []string{}, nil).Times(1)
+		mockSnykCodeClient.EXPECT().ExtendBundle(gomock.Any(), "bundleWithMultipleFilesHash", bundleFilePartialMatcher{expectedKey: "hello", expectedContent: "world"}, []string{}).Return("bundleWithAllFilesHash", []string{}, nil).Times(1)
 
 		mockSpan := mocks.NewMockSpan(ctrl)
 		mockSpan.EXPECT().Context().AnyTimes()
@@ -105,6 +130,11 @@ func Test_UploadBatch(t *testing.T) {
 		require.NoError(t, err)
 		newHash := b.GetBundleHash()
 		assert.NotEqual(t, oldHash, newHash)
+		require.NoError(t, batchErr)
+		err = b.UploadBatch(context.Background(), "testRequestId", bundleFromRawContent)
+		require.NoError(t, err)
+		newestHash := b.GetBundleHash()
+		assert.NotEqual(t, newHash, newestHash)
 	})
 }
 
