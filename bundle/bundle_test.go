@@ -113,7 +113,6 @@ func Test_UploadBatch(t *testing.T) {
 		mockSnykCodeClient.EXPECT().ExtendBundle(gomock.Any(), "testBundleHash", map[string]deepcode.BundleFile{
 			"file": {},
 		}, []string{}).Return("testBundleHash", []string{}, nil).Times(1)
-		mockSnykCodeClient.EXPECT().ExtendBundle(gomock.Any(), "bundleWithMultipleFilesHash", bundleFilePartialMatcher{expectedKey: "hello", expectedContent: "world"}, []string{}).Return("bundleWithAllFilesHash", []string{}, nil).Times(1)
 
 		mockSpan := mocks.NewMockSpan(ctrl)
 		mockSpan.EXPECT().Context().AnyTimes()
@@ -130,11 +129,31 @@ func Test_UploadBatch(t *testing.T) {
 		require.NoError(t, err)
 		newHash := b.GetBundleHash()
 		assert.NotEqual(t, oldHash, newHash)
+	})
+}
+
+func Test_RawContentBatch(t *testing.T) {
+	testLogger := zerolog.Nop()
+
+	t.Run("create a batch from raw content and upload the bundle", func(t *testing.T) {
+		ctrl := gomock.NewController(t)
+		mockSnykCodeClient := deepcodeMocks.NewMockDeepcodeClient(ctrl)
+		mockSnykCodeClient.EXPECT().ExtendBundle(gomock.Any(), "testBundleHash", bundleFilePartialMatcher{expectedKey: "hello", expectedContent: "world"}, []string{}).Return("newBundleHash", []string{}, nil).Times(1)
+
+		mockSpan := mocks.NewMockSpan(ctrl)
+		mockSpan.EXPECT().Context().AnyTimes()
+		mockInstrumentor := mocks.NewMockInstrumentor(ctrl)
+		mockInstrumentor.EXPECT().StartSpan(gomock.Any(), gomock.Any()).Return(mockSpan).AnyTimes()
+		mockInstrumentor.EXPECT().Finish(gomock.Any()).AnyTimes()
+		mockErrorReporter := mocks.NewMockErrorReporter(ctrl)
+		b := bundle.NewBundle(mockSnykCodeClient, mockInstrumentor, mockErrorReporter, &testLogger, "testRootPath", "testBundleHash", map[string]deepcode.BundleFile{}, []string{}, []string{})
+
 		require.NoError(t, batchErr)
-		err = b.UploadBatch(context.Background(), "testRequestId", bundleFromRawContent)
+		oldHash := b.GetBundleHash()
+		err := b.UploadBatch(context.Background(), "testRequestId", bundleFromRawContent)
 		require.NoError(t, err)
-		newestHash := b.GetBundleHash()
-		assert.NotEqual(t, newHash, newestHash)
+		newHash := b.GetBundleHash()
+		assert.NotEqual(t, oldHash, newHash)
 	})
 }
 
