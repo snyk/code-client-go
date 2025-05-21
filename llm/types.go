@@ -133,7 +133,7 @@ type AutofixOptions struct {
 	FilePath   string
 	LineNum    int
 
-	Endpoint            *url.URL
+	Host                string
 	CodeRequestContext  CodeRequestContext
 	IdeExtensionDetails AutofixIdeExtensionDetails
 }
@@ -142,7 +142,7 @@ type AutofixFeedbackOptions struct {
 	FixID  string
 	Result string
 
-	Endpoint            *url.URL
+	Host                string
 	CodeRequestContext  CodeRequestContext
 	IdeExtensionDetails AutofixIdeExtensionDetails
 }

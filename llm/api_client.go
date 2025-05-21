@@ -6,6 +6,7 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"io"
 	"net/http"
 	"net/url"
@@ -128,6 +129,12 @@ func (d *DeepCodeLLMBindingImpl) runAutofix(ctx context.Context, requestId strin
 
 	logger := d.logger.With().Str("method", "code.RunAutofix").Str("requestId", requestId).Logger()
 
+	endpoint, err := url.Parse(fmt.Sprintf("%s/autofix/suggestions", options.Host))
+	if err != nil {
+		logger.Err(err).Str("host", options.Host).Msg("error creating endpoint URL")
+		return AutofixResponse{}, failed, err
+	}
+
 	requestBody, err := d.autofixRequestBody(&options)
 	if err != nil {
 		logger.Err(err).Str("requestBody", string(requestBody)).Msg("error creating request body")
@@ -135,7 +142,7 @@ func (d *DeepCodeLLMBindingImpl) runAutofix(ctx context.Context, requestId strin
 	}
 
 	logger.Info().Msg("Started obtaining autofix Response")
-	responseBody, err := d.submitRequest(ctx, options.Endpoint, requestBody)
+	responseBody, err := d.submitRequest(ctx, endpoint, requestBody)
 	logger.Info().Msg("Finished obtaining autofix Response")
 
 	if err != nil {
@@ -198,6 +205,12 @@ func (d *DeepCodeLLMBindingImpl) submitAutofixFeedback(ctx context.Context, requ
 
 	logger := d.logger.With().Str("method", "code.SubmitAutofixFeedback").Str("requestId", requestId).Logger()
 
+	endpoint, err := url.Parse(fmt.Sprintf("%s/autofix/event", options.Host))
+	if err != nil {
+		logger.Err(err).Str("host", options.Host).Msg("error creating endpoint URL")
+		return err
+	}
+
 	requestBody, err := d.autofixFeedbackRequestBody(&options)
 	if err != nil {
 		logger.Err(err).Str("requestBody", string(requestBody)).Msg("error creating request body")
@@ -205,7 +218,7 @@ func (d *DeepCodeLLMBindingImpl) submitAutofixFeedback(ctx context.Context, requ
 	}
 
 	logger.Info().Msg("Started obtaining autofix Response")
-	_, err = d.submitRequest(ctx, options.Endpoint, requestBody)
+	_, err = d.submitRequest(ctx, endpoint, requestBody)
 	logger.Info().Msg("Finished obtaining autofix Response")
 
 	return err
