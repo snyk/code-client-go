@@ -283,3 +283,71 @@ func TestAddDefaultHeadersWithExistingHeaders(t *testing.T) {
 		t.Errorf("Expected Existing-Header to be 'existing-value', got %s", existingHeader)
 	}
 }
+
+func TestAutofixRequestBody(t *testing.T) {
+	d := &DeepCodeLLMBindingImpl{}
+
+	const testBundleHash = "0123456789abcdef"
+	const testBaseDir = "basedir"
+	const testFilePath = "/path/to/file"
+	const testLineNumber0Based = 0
+	const testRuleId = "rule_id"
+	const testShardKey = "shard_key"
+	const testHost = "http://api.test.snyk.io"
+	const testIdeName = "my IDE"
+	const testIdeVersion = "1.0.0"
+	const testExtensionName = "my extension"
+	const testExtensionVersion = "1.2.3"
+
+	options := AutofixOptions{
+		RuleID:     testRuleId,
+		BundleHash: testBundleHash,
+		ShardKey:   testShardKey,
+		Host:       testHost,
+		BaseDir:    testBaseDir,
+		FilePath:   testFilePath,
+		LineNum:    testLineNumber0Based,
+		CodeRequestContext: CodeRequestContext{
+			Initiator: "",
+			Flow:      "",
+			Org:       CodeRequestContextOrg{},
+		},
+		IdeExtensionDetails: AutofixIdeExtensionDetails{
+			IdeName:          testIdeName,
+			IdeVersion:       testIdeVersion,
+			ExtensionName:    testExtensionName,
+			ExtensionVersion: testExtensionVersion,
+		},
+	}
+
+	jsonBody, err := d.autofixRequestBody(&options)
+	assert.NoError(t, err)
+
+	expectedBody := AutofixRequest{
+		Key: AutofixRequestKey{
+			Type:     "file",
+			Hash:     testBundleHash,
+			Shard:    testShardKey,
+			FilePath: testFilePath,
+			RuleId:   testRuleId,
+			LineNum:  testLineNumber0Based,
+		},
+		AnalysisContext: CodeRequestContext{
+			Initiator: "",
+			Flow:      "",
+			Org:       CodeRequestContextOrg{},
+		},
+		IdeExtensionDetails: AutofixIdeExtensionDetails{
+			IdeName:          testIdeName,
+			IdeVersion:       testIdeVersion,
+			ExtensionName:    testExtensionName,
+			ExtensionVersion: testExtensionVersion,
+		},
+	}
+
+	var body AutofixRequest
+	err = json.Unmarshal(jsonBody, &body)
+	assert.NoError(t, err)
+
+	assert.Equal(t, expectedBody, body)
+}
