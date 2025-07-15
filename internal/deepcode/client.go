@@ -217,8 +217,6 @@ func (s *deepcodeClient) Request(
 		return nil, err
 	}
 
-	s.logger.Trace().Str("requestBody", string(requestBody)).Msg("SEND TO REMOTE")
-
 	bodyBuffer, err := s.encodeIfNeeded(method, requestBody)
 	if err != nil {
 		return nil, err
