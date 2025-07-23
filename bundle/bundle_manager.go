@@ -129,8 +129,10 @@ func (b *bundleManager) Create(ctx context.Context,
 		}
 		relativePath = util.EncodePath(relativePath)
 
-		bundleFile := deepcode.BundleFileFrom(fileContent)
-		bundleFiles[relativePath] = bundleFile
+		bundleFile, fileErr := deepcode.BundleFileFrom(fileContent)
+		if fileErr != nil {
+			b.logger.Error().Err(err).Str("filePath", absoluteFilePath).Msg("Error creating bundle file")
+		}
 		fileHashes[relativePath] = bundleFile.Hash
 		b.logger.Trace().Str("method", "BundleFileFrom").Str("hash", bundleFile.Hash).Str("filePath", absoluteFilePath).Msg("")
 

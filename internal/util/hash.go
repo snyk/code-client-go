@@ -25,14 +25,14 @@ import (
 	"golang.org/x/net/html/charset"
 )
 
-func Hash(content []byte) string {
+func Hash(content []byte) (string, error) {
 	utf8content, err := ConvertToUTF8(content)
 	if err != nil {
 		utf8content = content
 	}
 	b := sha256.Sum256(utf8content)
 	sum256 := hex.EncodeToString(b[:])
-	return sum256
+	return sum256, err
 }
 
 func ConvertToUTF8(content []byte) ([]byte, error) {

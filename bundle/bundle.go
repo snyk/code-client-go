@@ -18,6 +18,7 @@ package bundle
 
 import (
 	"context"
+	"fmt"
 	"github.com/rs/zerolog"
 
 	"github.com/snyk/code-client-go/internal/deepcode"
@@ -142,7 +143,10 @@ func NewBatchFromRawContent(documents map[string][]byte) (*Batch, error) {
 	bundleFiles := make(map[string]deepcode.BundleFile)
 
 	for key, rawData := range documents {
-		bundleFile := deepcode.BundleFileFrom(rawData)
+		bundleFile, err := deepcode.BundleFileFrom(rawData)
+		if err != nil {
+			return nil, fmt.Errorf("failed to create file from raw data: %v", err)
+		}
 		bundleFiles[key] = bundleFile
 	}
 
