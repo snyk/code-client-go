@@ -56,7 +56,7 @@ func TestPact_DeepcodeClient(t *testing.T) {
 
 	t.Run("Create bundle", func(t *testing.T) {
 		files := make(map[string]string)
-		files[path1] = util.Hash([]byte(content))
+		files[path1], _ = util.Hash([]byte(content))
 
 		pact.AddInteraction().Given("New bundle").UponReceiving("Create bundle").WithCompleteRequest(consumer.Request{
 			Method:  "POST",
@@ -112,7 +112,7 @@ func TestPact_DeepcodeClient(t *testing.T) {
 		test := func(config consumer.MockServerConfig) error {
 			client := getDeepCodeClient(t, getLocalMockserver(config))
 			files := make(map[string]string)
-			files[path1] = util.Hash([]byte(content))
+			files[path1], _ = util.Hash([]byte(content))
 			_, _, err := client.CreateBundle(context.Background(), files)
 
 			if err != nil {
