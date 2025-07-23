@@ -18,9 +18,10 @@ package bundle
 
 import (
 	"context"
-	"github.com/snyk/code-client-go/scan"
 	"os"
 	"path/filepath"
+
+	"github.com/snyk/code-client-go/scan"
 
 	"github.com/puzpuzpuz/xsync"
 	"github.com/rs/zerolog"
@@ -128,7 +129,12 @@ func (b *bundleManager) Create(ctx context.Context,
 		}
 		relativePath = util.EncodePath(relativePath)
 
-		bundleFile := deepcode.BundleFileFrom(fileContent)
+		bundleFile, bundleError := deepcode.BundleFileFrom(fileContent)
+		if bundleError != nil {
+			b.logger.Error().Err(bundleError).Str("filePath", absoluteFilePath).Msg("could not convert content of file to UTF-8")
+			continue
+		}
+
 		bundleFiles[relativePath] = bundleFile
 		fileHashes[relativePath] = bundleFile.Hash
 		b.logger.Trace().Str("method", "BundleFileFrom").Str("hash", bundleFile.Hash).Str("filePath", absoluteFilePath).Msg("")

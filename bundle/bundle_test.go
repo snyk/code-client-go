@@ -18,6 +18,10 @@ package bundle_test
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
+	"fmt"
+	"os"
 	"testing"
 
 	"github.com/golang/mock/gomock"
@@ -25,7 +29,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/snyk/code-client-go/internal/bundle"
+	"github.com/snyk/code-client-go/bundle"
 	"github.com/snyk/code-client-go/internal/deepcode"
 	deepcodeMocks "github.com/snyk/code-client-go/internal/deepcode/mocks"
 	"github.com/snyk/code-client-go/observability/mocks"
@@ -36,6 +40,29 @@ var bundleWithMultipleFiles = bundle.NewBatch(map[string]deepcode.BundleFile{
 	"file":    {},
 	"another": {},
 })
+var bundleFromRawContent, batchErr = bundle.NewBatchFromRawContent(map[string][]byte{"hello": []byte("world")})
+
+// Matcher for BundleFile that matches on key and content (ignores hash)
+type bundleFilePartialMatcher struct {
+	expectedKey     string
+	expectedContent string
+}
+
+func (m bundleFilePartialMatcher) Matches(x interface{}) bool {
+	files, ok := x.(map[string]deepcode.BundleFile)
+	if !ok {
+		return false
+	}
+	file, exists := files[m.expectedKey]
+	if !exists {
+		return false
+	}
+	return file.Content == m.expectedContent
+}
+
+func (m bundleFilePartialMatcher) String() string {
+	return fmt.Sprintf("{ Key : '%s', Content : '%s' }", m.expectedKey, m.expectedContent)
+}
 
 func Test_UploadBatch(t *testing.T) {
 	testLogger := zerolog.Nop()
@@ -102,5 +129,52 @@ func Test_UploadBatch(t *testing.T) {
 		require.NoError(t, err)
 		newHash := b.GetBundleHash()
 		assert.NotEqual(t, oldHash, newHash)
+	})
+}
+
+func Test_RawContentBatch(t *testing.T) {
+	testLogger := zerolog.Nop()
+
+	t.Run("create a batch from raw content and upload the bundle", func(t *testing.T) {
+		ctrl := gomock.NewController(t)
+		mockSnykCodeClient := deepcodeMocks.NewMockDeepcodeClient(ctrl)
+		mockSnykCodeClient.EXPECT().ExtendBundle(gomock.Any(), "testBundleHash", bundleFilePartialMatcher{expectedKey: "hello", expectedContent: "world"}, []string{}).Return("newBundleHash", []string{}, nil).Times(1)
+
+		mockSpan := mocks.NewMockSpan(ctrl)
+		mockSpan.EXPECT().Context().AnyTimes()
+		mockInstrumentor := mocks.NewMockInstrumentor(ctrl)
+		mockInstrumentor.EXPECT().StartSpan(gomock.Any(), gomock.Any()).Return(mockSpan).AnyTimes()
+		mockInstrumentor.EXPECT().Finish(gomock.Any()).AnyTimes()
+		mockErrorReporter := mocks.NewMockErrorReporter(ctrl)
+		b := bundle.NewBundle(mockSnykCodeClient, mockInstrumentor, mockErrorReporter, &testLogger, "testRootPath", "testBundleHash", map[string]deepcode.BundleFile{}, []string{}, []string{})
+
+		require.NoError(t, batchErr)
+		oldHash := b.GetBundleHash()
+		err := b.UploadBatch(context.Background(), "testRequestId", bundleFromRawContent)
+		require.NoError(t, err)
+		newHash := b.GetBundleHash()
+		assert.NotEqual(t, oldHash, newHash)
+	})
+}
+
+func Test_BundleEncoding(t *testing.T) {
+	t.Run("utf-8 encoded content", func(t *testing.T) {
+		content := []byte("hello")
+		bundle, err := deepcode.BundleFileFrom(content)
+		assert.NoError(t, err)
+
+		actualShasum := sha256.Sum256([]byte(bundle.Content))
+		assert.Equal(t, bundle.Hash, hex.EncodeToString(actualShasum[:]))
+	})
+
+	t.Run("non utf-8 / binary file", func(t *testing.T) {
+		content, err := os.ReadFile("testdata/rshell_font.php")
+		assert.NoError(t, err)
+
+		bundle, err := deepcode.BundleFileFrom(content)
+		assert.NoError(t, err)
+
+		actualShasum := sha256.Sum256([]byte(bundle.Content))
+		assert.Equal(t, bundle.Hash, hex.EncodeToString(actualShasum[:]))
 	})
 }

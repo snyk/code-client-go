@@ -17,10 +17,11 @@ package codeclient_test
 
 import (
 	"context"
-	"github.com/google/uuid"
 	"os"
 	"path/filepath"
 	"testing"
+
+	"github.com/google/uuid"
 
 	"github.com/golang/mock/gomock"
 	"github.com/rs/zerolog"
@@ -28,11 +29,11 @@ import (
 	"github.com/stretchr/testify/require"
 
 	codeclient "github.com/snyk/code-client-go"
+	"github.com/snyk/code-client-go/bundle"
+	bundleMocks "github.com/snyk/code-client-go/bundle/mocks"
 	confMocks "github.com/snyk/code-client-go/config/mocks"
 	httpmocks "github.com/snyk/code-client-go/http/mocks"
 	mockAnalysis "github.com/snyk/code-client-go/internal/analysis/mocks"
-	"github.com/snyk/code-client-go/internal/bundle"
-	bundleMocks "github.com/snyk/code-client-go/internal/bundle/mocks"
 	"github.com/snyk/code-client-go/internal/deepcode"
 	deepcodeMocks "github.com/snyk/code-client-go/internal/deepcode/mocks"
 	"github.com/snyk/code-client-go/observability/mocks"
@@ -44,9 +45,14 @@ import (
 func Test_UploadAndAnalyze(t *testing.T) {
 	baseDir, firstDocPath, secondDocPath, firstDocContent, secondDocContent := setupDocs(t)
 	docs := sliceToChannel([]string{firstDocPath, secondDocPath})
+	firstBundle, err := deepcode.BundleFileFrom(firstDocContent)
+	assert.NoError(t, err)
+	secondBundle, err := deepcode.BundleFileFrom(secondDocContent)
+	assert.NoError(t, err)
+
 	files := map[string]deepcode.BundleFile{
-		firstDocPath: deepcode.BundleFileFrom(firstDocContent),
-		firstDocPath: deepcode.BundleFileFrom(secondDocContent),
+		firstDocPath: firstBundle,
+		firstDocPath: secondBundle,
 	}
 
 	logger := zerolog.Nop()

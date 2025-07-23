@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"net/url"
+	"slices"
 
 	"github.com/rs/zerolog"
 
@@ -45,20 +46,48 @@ type SnykLLMBindings interface {
 	// output - a channel that can be used to stream the results
 	Explain(ctx context.Context, input AIRequest, format OutputFormat, output chan<- string) error
 }
-type ExplainResult map[string]string
+type ExplainResult []string
 
 type DeepCodeLLMBinding interface {
 	SnykLLMBindings
 	ExplainWithOptions(ctx context.Context, options ExplainOptions) (ExplainResult, error)
+	GetAutofixDiffs(ctx context.Context, baseDir string, options AutofixOptions) (unifiedDiffSuggestions []AutofixUnifiedDiffSuggestion, status AutofixStatus, err error)
+	SubmitAutofixFeedback(ctx context.Context, requestId string, options AutofixFeedbackOptions) error
 }
 
 // DeepCodeLLMBindingImpl is an LLM binding for the Snyk Code LLM.
-// Currently, it only supports explain.
 type DeepCodeLLMBindingImpl struct {
 	httpClientFunc func() http.HTTPClient
 	logger         *zerolog.Logger
 	outputFormat   OutputFormat
 	instrumentor   observability.Instrumentor
+}
+
+func (d *DeepCodeLLMBindingImpl) SubmitAutofixFeedback(ctx context.Context, requestId string, options AutofixFeedbackOptions) error {
+	method := "SubmitAutofixFeedback"
+	span := d.instrumentor.StartSpan(ctx, method)
+	defer d.instrumentor.Finish(span)
+	logger := d.logger.With().Str("method", method).Str("requestId", requestId).Logger()
+	logger.Info().Msg("Started submitting autofix feedback")
+	defer logger.Info().Msg("Finished submitting autofix feedback")
+
+	err := d.submitAutofixFeedback(ctx, requestId, options)
+	return err
+}
+
+func (d *DeepCodeLLMBindingImpl) GetAutofixDiffs(ctx context.Context, requestId string, options AutofixOptions) (unifiedDiffSuggestions []AutofixUnifiedDiffSuggestion, status AutofixStatus, err error) {
+	method := "GetAutofixDiffs"
+	span := d.instrumentor.StartSpan(ctx, method)
+	defer d.instrumentor.Finish(span)
+	logger := d.logger.With().Str("method", method).Str("requestId", requestId).Logger()
+	logger.Info().Msg("Started obtaining autofix diffs")
+	defer logger.Info().Msg("Finished obtaining autofix diffs")
+
+	autofixResponse, status, err := d.runAutofix(ctx, requestId, options)
+	if err != nil {
+		return nil, status, err
+	}
+	return autofixResponse.toUnifiedDiffSuggestions(d.logger, options.BaseDir, options.FilePath), status, err
 }
 
 func (d *DeepCodeLLMBindingImpl) ExplainWithOptions(ctx context.Context, options ExplainOptions) (ExplainResult, error) {
@@ -69,15 +98,24 @@ func (d *DeepCodeLLMBindingImpl) ExplainWithOptions(ctx context.Context, options
 	if err != nil {
 		return explainResult, err
 	}
-	index := 0
-	for _, explanation := range response {
-		if index < len(options.Diffs) {
-			explainResult[options.Diffs[index]] = explanation
-		}
-		index++
-	}
 
-	return explainResult, nil
+	orderedExplainResults := getOrderedResponse(response)
+
+	return orderedExplainResults, nil
+}
+
+func getOrderedResponse(explainResponse Explanations) []string {
+	explainMapKeys := make([]string, 0, len(explainResponse))
+	for k := range explainResponse {
+		explainMapKeys = append(explainMapKeys, k)
+	}
+	slices.Sort(explainMapKeys)
+
+	orderedValues := make([]string, 0, len(explainResponse))
+	for _, key := range explainMapKeys {
+		orderedValues = append(orderedValues, explainResponse[key])
+	}
+	return orderedValues
 }
 
 func (d *DeepCodeLLMBindingImpl) PublishIssues(_ context.Context, _ []map[string]string) error {

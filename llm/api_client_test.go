@@ -2,6 +2,7 @@ package llm
 
 import (
 	"context"
+	"encoding/base64"
 	"encoding/json"
 	"io"
 	"net/http"
@@ -151,7 +152,7 @@ func TestDeepcodeLLMBinding_explainRequestBody(t *testing.T) {
 
 		assert.NotNil(t, request)
 		assert.Equal(t, "test-rule-key", request.RuleId)
-		expectedEncodedDiffs := encodeDiffs([]string{"test-Diffs"})
+		expectedEncodedDiffs := prepareDiffs([]string{"test-Diffs"})
 		assert.Equal(t, expectedEncodedDiffs, request.Diffs)
 		assert.Equal(t, SHORT, request.ExplanationLength)
 	})
@@ -206,6 +207,52 @@ func TestEndpoint(t *testing.T) {
 	}
 }
 
+func TestPrepareDiffs(t *testing.T) {
+	testCases := []struct {
+		name     string
+		input    []string
+		expected []string
+	}{
+		{
+			name: "Single diff with headers and content",
+			input: []string{
+				"--- a/file.txt\n" +
+					"+++ b/file.txt\n" +
+					"@@ -1,1 +1,1 @@\n" +
+					"-old line\n" +
+					"+new line\n",
+			},
+			expected: []string{
+				base64.StdEncoding.EncodeToString([]byte("@@ -1,1 +1,1 @@\n-old line\n+new line\n\n")),
+			},
+		},
+		{
+			name: "Multiple diffs",
+			input: []string{
+				"--- a/file1.txt\n" +
+					"+++ b/file1.txt\n" +
+					"-line 1\n" +
+					"+line 2\n",
+				"--- a/file2.txt\n" +
+					"+++ b/file2.txt\n" +
+					"content2a\n" +
+					"+content2b\n",
+			},
+			expected: []string{
+				base64.StdEncoding.EncodeToString([]byte("-line 1\n+line 2\n\n")),
+				base64.StdEncoding.EncodeToString([]byte("content2a\n+content2b\n\n")),
+			},
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			actual := prepareDiffs(tc.input)
+			assert.Equal(t, tc.expected, actual)
+		})
+	}
+}
+
 // Helper function for testing
 func testLogger(t *testing.T) *zerolog.Logger {
 	t.Helper()
@@ -235,4 +282,72 @@ func TestAddDefaultHeadersWithExistingHeaders(t *testing.T) {
 	if existingHeader != "existing-value" {
 		t.Errorf("Expected Existing-Header to be 'existing-value', got %s", existingHeader)
 	}
+}
+
+func TestAutofixRequestBody(t *testing.T) {
+	d := &DeepCodeLLMBindingImpl{}
+
+	const testBundleHash = "0123456789abcdef"
+	const testBaseDir = "basedir"
+	const testFilePath = "/path/to/file"
+	const testLineNumber0Based = 0
+	const testRuleId = "rule_id"
+	const testShardKey = "shard_key"
+	const testHost = "http://api.test.snyk.io"
+	const testIdeName = "my IDE"
+	const testIdeVersion = "1.0.0"
+	const testExtensionName = "my extension"
+	const testExtensionVersion = "1.2.3"
+
+	options := AutofixOptions{
+		RuleID:     testRuleId,
+		BundleHash: testBundleHash,
+		ShardKey:   testShardKey,
+		Host:       testHost,
+		BaseDir:    testBaseDir,
+		FilePath:   testFilePath,
+		LineNum:    testLineNumber0Based,
+		CodeRequestContext: CodeRequestContext{
+			Initiator: "",
+			Flow:      "",
+			Org:       CodeRequestContextOrg{},
+		},
+		IdeExtensionDetails: AutofixIdeExtensionDetails{
+			IdeName:          testIdeName,
+			IdeVersion:       testIdeVersion,
+			ExtensionName:    testExtensionName,
+			ExtensionVersion: testExtensionVersion,
+		},
+	}
+
+	jsonBody, err := d.autofixRequestBody(&options)
+	assert.NoError(t, err)
+
+	expectedBody := AutofixRequest{
+		Key: AutofixRequestKey{
+			Type:     "file",
+			Hash:     testBundleHash,
+			Shard:    testShardKey,
+			FilePath: testFilePath,
+			RuleId:   testRuleId,
+			LineNum:  testLineNumber0Based,
+		},
+		AnalysisContext: CodeRequestContext{
+			Initiator: "",
+			Flow:      "",
+			Org:       CodeRequestContextOrg{},
+		},
+		IdeExtensionDetails: AutofixIdeExtensionDetails{
+			IdeName:          testIdeName,
+			IdeVersion:       testIdeVersion,
+			ExtensionName:    testExtensionName,
+			ExtensionVersion: testExtensionVersion,
+		},
+	}
+
+	var body AutofixRequest
+	err = json.Unmarshal(jsonBody, &body)
+	assert.NoError(t, err)
+
+	assert.Equal(t, expectedBody, body)
 }
