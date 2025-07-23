@@ -129,12 +129,7 @@ func (b *bundleManager) Create(ctx context.Context,
 		}
 		relativePath = util.EncodePath(relativePath)
 
-		bundleFile, bundleError := deepcode.BundleFileFrom(fileContent)
-		if bundleError != nil {
-			b.logger.Error().Err(bundleError).Str("filePath", absoluteFilePath).Msg("could not convert content of file to UTF-8")
-			continue
-		}
-
+		bundleFile := deepcode.BundleFileFrom(fileContent)
 		bundleFiles[relativePath] = bundleFile
 		fileHashes[relativePath] = bundleFile.Hash
 		b.logger.Trace().Str("method", "BundleFileFrom").Str("hash", bundleFile.Hash).Str("filePath", absoluteFilePath).Msg("")
