@@ -133,6 +133,7 @@ func (b *bundleManager) Create(ctx context.Context,
 		if fileErr != nil {
 			b.logger.Error().Err(err).Str("filePath", absoluteFilePath).Msg("Error creating bundle file")
 		}
+		bundleFiles[relativePath] = bundleFile
 		fileHashes[relativePath] = bundleFile.Hash
 		b.logger.Trace().Str("method", "BundleFileFrom").Str("hash", bundleFile.Hash).Str("filePath", absoluteFilePath).Msg("")
 
@@ -150,6 +151,7 @@ func (b *bundleManager) Create(ctx context.Context,
 	if len(fileHashes) > 0 {
 		bundleHash, missingFiles, err = b.deepcodeClient.CreateBundle(span.Context(), fileHashes)
 	}
+
 	bundle = NewBundle(
 		b.deepcodeClient,
 		b.instrumentor,
