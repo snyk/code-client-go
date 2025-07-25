@@ -179,7 +179,7 @@ func Test_BundleEncoding(t *testing.T) {
 
 		byteReader := bytes.NewReader(content)
 		reader, _ := charset.NewReaderLabel("UTF-8", byteReader)
-		utf8content, err := io.ReadAll(reader)
+		utf8content, _ := io.ReadAll(reader)
 		ExpectedShaSum := sha256.Sum256(utf8content)
 		assert.Equal(t, hex.EncodeToString(ExpectedShaSum[:]), bundleFile.Hash)
 	})
