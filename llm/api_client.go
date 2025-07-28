@@ -201,11 +201,11 @@ func (d *DeepCodeLLMBindingImpl) autofixRequestBody(options *AutofixOptions) ([]
 	return requestBody, err
 }
 
-func (d *DeepCodeLLMBindingImpl) submitAutofixFeedback(ctx context.Context, requestId string, options AutofixFeedbackOptions) error {
+func (d *DeepCodeLLMBindingImpl) submitAutofixFeedback(ctx context.Context, options AutofixFeedbackOptions) error {
 	span := d.instrumentor.StartSpan(ctx, "code.SubmitAutofixFeedback")
 	defer span.Finish()
 
-	logger := d.logger.With().Str("method", "code.SubmitAutofixFeedback").Str("requestId", requestId).Logger()
+	logger := d.logger.With().Str("method", "code.SubmitAutofixFeedback").Str("requestId", span.GetTraceId()).Logger()
 
 	endpoint, err := url.Parse(fmt.Sprintf("%s/autofix/event", options.Host))
 	if err != nil {
