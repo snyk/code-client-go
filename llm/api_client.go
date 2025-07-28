@@ -125,11 +125,11 @@ func (d *DeepCodeLLMBindingImpl) explainRequestBody(options *ExplainOptions) ([]
 
 var failed = AutofixStatus{Message: "FAILED"}
 
-func (d *DeepCodeLLMBindingImpl) runAutofix(ctx context.Context, requestId string, options AutofixOptions) (AutofixResponse, AutofixStatus, error) {
+func (d *DeepCodeLLMBindingImpl) runAutofix(ctx context.Context, options AutofixOptions) (AutofixResponse, AutofixStatus, error) {
 	span := d.instrumentor.StartSpan(ctx, "code.RunAutofix")
 	defer span.Finish()
 
-	logger := d.logger.With().Str("method", "code.RunAutofix").Str("requestId", requestId).Logger()
+	logger := d.logger.With().Str("method", "code.RunAutofix").Str("requestId", span.GetTraceId()).Logger()
 
 	endpoint, err := url.Parse(fmt.Sprintf("%s/autofix/suggestions", options.Host))
 	if err != nil {

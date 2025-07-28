@@ -75,15 +75,16 @@ func (d *DeepCodeLLMBindingImpl) SubmitAutofixFeedback(ctx context.Context, fixI
 	return err
 }
 
-func (d *DeepCodeLLMBindingImpl) GetAutofixDiffs(ctx context.Context, requestId string, options AutofixOptions) (unifiedDiffSuggestions []AutofixUnifiedDiffSuggestion, status AutofixStatus, err error) {
+func (d *DeepCodeLLMBindingImpl) GetAutofixDiffs(ctx context.Context, _ string, options AutofixOptions) (unifiedDiffSuggestions []AutofixUnifiedDiffSuggestion, status AutofixStatus, err error) {
 	method := "GetAutofixDiffs"
 	span := d.instrumentor.StartSpan(ctx, method)
 	defer d.instrumentor.Finish(span)
+	requestId := span.GetTraceId()
 	logger := d.logger.With().Str("method", method).Str("requestId", requestId).Logger()
 	logger.Info().Msg("Started obtaining autofix diffs")
 	defer logger.Info().Msg("Finished obtaining autofix diffs")
 
-	autofixResponse, status, err := d.runAutofix(ctx, requestId, options)
+	autofixResponse, status, err := d.runAutofix(span.Context(), options)
 	if err != nil {
 		return nil, status, err
 	}
