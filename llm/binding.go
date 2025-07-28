@@ -63,15 +63,15 @@ type DeepCodeLLMBindingImpl struct {
 	instrumentor   observability.Instrumentor
 }
 
-func (d *DeepCodeLLMBindingImpl) SubmitAutofixFeedback(ctx context.Context, fixId string, options AutofixFeedbackOptions) error {
+func (d *DeepCodeLLMBindingImpl) SubmitAutofixFeedback(ctx context.Context, requestId string, options AutofixFeedbackOptions) error {
 	method := "SubmitAutofixFeedback"
 	span := d.instrumentor.StartSpan(ctx, method)
 	defer d.instrumentor.Finish(span)
-	logger := d.logger.With().Str("method", method).Str("fixId", fixId).Logger()
+	logger := d.logger.With().Str("method", method).Str("requestId", requestId).Logger()
 	logger.Info().Msg("Started submitting autofix feedback")
 	defer logger.Info().Msg("Finished submitting autofix feedback")
 
-	err := d.submitAutofixFeedback(ctx, fixId, options)
+	err := d.submitAutofixFeedback(ctx, span.GetTraceId(), options)
 	return err
 }
 

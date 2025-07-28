@@ -43,7 +43,7 @@ func (d *DeepCodeLLMBindingImpl) runExplain(ctx context.Context, options Explain
 		}
 	}
 
-	responseBody, err := d.submitRequest(ctx, u, requestBody, "", "")
+	responseBody, err := d.submitRequest(span.Context(), u, requestBody, "")
 	if err != nil {
 		return Explanations{}, err
 	}
@@ -62,9 +62,11 @@ func (d *DeepCodeLLMBindingImpl) runExplain(ctx context.Context, options Explain
 	return explains, nil
 }
 
-func (d *DeepCodeLLMBindingImpl) submitRequest(ctx context.Context, url *url.URL, requestBody []byte, requestId string, orgId string) ([]byte, error) {
+func (d *DeepCodeLLMBindingImpl) submitRequest(ctx context.Context, url *url.URL, requestBody []byte, orgId string) ([]byte, error) {
 	logger := d.logger.With().Str("method", "submitRequest").Logger()
 	logger.Trace().Str("payload body: %s\n", string(requestBody)).Msg("Marshaled payload")
+	span := d.instrumentor.StartSpan(ctx, "code.SubmitRequest")
+	defer span.Finish()
 
 	req, err := http.NewRequestWithContext(ctx, http.MethodPost, url.String(), bytes.NewBuffer(requestBody))
 	if err != nil {
@@ -72,7 +74,7 @@ func (d *DeepCodeLLMBindingImpl) submitRequest(ctx context.Context, url *url.URL
 		return nil, err
 	}
 
-	d.addDefaultHeaders(req, requestId, orgId)
+	d.addDefaultHeaders(req, span.GetTraceId(), orgId)
 
 	resp, err := d.httpClientFunc().Do(req) //nolint:bodyclose // this seems to be a false positive
 	if err != nil {
@@ -142,7 +144,7 @@ func (d *DeepCodeLLMBindingImpl) runAutofix(ctx context.Context, requestId strin
 	}
 
 	logger.Info().Msg("Started obtaining autofix Response")
-	responseBody, err := d.submitRequest(ctx, endpoint, requestBody, requestId, options.CodeRequestContext.Org.PublicId)
+	responseBody, err := d.submitRequest(span.Context(), endpoint, requestBody, options.CodeRequestContext.Org.PublicId)
 	logger.Info().Msg("Finished obtaining autofix Response")
 
 	if err != nil {
@@ -199,11 +201,11 @@ func (d *DeepCodeLLMBindingImpl) autofixRequestBody(options *AutofixOptions) ([]
 	return requestBody, err
 }
 
-func (d *DeepCodeLLMBindingImpl) submitAutofixFeedback(ctx context.Context, fixId string, options AutofixFeedbackOptions) error {
+func (d *DeepCodeLLMBindingImpl) submitAutofixFeedback(ctx context.Context, requestId string, options AutofixFeedbackOptions) error {
 	span := d.instrumentor.StartSpan(ctx, "code.SubmitAutofixFeedback")
 	defer span.Finish()
 
-	logger := d.logger.With().Str("method", "code.SubmitAutofixFeedback").Str("fixId", fixId).Logger()
+	logger := d.logger.With().Str("method", "code.SubmitAutofixFeedback").Str("requestId", requestId).Logger()
 
 	endpoint, err := url.Parse(fmt.Sprintf("%s/autofix/event", options.Host))
 	if err != nil {
@@ -218,7 +220,7 @@ func (d *DeepCodeLLMBindingImpl) submitAutofixFeedback(ctx context.Context, fixI
 	}
 
 	logger.Info().Msg("Started obtaining autofix Response")
-	_, err = d.submitRequest(ctx, endpoint, requestBody, "", options.CodeRequestContext.Org.PublicId)
+	_, err = d.submitRequest(span.Context(), endpoint, requestBody, options.CodeRequestContext.Org.PublicId)
 	logger.Info().Msg("Finished obtaining autofix Response")
 
 	return err
