@@ -265,7 +265,7 @@ func TestAddDefaultHeadersWithExistingHeaders(t *testing.T) {
 	d := &DeepCodeLLMBindingImpl{} // Initialize your struct if needed
 	req := &http.Request{Header: http.Header{"Existing-Header": {"existing-value"}}}
 
-	d.addDefaultHeaders(req)
+	d.addDefaultHeaders(req, "", "")
 
 	cacheControl := req.Header.Get("Cache-Control")
 	contentType := req.Header.Get("Content-Type")
