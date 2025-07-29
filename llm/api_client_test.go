@@ -1,6 +1,7 @@
 package llm
 
 import (
+	"context"
 	"encoding/base64"
 	"encoding/json"
 	"io"
@@ -96,7 +97,7 @@ func TestDeepcodeLLMBinding_runExplain(t *testing.T) {
 
 			d := NewDeepcodeLLMBinding()
 
-			ctx := observability.GetContextWithTraceId(t.Context(), "test-trace-id")
+			ctx := observability.GetContextWithTraceId(context.Background(), "test-trace-id")
 			response, err := d.runExplain(ctx, tt.options)
 
 			if tt.expectedError != "" {
@@ -407,7 +408,7 @@ func TestE2E_HTTPHeadersSentToServer(t *testing.T) {
 
 	// Create test context with trace ID (which becomes the request ID)
 	testTraceId := "test-trace-id-e2e-123"
-	ctx := observability.GetContextWithTraceId(t.Context(), testTraceId)
+	ctx := observability.GetContextWithTraceId(context.Background(), testTraceId)
 
 	// Create AutofixOptions with org ID
 	testOrgId := "test-org-public-id-456"
@@ -496,7 +497,7 @@ func TestE2E_GetAutofixDiffsHTTPHeadersSentToServer(t *testing.T) {
 
 	// Create test context with trace ID
 	testTraceId := "test-get-autofix-diffs-trace-id-999"
-	ctx := observability.GetContextWithTraceId(t.Context(), testTraceId)
+	ctx := observability.GetContextWithTraceId(context.Background(), testTraceId)
 
 	// Create AutofixOptions with org ID
 	testOrgId := "test-org-public-id-789"
