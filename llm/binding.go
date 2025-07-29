@@ -63,27 +63,28 @@ type DeepCodeLLMBindingImpl struct {
 	instrumentor   observability.Instrumentor
 }
 
-func (d *DeepCodeLLMBindingImpl) SubmitAutofixFeedback(ctx context.Context, requestId string, options AutofixFeedbackOptions) error {
+func (d *DeepCodeLLMBindingImpl) SubmitAutofixFeedback(ctx context.Context, fixId string, options AutofixFeedbackOptions) error {
 	method := "SubmitAutofixFeedback"
 	span := d.instrumentor.StartSpan(ctx, method)
 	defer d.instrumentor.Finish(span)
-	logger := d.logger.With().Str("method", method).Str("requestId", requestId).Logger()
+	logger := d.logger.With().Str("method", method).Str("fixId", fixId).Logger()
 	logger.Info().Msg("Started submitting autofix feedback")
 	defer logger.Info().Msg("Finished submitting autofix feedback")
 
-	err := d.submitAutofixFeedback(ctx, requestId, options)
+	err := d.submitAutofixFeedback(span.Context(), options)
 	return err
 }
 
-func (d *DeepCodeLLMBindingImpl) GetAutofixDiffs(ctx context.Context, requestId string, options AutofixOptions) (unifiedDiffSuggestions []AutofixUnifiedDiffSuggestion, status AutofixStatus, err error) {
+func (d *DeepCodeLLMBindingImpl) GetAutofixDiffs(ctx context.Context, _ string, options AutofixOptions) (unifiedDiffSuggestions []AutofixUnifiedDiffSuggestion, status AutofixStatus, err error) {
 	method := "GetAutofixDiffs"
 	span := d.instrumentor.StartSpan(ctx, method)
 	defer d.instrumentor.Finish(span)
+	requestId := span.GetTraceId()
 	logger := d.logger.With().Str("method", method).Str("requestId", requestId).Logger()
 	logger.Info().Msg("Started obtaining autofix diffs")
 	defer logger.Info().Msg("Finished obtaining autofix diffs")
 
-	autofixResponse, status, err := d.runAutofix(ctx, requestId, options)
+	autofixResponse, status, err := d.runAutofix(span.Context(), options)
 	if err != nil {
 		return nil, status, err
 	}

@@ -43,7 +43,7 @@ func (d *DeepCodeLLMBindingImpl) runExplain(ctx context.Context, options Explain
 		}
 	}
 
-	responseBody, err := d.submitRequest(ctx, u, requestBody)
+	responseBody, err := d.submitRequest(span.Context(), u, requestBody, "")
 	if err != nil {
 		return Explanations{}, err
 	}
@@ -62,9 +62,11 @@ func (d *DeepCodeLLMBindingImpl) runExplain(ctx context.Context, options Explain
 	return explains, nil
 }
 
-func (d *DeepCodeLLMBindingImpl) submitRequest(ctx context.Context, url *url.URL, requestBody []byte) ([]byte, error) {
+func (d *DeepCodeLLMBindingImpl) submitRequest(ctx context.Context, url *url.URL, requestBody []byte, orgId string) ([]byte, error) {
 	logger := d.logger.With().Str("method", "submitRequest").Logger()
 	logger.Trace().Str("payload body: %s\n", string(requestBody)).Msg("Marshaled payload")
+	span := d.instrumentor.StartSpan(ctx, "code.SubmitRequest")
+	defer span.Finish()
 
 	req, err := http.NewRequestWithContext(ctx, http.MethodPost, url.String(), bytes.NewBuffer(requestBody))
 	if err != nil {
@@ -72,7 +74,7 @@ func (d *DeepCodeLLMBindingImpl) submitRequest(ctx context.Context, url *url.URL
 		return nil, err
 	}
 
-	d.addDefaultHeaders(req)
+	d.addDefaultHeaders(req, span.GetTraceId(), orgId)
 
 	resp, err := d.httpClientFunc().Do(req) //nolint:bodyclose // this seems to be a false positive
 	if err != nil {
@@ -123,11 +125,11 @@ func (d *DeepCodeLLMBindingImpl) explainRequestBody(options *ExplainOptions) ([]
 
 var failed = AutofixStatus{Message: "FAILED"}
 
-func (d *DeepCodeLLMBindingImpl) runAutofix(ctx context.Context, requestId string, options AutofixOptions) (AutofixResponse, AutofixStatus, error) {
+func (d *DeepCodeLLMBindingImpl) runAutofix(ctx context.Context, options AutofixOptions) (AutofixResponse, AutofixStatus, error) {
 	span := d.instrumentor.StartSpan(ctx, "code.RunAutofix")
 	defer span.Finish()
 
-	logger := d.logger.With().Str("method", "code.RunAutofix").Str("requestId", requestId).Logger()
+	logger := d.logger.With().Str("method", "code.RunAutofix").Str("requestId", span.GetTraceId()).Logger()
 
 	endpoint, err := url.Parse(fmt.Sprintf("%s/autofix/suggestions", options.Host))
 	if err != nil {
@@ -142,7 +144,7 @@ func (d *DeepCodeLLMBindingImpl) runAutofix(ctx context.Context, requestId strin
 	}
 
 	logger.Info().Msg("Started obtaining autofix Response")
-	responseBody, err := d.submitRequest(ctx, endpoint, requestBody)
+	responseBody, err := d.submitRequest(span.Context(), endpoint, requestBody, options.CodeRequestContext.Org.PublicId)
 	logger.Info().Msg("Finished obtaining autofix Response")
 
 	if err != nil {
@@ -199,11 +201,11 @@ func (d *DeepCodeLLMBindingImpl) autofixRequestBody(options *AutofixOptions) ([]
 	return requestBody, err
 }
 
-func (d *DeepCodeLLMBindingImpl) submitAutofixFeedback(ctx context.Context, requestId string, options AutofixFeedbackOptions) error {
+func (d *DeepCodeLLMBindingImpl) submitAutofixFeedback(ctx context.Context, options AutofixFeedbackOptions) error {
 	span := d.instrumentor.StartSpan(ctx, "code.SubmitAutofixFeedback")
 	defer span.Finish()
 
-	logger := d.logger.With().Str("method", "code.SubmitAutofixFeedback").Str("requestId", requestId).Logger()
+	logger := d.logger.With().Str("method", "code.SubmitAutofixFeedback").Str("requestId", span.GetTraceId()).Logger()
 
 	endpoint, err := url.Parse(fmt.Sprintf("%s/autofix/event", options.Host))
 	if err != nil {
@@ -218,7 +220,7 @@ func (d *DeepCodeLLMBindingImpl) submitAutofixFeedback(ctx context.Context, requ
 	}
 
 	logger.Info().Msg("Started obtaining autofix Response")
-	_, err = d.submitRequest(ctx, endpoint, requestBody)
+	_, err = d.submitRequest(span.Context(), endpoint, requestBody, options.CodeRequestContext.Org.PublicId)
 	logger.Info().Msg("Finished obtaining autofix Response")
 
 	return err
@@ -257,7 +259,14 @@ func prepareDiffs(diffs []string) []string {
 	return encodedDiffs
 }
 
-func (d *DeepCodeLLMBindingImpl) addDefaultHeaders(req *http.Request) {
+func (d *DeepCodeLLMBindingImpl) addDefaultHeaders(req *http.Request, requestId string, orgId string) {
+	// if requestId is empty it will be enriched from the Gateway
+	if len(requestId) > 0 {
+		req.Header.Set("snyk-request-id", requestId)
+	}
+	if len(orgId) > 0 {
+		req.Header.Set("snyk-org-name", orgId)
+	}
 	req.Header.Set("Cache-Control", "private, max-age=0, no-cache")
 	req.Header.Set("Content-Type", "application/json")
 }
