@@ -1,7 +1,6 @@
 package llm
 
 import (
-	"context"
 	"encoding/base64"
 	"encoding/json"
 	"io"
@@ -97,9 +96,7 @@ func TestDeepcodeLLMBinding_runExplain(t *testing.T) {
 
 			d := NewDeepcodeLLMBinding()
 
-			ctx := context.Background()
-			ctx = observability.GetContextWithTraceId(ctx, "test-trace-id")
-
+			ctx := observability.GetContextWithTraceId(t.Context(), "test-trace-id")
 			response, err := d.runExplain(ctx, tt.options)
 
 			if tt.expectedError != "" {
@@ -263,7 +260,7 @@ func testLogger(t *testing.T) *zerolog.Logger {
 // Test with existing headers
 func TestAddDefaultHeadersWithExistingHeaders(t *testing.T) {
 	d := &DeepCodeLLMBindingImpl{} // Initialize your struct if needed
-	req := &http.Request{Header: http.Header{"Existing-Header": {"existing-value"}}}
+	req := &http.Request{Header: http.Header{"Existing-Header": []string{"existing-value"}}}
 
 	d.addDefaultHeaders(req, "", "")
 
@@ -282,6 +279,284 @@ func TestAddDefaultHeadersWithExistingHeaders(t *testing.T) {
 	if existingHeader != "existing-value" {
 		t.Errorf("Expected Existing-Header to be 'existing-value', got %s", existingHeader)
 	}
+}
+
+func TestAddDefaultHeadersWithRequestIdAndOrgId(t *testing.T) {
+	d := &DeepCodeLLMBindingImpl{}
+	req := &http.Request{Header: http.Header{}}
+
+	testRequestId := "test-request-id-123"
+	testOrgId := "test-org-id-456"
+
+	d.addDefaultHeaders(req, testRequestId, testOrgId)
+
+	snykRequestId := req.Header.Get("snyk-request-id")
+	snykOrgName := req.Header.Get("snyk-org-name")
+	cacheControl := req.Header.Get("Cache-Control")
+	contentType := req.Header.Get("Content-Type")
+
+	if snykRequestId != testRequestId {
+		t.Errorf("Expected snyk-request-id header to be '%s', got '%s'", testRequestId, snykRequestId)
+	}
+
+	if snykOrgName != testOrgId {
+		t.Errorf("Expected snyk-org-name header to be '%s', got '%s'", testOrgId, snykOrgName)
+	}
+
+	if cacheControl != "private, max-age=0, no-cache" {
+		t.Errorf("Expected Cache-Control header to be 'private, max-age=0, no-cache', got %s", cacheControl)
+	}
+
+	if contentType != "application/json" {
+		t.Errorf("Expected Content-Type header to be 'application/json', got %s", contentType)
+	}
+}
+
+func TestAddDefaultHeadersWithRequestIdOnly(t *testing.T) {
+	d := &DeepCodeLLMBindingImpl{}
+	req := &http.Request{Header: http.Header{}}
+
+	testRequestId := "test-request-id-789"
+
+	d.addDefaultHeaders(req, testRequestId, "")
+
+	snykRequestId := req.Header.Get("snyk-request-id")
+	snykOrgName := req.Header.Get("snyk-org-name")
+
+	if snykRequestId != testRequestId {
+		t.Errorf("Expected snyk-request-id header to be '%s', got '%s'", testRequestId, snykRequestId)
+	}
+
+	if snykOrgName != "" {
+		t.Errorf("Expected snyk-org-name header to be empty, got '%s'", snykOrgName)
+	}
+}
+
+func TestAddDefaultHeadersWithOrgIdOnly(t *testing.T) {
+	d := &DeepCodeLLMBindingImpl{}
+	req := &http.Request{Header: http.Header{}}
+
+	testOrgId := "test-org-id-999"
+
+	d.addDefaultHeaders(req, "", testOrgId)
+
+	snykRequestId := req.Header.Get("snyk-request-id")
+	snykOrgName := req.Header.Get("snyk-org-name")
+
+	if snykRequestId != "" {
+		t.Errorf("Expected snyk-request-id header to be empty, got '%s'", snykRequestId)
+	}
+
+	if snykOrgName != testOrgId {
+		t.Errorf("Expected snyk-org-name header to be '%s', got '%s'", testOrgId, snykOrgName)
+	}
+}
+
+func TestAddDefaultHeadersWithEmptyParameters(t *testing.T) {
+	d := &DeepCodeLLMBindingImpl{}
+	req := &http.Request{Header: http.Header{}}
+
+	d.addDefaultHeaders(req, "", "")
+
+	snykRequestId := req.Header.Get("snyk-request-id")
+	snykOrgName := req.Header.Get("snyk-org-name")
+	cacheControl := req.Header.Get("Cache-Control")
+	contentType := req.Header.Get("Content-Type")
+
+	if snykRequestId != "" {
+		t.Errorf("Expected snyk-request-id header to be empty, got '%s'", snykRequestId)
+	}
+
+	if snykOrgName != "" {
+		t.Errorf("Expected snyk-org-name header to be empty, got '%s'", snykOrgName)
+	}
+
+	if cacheControl != "private, max-age=0, no-cache" {
+		t.Errorf("Expected Cache-Control header to be 'private, max-age=0, no-cache', got %s", cacheControl)
+	}
+
+	if contentType != "application/json" {
+		t.Errorf("Expected Content-Type header to be 'application/json', got %s", contentType)
+	}
+}
+
+func TestE2E_HTTPHeadersSentToServer(t *testing.T) {
+	// Capture headers sent to the server
+	var capturedHeaders http.Header
+	var requestCount int
+
+	// Create test server that captures headers
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		requestCount++
+		capturedHeaders = r.Header.Clone()
+
+		w.WriteHeader(http.StatusOK)
+		response := AutofixResponse{
+			Status: "COMPLETE",
+			AutofixSuggestions: []autofixResponseSingleFix{
+				{
+					Id:    "test-fix-id",
+					Value: "test-unified-diff",
+				},
+			},
+		}
+		responseBytes, _ := json.Marshal(response)
+		_, _ = w.Write(responseBytes)
+	}))
+	defer server.Close()
+
+	// Create test context with trace ID (which becomes the request ID)
+	testTraceId := "test-trace-id-e2e-123"
+	ctx := observability.GetContextWithTraceId(t.Context(), testTraceId)
+
+	// Create AutofixOptions with org ID
+	testOrgId := "test-org-public-id-456"
+	options := AutofixOptions{
+		RuleID:     "test-rule-id",
+		BundleHash: "test-bundle-hash",
+		ShardKey:   "test-shard-key",
+		BaseDir:    "/test/base/dir",
+		FilePath:   "/test/file.js",
+		LineNum:    10,
+		Host:       server.URL, // Use test server URL
+		CodeRequestContext: CodeRequestContext{
+			Initiator: "test",
+			Flow:      "test-flow",
+			Org: CodeRequestContextOrg{
+				Name:        "test-org",
+				DisplayName: "Test Organization",
+				PublicId:    testOrgId,
+				Flags:       map[string]bool{},
+			},
+		},
+		IdeExtensionDetails: AutofixIdeExtensionDetails{
+			ExtensionName:    "test-extension",
+			ExtensionVersion: "1.0.0",
+			IdeName:          "test-ide",
+			IdeVersion:       "1.0.0",
+		},
+	}
+
+	// Create binding instance
+	binding := NewDeepcodeLLMBinding()
+
+	// Make the actual HTTP request
+	_, status, err := binding.runAutofix(ctx, options)
+
+	// Verify the request was successful
+	require.NoError(t, err)
+	assert.Equal(t, "COMPLETE", status.Message)
+	assert.Equal(t, 1, requestCount, "Expected exactly one HTTP request to be made")
+
+	// Verify the expected headers were sent
+	t.Run("VerifySnykRequestIdHeader", func(t *testing.T) {
+		actualRequestId := capturedHeaders.Get("snyk-request-id")
+		assert.Equal(t, testTraceId, actualRequestId, "snyk-request-id header should match the trace ID")
+	})
+
+	t.Run("VerifySnykOrgNameHeader", func(t *testing.T) {
+		actualOrgId := capturedHeaders.Get("snyk-org-name")
+		assert.Equal(t, testOrgId, actualOrgId, "snyk-org-name header should match the org public ID")
+	})
+
+	t.Run("VerifyStandardHeaders", func(t *testing.T) {
+		contentType := capturedHeaders.Get("Content-Type")
+		cacheControl := capturedHeaders.Get("Cache-Control")
+
+		assert.Equal(t, "application/json", contentType, "Content-Type header should be set")
+		assert.Equal(t, "private, max-age=0, no-cache", cacheControl, "Cache-Control header should be set")
+	})
+}
+
+func TestE2E_GetAutofixDiffsHTTPHeadersSentToServer(t *testing.T) {
+	// Capture headers sent to the server
+	var capturedHeaders http.Header
+	var requestCount int
+
+	// Create test server that captures headers
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		requestCount++
+		capturedHeaders = r.Header.Clone()
+
+		// Return a valid autofix response
+		w.WriteHeader(http.StatusOK)
+		response := AutofixResponse{
+			Status: "COMPLETE",
+			AutofixSuggestions: []autofixResponseSingleFix{
+				{
+					Id:    "test-fix-id-get-diffs",
+					Value: "diff --git a/test.js b/test.js\n--- a/test.js\n+++ b/test.js\n@@ -1,1 +1,1 @@\n-var x = 1;\n+const x = 1;",
+				},
+			},
+		}
+		responseBytes, _ := json.Marshal(response)
+		_, _ = w.Write(responseBytes)
+	}))
+	defer server.Close()
+
+	// Create test context with trace ID
+	testTraceId := "test-get-autofix-diffs-trace-id-999"
+	ctx := observability.GetContextWithTraceId(t.Context(), testTraceId)
+
+	// Create AutofixOptions with org ID
+	testOrgId := "test-org-public-id-789"
+	options := AutofixOptions{
+		RuleID:     "test-rule-id-diffs",
+		BundleHash: "test-bundle-hash-diffs",
+		ShardKey:   "test-shard-key-diffs",
+		BaseDir:    "/test/base/dir/diffs",
+		FilePath:   "/test/file-diffs.js",
+		LineNum:    25,
+		Host:       server.URL, // Use test server URL
+		CodeRequestContext: CodeRequestContext{
+			Initiator: "test-diffs",
+			Flow:      "test-flow-diffs",
+			Org: CodeRequestContextOrg{
+				Name:        "test-org-diffs",
+				DisplayName: "Test Organization Diffs",
+				PublicId:    testOrgId,
+				Flags:       map[string]bool{},
+			},
+		},
+		IdeExtensionDetails: AutofixIdeExtensionDetails{
+			ExtensionName:    "test-extension-diffs",
+			ExtensionVersion: "2.0.0",
+			IdeName:          "test-ide-diffs",
+			IdeVersion:       "2.0.0",
+		},
+	}
+
+	// Create binding instance
+	binding := NewDeepcodeLLMBinding()
+
+	// Make the actual HTTP request using GetAutofixDiffs
+	_, status, err := binding.GetAutofixDiffs(ctx, "ignored-fix-id", options)
+
+	// Verify the request was successful (note: diffs may be empty due to file not existing)
+	require.NoError(t, err)
+	assert.Equal(t, "COMPLETE", status.Message)
+	// Note: diffs will be empty because the test file paths don't exist on disk
+	// This is expected behavior - we're primarily testing headers, not file operations
+	assert.Equal(t, 1, requestCount, "Expected exactly one HTTP request to be made")
+
+	// Verify the expected headers were sent
+	t.Run("VerifySnykRequestIdHeaderInGetAutofixDiffs", func(t *testing.T) {
+		actualRequestId := capturedHeaders.Get("snyk-request-id")
+		assert.Equal(t, testTraceId, actualRequestId, "snyk-request-id header should match the trace ID")
+	})
+
+	t.Run("VerifySnykOrgNameHeaderInGetAutofixDiffs", func(t *testing.T) {
+		actualOrgId := capturedHeaders.Get("snyk-org-name")
+		assert.Equal(t, testOrgId, actualOrgId, "snyk-org-name header should match the org public ID")
+	})
+
+	t.Run("VerifyStandardHeadersInGetAutofixDiffs", func(t *testing.T) {
+		contentType := capturedHeaders.Get("Content-Type")
+		cacheControl := capturedHeaders.Get("Cache-Control")
+
+		assert.Equal(t, "application/json", contentType, "Content-Type header should be set")
+		assert.Equal(t, "private, max-age=0, no-cache", cacheControl, "Cache-Control header should be set")
+	})
 }
 
 func TestAutofixRequestBody(t *testing.T) {
