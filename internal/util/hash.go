@@ -17,6 +17,7 @@
 package util
 
 import (
+	"bytes"
 	"crypto/sha256"
 	"encoding/hex"
 	"io"
@@ -24,17 +25,19 @@ import (
 	"golang.org/x/net/html/charset"
 )
 
-func Hash(content []byte) string {
-	b := sha256.Sum256(content)
+func Hash(content []byte) (string, error) {
+	utf8content, err := ConvertToUTF8(content)
+	if err != nil {
+		utf8content = content
+	}
+	b := sha256.Sum256(utf8content)
 	sum256 := hex.EncodeToString(b[:])
-	return sum256
+	return sum256, err
 }
 
-func ConvertToUTF8(reader io.Reader) ([]byte, error) {
-	utf8Reader, err := charset.NewReaderLabel("UTF-8", reader)
-	if err != nil {
-		return nil, err
-	}
-	utf8content, err := io.ReadAll(utf8Reader)
+func ConvertToUTF8(content []byte) ([]byte, error) {
+	byteReader := bytes.NewReader(content)
+	reader, _ := charset.NewReaderLabel("UTF-8", byteReader)
+	utf8content, err := io.ReadAll(reader)
 	return utf8content, err
 }

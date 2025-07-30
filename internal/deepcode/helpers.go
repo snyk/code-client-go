@@ -16,25 +16,21 @@
 package deepcode
 
 import (
-	"bytes"
-
 	"github.com/snyk/code-client-go/internal/util"
 )
 
 type BundleFile struct {
-	Hash    string `json:"hash"`
-	Content string `json:"content"`
+	Hash        string `json:"hash"`
+	Content     string `json:"content"`
+	ContentSize int    `json:"-"`
 }
 
-func BundleFileFrom(rawContent []byte) (BundleFile, error) {
-	fileContent, err := util.ConvertToUTF8(bytes.NewReader(rawContent))
-	if err != nil {
-		return BundleFile{}, err
-	}
-
+func BundleFileFrom(content []byte) (BundleFile, error) {
+	hash, err := util.Hash(content)
 	file := BundleFile{
-		Hash:    util.Hash(fileContent),
-		Content: string(fileContent),
+		Hash:        hash,
+		Content:     "", // We create the bundleFile empty, and enrich  with content later.
+		ContentSize: len(content),
 	}
-	return file, nil
+	return file, err
 }

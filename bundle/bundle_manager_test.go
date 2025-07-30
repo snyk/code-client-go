@@ -40,6 +40,7 @@ import (
 func Test_Create(t *testing.T) {
 	t.Run(
 		"when < maxFileSize creates deepCodeBundle", func(t *testing.T) {
+			testBundleHash := "test-bundle-hash-123"
 			ctrl := gomock.NewController(t)
 			mockSpan := mocks.NewMockSpan(ctrl)
 			mockSpan.EXPECT().Context().AnyTimes()
@@ -50,7 +51,7 @@ func Test_Create(t *testing.T) {
 			}, nil)
 			mockSnykCodeClient.EXPECT().CreateBundle(gomock.Any(), map[string]string{
 				"file.java": "386f1997f6da5133a0f75c347d5cdff15a428b817231278e2509832c1a80b3ea",
-			}).Times(1)
+			}).Return(testBundleHash, []string{}, nil).Times(1)
 			mockInstrumentor := mocks.NewMockInstrumentor(ctrl)
 			mockInstrumentor.EXPECT().StartSpan(gomock.Any(), gomock.Any()).Return(mockSpan).AnyTimes()
 			mockInstrumentor.EXPECT().Finish(gomock.Any()).AnyTimes()
@@ -75,6 +76,7 @@ func Test_Create(t *testing.T) {
 				map[string]bool{})
 			require.NoError(t, err)
 			assert.Len(t, bundle.GetFiles(), 1, "deepCodeBundle should have 1 deepCodeBundle files")
+			assert.Equal(t, testBundleHash, bundle.GetBundleHash(), "Bundle should have valid hash")
 		},
 	)
 
@@ -88,6 +90,8 @@ func Test_Create(t *testing.T) {
 				ConfigFiles: []string{},
 				Extensions:  []string{".java"},
 			}, nil)
+			// Bundle creation should only occur if we have candidate files. If all files are too big, we skip creation.
+			mockSnykCodeClient.EXPECT().CreateBundle(gomock.Any(), gomock.Any()).Times(0)
 			mockInstrumentor := mocks.NewMockInstrumentor(ctrl)
 			mockInstrumentor.EXPECT().StartSpan(gomock.Any(), gomock.Any()).Return(mockSpan).AnyTimes()
 			mockInstrumentor.EXPECT().Finish(gomock.Any()).AnyTimes()
@@ -126,6 +130,8 @@ func Test_Create(t *testing.T) {
 				ConfigFiles: []string{},
 				Extensions:  []string{".java"},
 			}, nil)
+			// Bundle creation should only occur if we have candidate files. If all files are skipped we skip creation.
+			mockSnykCodeClient.EXPECT().CreateBundle(gomock.Any(), gomock.Any()).Times(0)
 			mockInstrumentor := mocks.NewMockInstrumentor(ctrl)
 			mockInstrumentor.EXPECT().StartSpan(gomock.Any(), gomock.Any()).Return(mockSpan).AnyTimes()
 			mockInstrumentor.EXPECT().Finish(gomock.Any()).AnyTimes()
@@ -168,6 +174,8 @@ func Test_Create(t *testing.T) {
 				ConfigFiles: []string{},
 				Extensions:  []string{".java"},
 			}, nil)
+			// Bundle creation should only occur if we have candidate files. If all files are ignored, we skip creation.
+			mockSnykCodeClient.EXPECT().CreateBundle(gomock.Any(), gomock.Any()).Times(0)
 			mockInstrumentor := mocks.NewMockInstrumentor(ctrl)
 			mockInstrumentor.EXPECT().StartSpan(gomock.Any(), gomock.Any()).Return(mockSpan).AnyTimes()
 			mockInstrumentor.EXPECT().Finish(gomock.Any()).AnyTimes()
@@ -209,7 +217,7 @@ func Test_Create(t *testing.T) {
 		}, nil)
 		mockSnykCodeClient.EXPECT().CreateBundle(gomock.Any(), map[string]string{
 			".test": "9c05690c5b8e22df259431c95df33d01267f799de6810382ada1a9ff1b89710e",
-		}).Times(1)
+		}).Return("test-bundle-hash-456", []string{}, nil).Times(1)
 		mockInstrumentor := mocks.NewMockInstrumentor(ctrl)
 		mockInstrumentor.EXPECT().StartSpan(gomock.Any(), gomock.Any()).Return(mockSpan).AnyTimes()
 		mockInstrumentor.EXPECT().Finish(gomock.Any()).AnyTimes()
@@ -248,7 +256,7 @@ func Test_Create(t *testing.T) {
 		mockSnykCodeClient.EXPECT().CreateBundle(gomock.Any(), map[string]string{
 			"path/to/file1.java":            "9c05690c5b8e22df259431c95df33d01267f799de6810382ada1a9ff1b89710e",
 			"path/with%20spaces/file2.java": "9c05690c5b8e22df259431c95df33d01267f799de6810382ada1a9ff1b89710e",
-		}).Times(1)
+		}).Return("test-bundle-hash-789", []string{}, nil).Times(1)
 		mockInstrumentor := mocks.NewMockInstrumentor(ctrl)
 		mockInstrumentor.EXPECT().StartSpan(gomock.Any(), gomock.Any()).Return(mockSpan).AnyTimes()
 		mockInstrumentor.EXPECT().Finish(gomock.Any()).AnyTimes()
@@ -302,7 +310,7 @@ func Test_Create(t *testing.T) {
 		mockSnykCodeClient.EXPECT().CreateBundle(gomock.Any(), map[string]string{
 			"path/to/file1.java":            "9c05690c5b8e22df259431c95df33d01267f799de6810382ada1a9ff1b89710e",
 			"path/with%20spaces/file2.java": "9c05690c5b8e22df259431c95df33d01267f799de6810382ada1a9ff1b89710e",
-		}).Times(1)
+		}).Return("test-bundle-hash-abc", []string{}, nil).Times(1)
 		mockInstrumentor := mocks.NewMockInstrumentor(ctrl)
 		mockInstrumentor.EXPECT().StartSpan(gomock.Any(), gomock.Any()).Return(mockSpan).AnyTimes()
 		mockInstrumentor.EXPECT().Finish(gomock.Any()).AnyTimes()
@@ -444,7 +452,8 @@ func createTempFileInDir(t *testing.T, name string, size int, temporaryDir strin
 	t.Helper()
 
 	documentURI, fileContent := createFileOfSize(t, name, size, temporaryDir)
-	return documentURI, deepcode.BundleFile{Hash: util.Hash(fileContent), Content: string(fileContent)}
+	hash, _ := util.Hash(fileContent)
+	return documentURI, deepcode.BundleFile{Hash: hash, ContentSize: size}
 }
 
 func Test_IsSupported_Extensions(t *testing.T) {

@@ -17,10 +17,13 @@
 package bundle_test
 
 import (
+	"bytes"
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
 	"fmt"
+	"golang.org/x/net/html/charset"
+	"io"
 	"os"
 	"testing"
 
@@ -138,7 +141,7 @@ func Test_RawContentBatch(t *testing.T) {
 	t.Run("create a batch from raw content and upload the bundle", func(t *testing.T) {
 		ctrl := gomock.NewController(t)
 		mockSnykCodeClient := deepcodeMocks.NewMockDeepcodeClient(ctrl)
-		mockSnykCodeClient.EXPECT().ExtendBundle(gomock.Any(), "testBundleHash", bundleFilePartialMatcher{expectedKey: "hello", expectedContent: "world"}, []string{}).Return("newBundleHash", []string{}, nil).Times(1)
+		mockSnykCodeClient.EXPECT().ExtendBundle(gomock.Any(), "testBundleHash", bundleFilePartialMatcher{expectedKey: "hello", expectedContent: ""}, []string{}).Return("newBundleHash", []string{}, nil).Times(1)
 
 		mockSpan := mocks.NewMockSpan(ctrl)
 		mockSpan.EXPECT().Context().AnyTimes()
@@ -160,21 +163,24 @@ func Test_RawContentBatch(t *testing.T) {
 func Test_BundleEncoding(t *testing.T) {
 	t.Run("utf-8 encoded content", func(t *testing.T) {
 		content := []byte("hello")
-		bundle, err := deepcode.BundleFileFrom(content)
+		bundleFile, err := deepcode.BundleFileFrom(content)
 		assert.NoError(t, err)
 
-		actualShasum := sha256.Sum256([]byte(bundle.Content))
-		assert.Equal(t, bundle.Hash, hex.EncodeToString(actualShasum[:]))
+		ExpectedShaSum := sha256.Sum256(content)
+		assert.Equal(t, hex.EncodeToString(ExpectedShaSum[:]), bundleFile.Hash)
 	})
 
 	t.Run("non utf-8 / binary file", func(t *testing.T) {
 		content, err := os.ReadFile("testdata/rshell_font.php")
 		assert.NoError(t, err)
 
-		bundle, err := deepcode.BundleFileFrom(content)
+		bundleFile, err := deepcode.BundleFileFrom(content)
 		assert.NoError(t, err)
 
-		actualShasum := sha256.Sum256([]byte(bundle.Content))
-		assert.Equal(t, bundle.Hash, hex.EncodeToString(actualShasum[:]))
+		byteReader := bytes.NewReader(content)
+		reader, _ := charset.NewReaderLabel("UTF-8", byteReader)
+		utf8content, _ := io.ReadAll(reader)
+		ExpectedShaSum := sha256.Sum256(utf8content)
+		assert.Equal(t, hex.EncodeToString(ExpectedShaSum[:]), bundleFile.Hash)
 	})
 }

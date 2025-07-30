@@ -161,7 +161,7 @@ func TestSnykCodeBackendService_CreateBundle(t *testing.T) {
 
 	files := map[string]string{}
 	randomAddition := fmt.Sprintf("\n public void random() { System.out.println(\"%d\") }", time.Now().UnixMicro())
-	files[path1] = util.Hash([]byte(content + randomAddition))
+	files[path1], _ = util.Hash([]byte(content + randomAddition))
 	bundleHash, missingFiles, err := s.CreateBundle(context.Background(), files)
 	assert.Nil(t, err)
 	assert.NotNil(t, bundleHash)
@@ -201,7 +201,7 @@ func TestSnykCodeBackendService_CreateBundle_Failure(t *testing.T) {
 
 	files := map[string]string{}
 	randomAddition := fmt.Sprintf("\n public void random() { System.out.println(\"%d\") }", time.Now().UnixMicro())
-	files[path1] = util.Hash([]byte(content + randomAddition))
+	files[path1], _ = util.Hash([]byte(content + randomAddition))
 	_, _, err := s.CreateBundle(context.Background(), files)
 	assert.Error(t, err)
 }
@@ -250,7 +250,7 @@ func TestSnykCodeBackendService_ExtendBundle(t *testing.T) {
 	s := deepcode.NewDeepcodeClient(mockConfig, mockHTTPClient, newLogger(t), mockInstrumentor, mockErrorReporter)
 	var removedFiles []string
 	files := map[string]string{}
-	files[path1] = util.Hash([]byte(content))
+	files[path1], _ = util.Hash([]byte(content))
 	bundleHash, _, _ := s.CreateBundle(context.Background(), files)
 	filesExtend := createTestExtendMap()
 
@@ -303,7 +303,7 @@ func TestSnykCodeBackendService_ExtendBundle_Failure(t *testing.T) {
 	s := deepcode.NewDeepcodeClient(mockConfig, mockHTTPClient, newLogger(t), mockInstrumentor, mockErrorReporter)
 	var removedFiles []string
 	files := map[string]string{}
-	files[path1] = util.Hash([]byte(content))
+	files[path1], _ = util.Hash([]byte(content))
 	bundleHash, _, _ := s.CreateBundle(context.Background(), files)
 	filesExtend := createTestExtendMap()
 
@@ -344,12 +344,14 @@ func Test_Host(t *testing.T) {
 func createTestExtendMap() map[string]deepcode.BundleFile {
 	filesExtend := map[string]deepcode.BundleFile{}
 
+	hash, _ := util.Hash([]byte(content))
+	hash2, _ := util.Hash([]byte(content2))
 	filesExtend[path1] = deepcode.BundleFile{
-		Hash:    util.Hash([]byte(content)),
+		Hash:    hash,
 		Content: content,
 	}
 	filesExtend[path2] = deepcode.BundleFile{
-		Hash:    util.Hash([]byte(content2)),
+		Hash:    hash2,
 		Content: content2,
 	}
 	return filesExtend
