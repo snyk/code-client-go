@@ -19,7 +19,6 @@ package codeclient
 
 import (
 	"context"
-
 	"github.com/google/uuid"
 	"github.com/pkg/errors"
 	"github.com/rs/zerolog"
@@ -38,6 +37,7 @@ import (
 type codeScanner struct {
 	httpClient           codeClientHTTP.HTTPClient
 	bundleManager        bundle.BundleManager
+	deepcodeClient       deepcode.DeepcodeClient
 	analysisOrchestrator analysis.AnalysisOrchestrator
 	instrumentor         observability.Instrumentor
 	errorReporter        observability.ErrorReporter
@@ -60,6 +60,15 @@ type CodeScanner interface {
 		ctx context.Context,
 		requestId string,
 		target scan.Target,
+		files <-chan string,
+		changedFiles map[string]bool,
+	) (*sarif.SarifResponse, string, error)
+
+	UploadAndAnalyzeLegacy(
+		ctx context.Context,
+		requestId string,
+		target scan.Target,
+		shardKey string,
 		files <-chan string,
 		changedFiles map[string]bool,
 	) (*sarif.SarifResponse, string, error)
@@ -105,6 +114,13 @@ func WithTrackerFactory(trackerFactory scan.TrackerFactory) OptionFunc {
 }
 
 type AnalysisOption func(*analysis.AnalysisConfig)
+
+type LegacyAnalysisOption struct {
+	bundleHash   string
+	shardKey     string
+	limitToFiles []string
+	severity     int
+}
 
 func ReportLocalTest(projectName string, targetName string, targetReference string) AnalysisOption {
 	return func(c *analysis.AnalysisConfig) {
@@ -152,6 +168,7 @@ func NewCodeScanner(
 	deepcodeClient := deepcode.NewDeepcodeClient(scanner.config, httpClient, scanner.logger, scanner.instrumentor, scanner.errorReporter)
 	bundleManager := bundle.NewBundleManager(deepcodeClient, scanner.logger, scanner.instrumentor, scanner.errorReporter, scanner.trackerFactory)
 	scanner.bundleManager = bundleManager
+	scanner.deepcodeClient = deepcodeClient
 	analysisOrchestrator := analysis.NewAnalysisOrchestrator(
 		scanner.config,
 		httpClient,
@@ -171,6 +188,7 @@ func NewCodeScanner(
 func (c *codeScanner) WithBundleManager(bundleManager bundle.BundleManager) *codeScanner {
 	return &codeScanner{
 		bundleManager:        bundleManager,
+		deepcodeClient:       c.deepcodeClient,
 		analysisOrchestrator: c.analysisOrchestrator,
 		errorReporter:        c.errorReporter,
 		logger:               c.logger,
@@ -183,6 +201,7 @@ func (c *codeScanner) WithBundleManager(bundleManager bundle.BundleManager) *cod
 func (c *codeScanner) WithAnalysisOrchestrator(analysisOrchestrator analysis.AnalysisOrchestrator) *codeScanner {
 	return &codeScanner{
 		bundleManager:        c.bundleManager,
+		deepcodeClient:       c.deepcodeClient,
 		analysisOrchestrator: analysisOrchestrator,
 		errorReporter:        c.errorReporter,
 		logger:               c.logger,
@@ -235,7 +254,6 @@ func (c *codeScanner) checkCancellationOrLogError(ctx context.Context, targetPat
 	return returnError
 }
 
-// UploadAndAnalyze returns a fake SARIF response for testing. Use target-service to run analysis on.
 func (c *codeScanner) UploadAndAnalyze(
 	ctx context.Context,
 	requestId string,
@@ -247,7 +265,30 @@ func (c *codeScanner) UploadAndAnalyze(
 	return response, bundleHash, err
 }
 
-// UploadAndAnalyzeWithOptions returns a fake SARIF response for testing. Use target-service to run analysis on.
+func (c *codeScanner) UploadAndAnalyzeLegacy(
+	ctx context.Context,
+	requestId string,
+	target scan.Target,
+	shardKey string,
+	files <-chan string,
+	changedFiles map[string]bool,
+) (*sarif.SarifResponse, string, error) {
+	uploadedBundle, err := c.Upload(ctx, requestId, target, files, changedFiles)
+	if err != nil || uploadedBundle == nil || uploadedBundle.GetBundleHash() == "" {
+		c.logger.Debug().Msg("empty bundle, no Snyk Code analysis")
+		return nil, "", err
+	}
+
+	bundleHash := uploadedBundle.GetBundleHash()
+	limitToFiles := uploadedBundle.GetLimitToFiles()
+	severity := 0
+
+	response, _, err := c.analysisOrchestrator.RunLegacyTest(ctx, bundleHash, shardKey, limitToFiles, severity)
+
+	//TODO status?
+	return response, bundleHash, err
+}
+
 func (c *codeScanner) UploadAndAnalyzeWithOptions(
 	ctx context.Context,
 	requestId string,
