@@ -410,6 +410,7 @@ func (a *analysisOrchestrator) newLegacyCodeRequestContext() legacyCodeRequestCo
 		orgId = a.config.Organization()
 	}
 
+	// TODO - needs to be dynamically generated
 	return legacyCodeRequestContext{
 		Initiator: "IDE",
 		Flow:      "language-server",
@@ -496,15 +497,12 @@ func (a *analysisOrchestrator) RunLegacyTest(ctx context.Context, bundleHash str
 
 	// Create HTTP request
 	analysisUrl := baseUrl + "/analysis"
-	req, err := http.NewRequestWithContext(span.Context(), "POST", analysisUrl, bytes.NewBuffer(requestBody))
+	req, err := http.NewRequestWithContext(span.Context(), http.MethodPost, analysisUrl, bytes.NewBuffer(requestBody))
 	if err != nil {
 		a.logger.Err(err).Str("method", method).Msg("error creating HTTP request")
 		return nil, LegacyAnalysisStatus{}, err
 	}
-
-	// Set headers
-	//req.Header.Set("Content-Type", "application/json")
-	//req.Header.Set("Authorization", "token "+a.config.Token())
+	codeClientHTTP.AddDefaultHeaders(req, span.GetTraceId(), a.config.Organization())
 
 	// Make HTTP call
 	resp, err := a.httpClient.Do(req)

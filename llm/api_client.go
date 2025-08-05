@@ -11,6 +11,8 @@ import (
 	"net/http"
 	"net/url"
 	"strings"
+
+	codeClientHTTP "github.com/snyk/code-client-go/http"
 )
 
 var (
@@ -74,7 +76,7 @@ func (d *DeepCodeLLMBindingImpl) submitRequest(ctx context.Context, url *url.URL
 		return nil, err
 	}
 
-	d.addDefaultHeaders(req, span.GetTraceId(), orgId)
+	codeClientHTTP.AddDefaultHeaders(req, span.GetTraceId(), orgId)
 
 	resp, err := d.httpClientFunc().Do(req) //nolint:bodyclose // this seems to be a false positive
 	if err != nil {
@@ -257,16 +259,4 @@ func prepareDiffs(diffs []string) []string {
 		encodedDiffs = append(encodedDiffs, base64.StdEncoding.EncodeToString([]byte(diff)))
 	}
 	return encodedDiffs
-}
-
-func (d *DeepCodeLLMBindingImpl) addDefaultHeaders(req *http.Request, requestId string, orgId string) {
-	// if requestId is empty it will be enriched from the Gateway
-	if len(requestId) > 0 {
-		req.Header.Set("snyk-request-id", requestId)
-	}
-	if len(orgId) > 0 {
-		req.Header.Set("snyk-org-name", orgId)
-	}
-	req.Header.Set("Cache-Control", "private, max-age=0, no-cache")
-	req.Header.Set("Content-Type", "application/json")
 }

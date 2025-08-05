@@ -24,7 +24,7 @@ import (
 	"time"
 
 	"github.com/rs/zerolog"
-
+	
 	"github.com/snyk/code-client-go/observability"
 )
 
@@ -157,4 +157,16 @@ func (s *httpClient) httpCall(req *http.Request) (*http.Response, error) {
 func NewDefaultClientFactory() HTTPClientFactory {
 	clientFunc := func() *http.Client { return http.DefaultClient }
 	return clientFunc
+}
+
+func AddDefaultHeaders(req *http.Request, requestId string, orgId string) {
+	// if requestId is empty it will be enriched from the Gateway
+	if len(requestId) > 0 {
+		req.Header.Set("snyk-request-id", requestId)
+	}
+	if len(orgId) > 0 {
+		req.Header.Set("snyk-org-name", orgId)
+	}
+	req.Header.Set("Cache-Control", "private, max-age=0, no-cache")
+	req.Header.Set("Content-Type", "application/json")
 }
