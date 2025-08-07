@@ -19,9 +19,11 @@ package codeclient
 
 import (
 	"context"
+	"fmt"
 	"github.com/google/uuid"
 	"github.com/pkg/errors"
 	"github.com/rs/zerolog"
+	"time"
 
 	"github.com/snyk/code-client-go/bundle"
 	"github.com/snyk/code-client-go/config"
@@ -71,6 +73,7 @@ type CodeScanner interface {
 		shardKey string,
 		files <-chan string,
 		changedFiles map[string]bool,
+		statusChannel chan<- scan.LegacyScanStatus,
 	) (*sarif.SarifResponse, string, error)
 }
 
@@ -272,6 +275,7 @@ func (c *codeScanner) UploadAndAnalyzeLegacy(
 	shardKey string,
 	files <-chan string,
 	changedFiles map[string]bool,
+	statusChannel chan<- scan.LegacyScanStatus,
 ) (*sarif.SarifResponse, string, error) {
 	uploadedBundle, err := c.Upload(ctx, requestId, target, files, changedFiles)
 	if err != nil || uploadedBundle == nil || uploadedBundle.GetBundleHash() == "" {
@@ -283,10 +287,50 @@ func (c *codeScanner) UploadAndAnalyzeLegacy(
 	limitToFiles := uploadedBundle.GetLimitToFiles()
 	severity := 0
 
-	response, _, err := c.analysisOrchestrator.RunLegacyTest(ctx, bundleHash, shardKey, limitToFiles, severity)
+	start := time.Now()
+	for {
+		response, status, err := c.analysisOrchestrator.RunLegacyTest(ctx, bundleHash, shardKey, limitToFiles, severity)
 
-	//TODO status?
-	return response, bundleHash, err
+		if err != nil {
+			c.logger.Error().Err(err).
+				Int("fileCount", len(uploadedBundle.GetFiles())).
+				Msg("error retrieving diagnostics...")
+
+			statusChannel <- scan.LegacyScanStatus{
+				Message:     fmt.Sprintf("Analysis failed: %v", err),
+				ScanStopped: true,
+			}
+
+			return nil, "", err
+		}
+
+		if status.Message == analysis.StatusComplete {
+			c.logger.Trace().Msg("sending diagnostics...")
+
+			statusChannel <- scan.LegacyScanStatus{
+				Message:     "Analysis complete.",
+				ScanStopped: true,
+			}
+
+			return response, bundleHash, err
+		} else if status.Message == analysis.StatusAnalyzing {
+			c.logger.Trace().Msg("\"Analyzing\" message received, sending In-Progress message to client")
+		}
+
+		if time.Since(start) > c.config.SnykCodeAnalysisTimeout() {
+			err := errors.New("analysis call timed out")
+			c.logger.Error().Err(err).Msg("timeout...")
+
+			statusChannel <- scan.LegacyScanStatus{
+				Message:     "Snyk Code Analysis timed out",
+				ScanStopped: true,
+			}
+			return nil, "", err
+		}
+
+		time.Sleep(1 * time.Second)
+		statusChannel <- status
+	}
 }
 
 func (c *codeScanner) UploadAndAnalyzeWithOptions(

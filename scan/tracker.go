@@ -24,3 +24,9 @@ type Tracker interface {
 	Begin(title, message string)
 	End(message string)
 }
+
+type LegacyScanStatus struct {
+	Message     string
+	Percentage  int
+	ScanStopped bool
+}

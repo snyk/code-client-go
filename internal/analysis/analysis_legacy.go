@@ -1,5 +1,5 @@
 /*
- * © 2024 Snyk Limited All rights reserved.
+ * © 2025 Snyk Limited All rights reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -22,6 +22,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"github.com/snyk/code-client-go/scan"
 	"io"
 	"math"
 	"net/http"
@@ -34,61 +35,57 @@ import (
 
 // Legacy analysis types and constants
 const (
-	legacyCompleteStatus = "COMPLETE"
+	StatusComplete  = "COMPLETE"
+	StatusFailed    = "FAILED"
+	StatusAnalyzing = "ANALYZING"
 )
 
-type LegacyAnalysisStatus struct {
-	Message    string
-	Percentage int
-}
-
-type LegacyAnalysisRequestKey struct {
+type RequestKey struct {
 	Type         string   `json:"type"`
 	Hash         string   `json:"hash"`
 	LimitToFiles []string `json:"limitToFiles,omitempty"`
 	Shard        string   `json:"shard"`
 }
 
-type legacyCodeRequestContextOrg struct {
+type requestContextOrg struct {
 	Name        string          `json:"name"`
 	DisplayName string          `json:"displayName"`
 	PublicId    string          `json:"publicId"`
 	Flags       map[string]bool `json:"flags"`
 }
 
-type legacyCodeRequestContext struct {
-	Initiator string                      `json:"initiator"`
-	Flow      string                      `json:"flow,omitempty"`
-	Org       legacyCodeRequestContextOrg `json:"org,omitempty"`
+type requestContext struct {
+	Initiator string            `json:"initiator"`
+	Flow      string            `json:"flow,omitempty"`
+	Org       requestContextOrg `json:"org,omitempty"`
 }
 
-type LegacyAnalysisRequest struct {
-	Key             LegacyAnalysisRequestKey `json:"key"`
-	Severity        int                      `json:"severity,omitempty"`
-	Prioritized     bool                     `json:"prioritized,omitempty"`
-	Legacy          bool                     `json:"legacy"`
-	AnalysisContext legacyCodeRequestContext `json:"analysisContext"`
+type Request struct {
+	Key             RequestKey     `json:"key"`
+	Severity        int            `json:"severity,omitempty"`
+	Prioritized     bool           `json:"prioritized,omitempty"`
+	Legacy          bool           `json:"legacy"`
+	AnalysisContext requestContext `json:"analysisContext"`
 }
 
-type LegacyAnalysisFailedError struct {
+type FailedError struct {
 	Msg string
 }
 
-func (e LegacyAnalysisFailedError) Error() string { return e.Msg }
+func (e FailedError) Error() string { return e.Msg }
 
 // Legacy analysis helper functions
-func (a *analysisOrchestrator) newLegacyCodeRequestContext() legacyCodeRequestContext {
+func (a *analysisOrchestrator) newRequestContext() requestContext {
 	unknown := "unknown"
 	orgId := unknown
 	if a.config.Organization() != "" {
 		orgId = a.config.Organization()
 	}
 
-	// TODO - needs to be dynamically generated
-	return legacyCodeRequestContext{
+	return requestContext{
 		Initiator: "IDE",
 		Flow:      "language-server",
-		Org: legacyCodeRequestContextOrg{
+		Org: requestContextOrg{
 			Name:        unknown,
 			DisplayName: unknown,
 			PublicId:    orgId,
@@ -96,15 +93,15 @@ func (a *analysisOrchestrator) newLegacyCodeRequestContext() legacyCodeRequestCo
 	}
 }
 
-func (a *analysisOrchestrator) createLegacyAnalysisRequestBody(bundleHash, shardKey string, limitToFiles []string, severity int) ([]byte, error) {
-	request := LegacyAnalysisRequest{
-		Key: LegacyAnalysisRequestKey{
+func (a *analysisOrchestrator) createRequestBody(bundleHash, shardKey string, limitToFiles []string, severity int) ([]byte, error) {
+	request := Request{
+		Key: RequestKey{
 			Type:         "file",
 			Hash:         bundleHash,
 			LimitToFiles: limitToFiles,
 		},
 		Legacy:          false,
-		AnalysisContext: a.newLegacyCodeRequestContext(),
+		AnalysisContext: a.newRequestContext(),
 	}
 	if len(shardKey) > 0 {
 		request.Key.Shard = shardKey
@@ -117,7 +114,7 @@ func (a *analysisOrchestrator) createLegacyAnalysisRequestBody(bundleHash, shard
 	return requestBody, err
 }
 
-func (a *analysisOrchestrator) getLegacyCodeApiUrl() (string, error) {
+func (a *analysisOrchestrator) getCodeApiUrl() (string, error) {
 	// Use the same logic as the original SnykCodeHTTPClient
 	if !a.config.IsFedramp() {
 		return a.config.SnykCodeApi(), nil
@@ -138,7 +135,8 @@ func (a *analysisOrchestrator) getLegacyCodeApiUrl() (string, error) {
 	return u.String(), nil
 }
 
-func (a *analysisOrchestrator) logLegacySarifResponse(method string, sarifResponse sarif.SarifResponse) {
+// TODO combine?
+func (a *analysisOrchestrator) logSarifResponse(method string, sarifResponse sarif.SarifResponse) {
 	a.logger.Debug().
 		Str("method", method).
 		Str("status", sarifResponse.Status).
@@ -149,24 +147,24 @@ func (a *analysisOrchestrator) logLegacySarifResponse(method string, sarifRespon
 		Msg("Received response summary")
 }
 
-func (a *analysisOrchestrator) RunLegacyTest(ctx context.Context, bundleHash string, shardKey string, limitToFiles []string, severity int) (*sarif.SarifResponse, LegacyAnalysisStatus, error) {
+func (a *analysisOrchestrator) RunLegacyTest(ctx context.Context, bundleHash string, shardKey string, limitToFiles []string, severity int) (*sarif.SarifResponse, scan.LegacyScanStatus, error) {
 	method := "analysis.RunLegacyTest"
 	span := a.instrumentor.StartSpan(ctx, method)
 	defer a.instrumentor.Finish(span)
 
-	a.logger.Debug().Str("method", method).Str("bundleHash", bundleHash).Msg("API: Retrieving legacy analysis for bundle")
-	defer a.logger.Debug().Str("method", method).Str("bundleHash", bundleHash).Msg("API: Retrieving legacy analysis done")
+	a.logger.Debug().Str("method", method).Str("bundleHash", bundleHash).Msg("API: Retrieving analysis for bundle")
+	defer a.logger.Debug().Str("method", method).Str("bundleHash", bundleHash).Msg("API: Retrieving analysis done")
 
-	requestBody, err := a.createLegacyAnalysisRequestBody(bundleHash, shardKey, limitToFiles, severity)
+	requestBody, err := a.createRequestBody(bundleHash, shardKey, limitToFiles, severity)
 	if err != nil {
 		a.logger.Err(err).Str("method", method).Str("requestBody", string(requestBody)).Msg("error creating request body")
-		return nil, LegacyAnalysisStatus{}, err
+		return nil, scan.LegacyScanStatus{}, err
 	}
 
 	// Get the legacy code API URL
-	baseUrl, err := a.getLegacyCodeApiUrl()
+	baseUrl, err := a.getCodeApiUrl()
 	if err != nil {
-		return nil, LegacyAnalysisStatus{}, err
+		return nil, scan.LegacyScanStatus{}, err
 	}
 
 	// Create HTTP request
@@ -174,13 +172,13 @@ func (a *analysisOrchestrator) RunLegacyTest(ctx context.Context, bundleHash str
 	req, err := http.NewRequestWithContext(span.Context(), http.MethodPost, analysisUrl, bytes.NewBuffer(requestBody))
 	if err != nil {
 		a.logger.Err(err).Str("method", method).Msg("error creating HTTP request")
-		return nil, LegacyAnalysisStatus{}, err
+		return nil, scan.LegacyScanStatus{}, err
 	}
 	codeClientHTTP.AddDefaultHeaders(req, span.GetTraceId(), a.config.Organization())
 
 	// Make HTTP call
 	resp, err := a.httpClient.Do(req)
-	failed := LegacyAnalysisStatus{Message: "FAILED"}
+	failed := scan.LegacyScanStatus{Message: StatusFailed}
 	if err != nil {
 		a.logger.Err(err).Str("method", method).Msg("error response from analysis")
 		return nil, failed, err
@@ -201,7 +199,7 @@ func (a *analysisOrchestrator) RunLegacyTest(ctx context.Context, bundleHash str
 	// Check response status
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
 		a.logger.Err(err).Str("method", method).Str("responseBody", string(responseBody)).Int("statusCode", resp.StatusCode).Msg("error response from analysis")
-		return nil, failed, LegacyAnalysisFailedError{Msg: string(responseBody)}
+		return nil, failed, FailedError{Msg: string(responseBody)}
 	}
 
 	var response sarif.SarifResponse
@@ -210,24 +208,24 @@ func (a *analysisOrchestrator) RunLegacyTest(ctx context.Context, bundleHash str
 		a.logger.Err(err).Str("method", method).Str("responseBody", string(responseBody)).Msg("error unmarshalling")
 		return nil, failed, err
 	} else {
-		a.logLegacySarifResponse(method, response)
+		a.logSarifResponse(method, response)
 	}
 
 	a.logger.Debug().Str("method", method).Str("bundleHash", bundleHash).Float64("progress",
-		response.Progress).Msgf("Status: %s", response.Status)
+		response.Progress).Msgf("LegacyScanStatus: %s", response.Status)
 
 	if response.Status == failed.Message {
 		a.logger.Err(err).Str("method", method).Str("responseStatus", response.Status).Msg("analysis failed")
-		return nil, failed, LegacyAnalysisFailedError{Msg: string(responseBody)}
+		return nil, failed, FailedError{Msg: string(responseBody)}
 	}
 
 	if response.Status == "" {
 		a.logger.Err(err).Str("method", method).Str("responseStatus", response.Status).Msg("unknown response status (empty)")
-		return nil, failed, LegacyAnalysisFailedError{Msg: string(responseBody)}
+		return nil, failed, FailedError{Msg: string(responseBody)}
 	}
 
-	status := LegacyAnalysisStatus{Message: response.Status, Percentage: int(math.RoundToEven(response.Progress * 100))}
-	if response.Status != legacyCompleteStatus {
+	status := scan.LegacyScanStatus{Message: response.Status, Percentage: int(math.RoundToEven(response.Progress * 100))}
+	if response.Status != StatusComplete {
 		return nil, status, nil
 	}
 

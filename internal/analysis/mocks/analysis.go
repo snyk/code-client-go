@@ -21,7 +21,7 @@ type MockAnalysisOrchestrator struct {
 	recorder *MockAnalysisOrchestratorMockRecorder
 }
 
-func (m *MockAnalysisOrchestrator) RunLegacyTest(ctx context.Context, bundleHash string, shardKey string, limitToFiles []string, severity int) (*sarif.SarifResponse, analysis.LegacyAnalysisStatus, error) {
+func (m *MockAnalysisOrchestrator) RunLegacyTest(ctx context.Context, bundleHash string, shardKey string, limitToFiles []string, severity int) (*sarif.SarifResponse, scan.LegacyScanStatus, error) {
 	//TODO implement me
 	panic("implement me")
 }
