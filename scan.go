@@ -118,13 +118,6 @@ func WithTrackerFactory(trackerFactory scan.TrackerFactory) OptionFunc {
 
 type AnalysisOption func(*analysis.AnalysisConfig)
 
-type LegacyAnalysisOption struct {
-	bundleHash   string
-	shardKey     string
-	limitToFiles []string
-	severity     int
-}
-
 func ReportLocalTest(projectName string, targetName string, targetReference string) AnalysisOption {
 	return func(c *analysis.AnalysisConfig) {
 		c.Report = true
