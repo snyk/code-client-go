@@ -17,7 +17,6 @@ package deepcode_test
 
 import (
 	"bytes"
-	"context"
 	"fmt"
 	"io"
 	"net/http"
@@ -89,7 +88,7 @@ func TestSnykCodeBackendService_GetFilters(t *testing.T) {
 	mockErrorReporter := mocks.NewMockErrorReporter(ctrl)
 
 	s := deepcode.NewDeepcodeClient(mockConfig, mockHTTPClient, newLogger(t), mockInstrumentor, mockErrorReporter)
-	filters, err := s.GetFilters(context.Background())
+	filters, err := s.GetFilters(t.Context())
 	assert.Nil(t, err)
 	assert.Equal(t, 1, len(filters.ConfigFiles))
 	assert.Equal(t, 1, len(filters.ConfigFiles))
@@ -124,7 +123,7 @@ func TestSnykCodeBackendService_GetFilters_Failure(t *testing.T) {
 	mockErrorReporter := mocks.NewMockErrorReporter(ctrl)
 
 	s := deepcode.NewDeepcodeClient(mockConfig, mockHTTPClient, newLogger(t), mockInstrumentor, mockErrorReporter)
-	_, err := s.GetFilters(context.Background())
+	_, err := s.GetFilters(t.Context())
 	assert.Error(t, err)
 }
 
@@ -162,7 +161,7 @@ func TestSnykCodeBackendService_CreateBundle(t *testing.T) {
 	files := map[string]string{}
 	randomAddition := fmt.Sprintf("\n public void random() { System.out.println(\"%d\") }", time.Now().UnixMicro())
 	files[path1], _ = util.Hash([]byte(content + randomAddition))
-	bundleHash, missingFiles, err := s.CreateBundle(context.Background(), files)
+	bundleHash, missingFiles, err := s.CreateBundle(t.Context(), files)
 	assert.Nil(t, err)
 	assert.NotNil(t, bundleHash)
 	assert.Equal(t, "bundleHash", bundleHash)
@@ -202,7 +201,7 @@ func TestSnykCodeBackendService_CreateBundle_Failure(t *testing.T) {
 	files := map[string]string{}
 	randomAddition := fmt.Sprintf("\n public void random() { System.out.println(\"%d\") }", time.Now().UnixMicro())
 	files[path1], _ = util.Hash([]byte(content + randomAddition))
-	_, _, err := s.CreateBundle(context.Background(), files)
+	_, _, err := s.CreateBundle(t.Context(), files)
 	assert.Error(t, err)
 }
 
@@ -251,10 +250,10 @@ func TestSnykCodeBackendService_ExtendBundle(t *testing.T) {
 	var removedFiles []string
 	files := map[string]string{}
 	files[path1], _ = util.Hash([]byte(content))
-	bundleHash, _, _ := s.CreateBundle(context.Background(), files)
+	bundleHash, _, _ := s.CreateBundle(t.Context(), files)
 	filesExtend := createTestExtendMap()
 
-	bundleHash, missingFiles, err := s.ExtendBundle(context.Background(), bundleHash, filesExtend, removedFiles)
+	bundleHash, missingFiles, err := s.ExtendBundle(t.Context(), bundleHash, filesExtend, removedFiles)
 	assert.Nil(t, err)
 	assert.Equal(t, 0, len(missingFiles))
 	assert.NotEmpty(t, bundleHash)
@@ -304,10 +303,10 @@ func TestSnykCodeBackendService_ExtendBundle_Failure(t *testing.T) {
 	var removedFiles []string
 	files := map[string]string{}
 	files[path1], _ = util.Hash([]byte(content))
-	bundleHash, _, _ := s.CreateBundle(context.Background(), files)
+	bundleHash, _, _ := s.CreateBundle(t.Context(), files)
 	filesExtend := createTestExtendMap()
 
-	_, _, err := s.ExtendBundle(context.Background(), bundleHash, filesExtend, removedFiles)
+	_, _, err := s.ExtendBundle(t.Context(), bundleHash, filesExtend, removedFiles)
 	assert.Error(t, err)
 }
 

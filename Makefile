@@ -4,14 +4,17 @@ GOARCH = $(shell go env GOARCH)
 
 TOOLS_BIN := $(shell pwd)/.bin
 
-OVERRIDE_GOCI_LINT_V := v1.60.1
+OVERRIDE_GOCI_LINT_V := v1.64.8
+GOCI_LINT_TARGETS := $(TOOLS_BIN)/golangci-lint $(TOOLS_BIN)/.golangci-lint_$(OVERRIDE_GOCI_LINT_V)
 SHELL:=env PATH=$(TOOLS_BIN)/go:$(TOOLS_BIN)/pact/bin:$(PATH) $(SHELL)
 
 ## tools: Install required tooling.
 .PHONY: tools
-tools: $(TOOLS_BIN)/golangci-lint $(TOOLS_BIN)/go
-$(TOOLS_BIN)/golangci-lint:
-	@curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/$(OVERRIDE_GOCI_LINT_V)/install.sh | sh -s -- -b $(TOOLS_BIN)/ $(OVERRIDE_GOCI_LINT_V)
+tools: $(GOCI_LINT_TARGETS) $(TOOLS_BIN)/go
+$(GOCI_LINT_TARGETS):
+	@curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/$(OVERRIDE_GOCI_LINT_V)/install.sh | sh -s -- -b $(TOOLS_BIN) $(OVERRIDE_GOCI_LINT_V)
+	@rm -f $(TOOLS_BIN)/.golangci-lint_*
+	@touch $(TOOLS_BIN)/.golangci-lint_$(OVERRIDE_GOCI_LINT_V)
 
 $(TOOLS_BIN)/pact-broker:
 	@cd $(TOOLS_BIN); curl -fsSL https://raw.githubusercontent.com/pact-foundation/pact-ruby-standalone/master/install.sh | PACT_CLI_VERSION=v2.4.4 bash; cd ../
@@ -22,17 +25,17 @@ $(TOOLS_BIN)/go:
 	@GOBIN=${TOOLS_BIN}/go ${TOOLS_BIN}/go/pact-go -l DEBUG install -d /tmp
 
 .PHONY: format
-format:
+format: $(GOCI_LINT_TARGETS)
 	@gofmt -w -l -e .
-	@$(TOOLS_BIN)/golangci-lint run --fix -v ./...
+	@$(TOOLS_BIN)/golangci-lint run --fix ./...
 
 .PHONY: lint
-lint: $(TOOLS_BIN)/golangci-lint
+lint: $(GOCI_LINT_TARGETS)
     ifdef CI
 		mkdir -p test/results
 		@$(TOOLS_BIN)/golangci-lint run --out-format junit-xml ./... > test/results/lint-tests.xml
     else
-		@$(TOOLS_BIN)/golangci-lint run -v ./...
+		@$(TOOLS_BIN)/golangci-lint run ./...
     endif
 
 .PHONY: build
@@ -45,6 +48,7 @@ clean:
 	@echo "Cleaning up..."
 	@GOOS=$(GOOS) GOARCH=$(GOARCH) go clean -testcache
 	@rm -rf $(TOOLS_BIN)
+	@rm -f /tmp/libpact_ffi.*
 
 .PHONY: test
 test:

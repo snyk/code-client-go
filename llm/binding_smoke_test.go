@@ -1,7 +1,6 @@
 package llm
 
 import (
-	"context"
 	"net/url"
 	"testing"
 
@@ -24,6 +23,6 @@ func TestDeepcodeLLMBinding_Explain_Smoke(t *testing.T) {
 	endpoint, errEndpoint := url.Parse(defaultEndpointURL)
 	assert.NoError(t, errEndpoint)
 
-	err := binding.Explain(context.Background(), AIRequest{Id: uuid.New().String(), Input: "{}", Endpoint: endpoint}, HTML, outputChain)
+	err := binding.Explain(t.Context(), AIRequest{Id: uuid.New().String(), Input: "{}", Endpoint: endpoint}, HTML, outputChain)
 	assert.NoError(t, err)
 }
