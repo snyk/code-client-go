@@ -21,15 +21,6 @@ type MockAnalysisOrchestrator struct {
 	recorder *MockAnalysisOrchestratorMockRecorder
 }
 
-func (m *MockAnalysisOrchestrator) RunLegacyTest(ctx context.Context, bundleHash string, shardKey string, limitToFiles []string, severity int) (*sarif.SarifResponse, scan.LegacyScanStatus, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "RunLegacyTest", ctx, bundleHash, shardKey, limitToFiles, severity)
-	ret0, _ := ret[0].(*sarif.SarifResponse)
-	ret1, _ := ret[1].( scan.LegacyScanStatus)
-	ret2, _ := ret[2].(error)
-	return ret0, ret1, ret2
-}
-
 // MockAnalysisOrchestratorMockRecorder is the mock recorder for MockAnalysisOrchestrator.
 type MockAnalysisOrchestratorMockRecorder struct {
 	mock *MockAnalysisOrchestrator
@@ -45,6 +36,22 @@ func NewMockAnalysisOrchestrator(ctrl *gomock.Controller) *MockAnalysisOrchestra
 // EXPECT returns an object that allows the caller to indicate expected use.
 func (m *MockAnalysisOrchestrator) EXPECT() *MockAnalysisOrchestratorMockRecorder {
 	return m.recorder
+}
+
+// RunLegacyTest mocks base method.
+func (m *MockAnalysisOrchestrator) RunLegacyTest(ctx context.Context, bundleHash, shardKey string, limitToFiles []string, severity int) (*sarif.SarifResponse, scan.LegacyScanStatus, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "RunLegacyTest", ctx, bundleHash, shardKey, limitToFiles, severity)
+	ret0, _ := ret[0].(*sarif.SarifResponse)
+	ret1, _ := ret[1].(scan.LegacyScanStatus)
+	ret2, _ := ret[2].(error)
+	return ret0, ret1, ret2
+}
+
+// RunLegacyTest indicates an expected call of RunLegacyTest.
+func (mr *MockAnalysisOrchestratorMockRecorder) RunLegacyTest(ctx, bundleHash, shardKey, limitToFiles, severity interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RunLegacyTest", reflect.TypeOf((*MockAnalysisOrchestrator)(nil).RunLegacyTest), ctx, bundleHash, shardKey, limitToFiles, severity)
 }
 
 // RunTest mocks base method.
