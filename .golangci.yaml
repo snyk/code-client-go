@@ -3,13 +3,6 @@ run:
     - integration
   concurrency: 4
   issues-exit-code: 1
-  skip-dirs:
-    - "licenses"
-    - "pact"
-    - ".bin"
-    - ".github"
-    - ".vscode"
-    - "build"
   tests: true
   timeout: 5m
 
@@ -38,7 +31,6 @@ linters-settings:
   gosimple:
     checks: ['all']
   govet:
-    check-shadowing: true
     enable-all: true
     disable:
       - fieldalignment
@@ -110,7 +102,7 @@ linters:
     # TODO(errorlint): revisit
     #- errorlint
     - exhaustive
-    - exportloopref
+    - copyloopvar
     # TODO(forbidigo): revisit
     #- forbidigo
     # TODO(forcetypeassert): revisit this one! beware fragile asserts in this codebase
@@ -157,7 +149,6 @@ linters:
     # TODO(stylecheck): revisit in a followup; some breaking API changes
     #- stylecheck
     # NOTE: removed tagliatelle as it conflicts too much with existing API wireformats
-    - tenv
     # TODO(testpackage): improve open vs closed-box testing in a followup
     #- testpackage
     - thelper
@@ -166,12 +157,21 @@ linters:
     # TODO(unparam): revisit
     #- unparam
     - usestdlibvars
+    - usetesting
     - wastedassign
     - whitespace
     # TODO(wrapcheck): wrap errors in a followup
     #- wrapcheck
 
 issues:
+  exclude-dirs:
+    - "licenses"
+    - "pact"
+    - ".bin"
+    - ".github"
+    - ".vscode"
+    - "build"
+
   exclude-rules:
     - path: _test\.go
       linters:
