@@ -276,8 +276,19 @@ func (c *codeScanner) UploadAndAnalyzeLegacy(
 		return nil, "", err
 	}
 
-	bundleHash := uploadedBundle.GetBundleHash()
-	limitToFiles := uploadedBundle.GetLimitToFiles()
+	response, bundleHash, err := c.analyzeLegacy(ctx, uploadedBundle, shardKey, statusChannel)
+	close(statusChannel)
+	return response, bundleHash, err
+}
+
+func (c *codeScanner) analyzeLegacy(
+	ctx context.Context,
+	bundle bundle.Bundle,
+	shardKey string,
+	statusChannel chan<- scan.LegacyScanStatus,
+) (*sarif.SarifResponse, string, error) {
+	bundleHash := bundle.GetBundleHash()
+	limitToFiles := bundle.GetLimitToFiles()
 	severity := 0
 
 	start := time.Now()
@@ -286,42 +297,29 @@ func (c *codeScanner) UploadAndAnalyzeLegacy(
 
 		if err != nil {
 			c.logger.Error().Err(err).
-				Int("fileCount", len(uploadedBundle.GetFiles())).
+				Int("fileCount", len(bundle.GetFiles())).
 				Msg("error retrieving diagnostics...")
-
-			statusChannel <- scan.LegacyScanStatus{
-				Message:     fmt.Sprintf("Analysis failed: %v", err),
-				ScanStopped: true,
-			}
-
+			statusChannel <- scan.NewLegacyScanDoneStatus(fmt.Sprintf("Analysis failed: %v", err))
 			return nil, "", err
 		}
 
 		if status.Message == analysis.StatusComplete {
 			c.logger.Trace().Msg("sending diagnostics...")
-
-			statusChannel <- scan.LegacyScanStatus{
-				Message:     "Analysis complete.",
-				ScanStopped: true,
-			}
-
+			statusChannel <- scan.NewLegacyScanDoneStatus("Analysis complete")
 			return response, bundleHash, err
 		} else if status.Message == analysis.StatusAnalyzing {
-			c.logger.Trace().Msg("\"Analyzing\" message received, sending In-Progress message to client")
+			c.logger.Trace().Msg("\"Analyzing\" message received")
 		}
 
 		if time.Since(start) > c.config.SnykCodeAnalysisTimeout() {
 			err := errors.New("analysis call timed out")
 			c.logger.Error().Err(err).Msg("timeout...")
-
-			statusChannel <- scan.LegacyScanStatus{
-				Message:     "Snyk Code Analysis timed out",
-				ScanStopped: true,
-			}
+			statusChannel <- scan.NewLegacyScanDoneStatus("Snyk Code Analysis timed out")
 			return nil, "", err
 		}
 
 		time.Sleep(1 * time.Second)
+		c.logger.Trace().Msg("sending In-Progress message to client")
 		statusChannel <- status
 	}
 }

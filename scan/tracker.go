@@ -26,7 +26,13 @@ type Tracker interface {
 }
 
 type LegacyScanStatus struct {
-	Message     string
-	Percentage  int
-	ScanStopped bool
+	Message    string
+	Percentage int
+}
+
+func NewLegacyScanDoneStatus(message string) LegacyScanStatus {
+	return LegacyScanStatus{
+		Percentage: 90,
+		Message:    message,
+	}
 }
