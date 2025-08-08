@@ -44,7 +44,7 @@ func mockLegacyAnalysisResponse(t *testing.T, mockHTTPClient *httpmocks.MockHTTP
 	t.Helper()
 	responseBodyBytes, err := json.Marshal(sarifResponse)
 	assert.NoError(t, err)
-	expectedAnalysisUrl := fmt.Sprintf("http://localhost/analysis")
+	expectedAnalysisUrl := "http://localhost/analysis"
 	mockHTTPClient.EXPECT().Do(mock.MatchedBy(func(i interface{}) bool {
 		req := i.(*http.Request)
 		return req.URL.String() == expectedAnalysisUrl && req.Method == http.MethodPost
@@ -309,7 +309,7 @@ func TestAnalysis_RunLegacyTest_HTTPError(t *testing.T) {
 	mockConfig, mockHTTPClient, mockInstrumentor, mockErrorReporter, _, mockTrackerFactory, logger := setupLegacy(t, nil, false, "", orgId)
 
 	// Mock HTTP error response - need to check if the mock gives an error first
-	expectedAnalysisUrl := fmt.Sprintf("http://localhost/analysis")
+	expectedAnalysisUrl := "http://localhost/analysis"
 	mockHTTPClient.EXPECT().Do(mock.MatchedBy(func(i interface{}) bool {
 		req := i.(*http.Request)
 		return req.URL.String() == expectedAnalysisUrl && req.Method == http.MethodPost
@@ -448,7 +448,7 @@ func TestAnalysis_RunLegacyTest_MalformedJSON(t *testing.T) {
 	mockConfig, mockHTTPClient, mockInstrumentor, mockErrorReporter, _, mockTrackerFactory, logger := setupLegacy(t, nil, false, "", orgId)
 
 	// Mock response with malformed JSON
-	expectedAnalysisUrl := fmt.Sprintf("http://localhost/analysis")
+	expectedAnalysisUrl := "http://localhost/analysis"
 	mockHTTPClient.EXPECT().Do(mock.MatchedBy(func(i interface{}) bool {
 		req := i.(*http.Request)
 		return req.URL.String() == expectedAnalysisUrl && req.Method == http.MethodPost
@@ -500,7 +500,7 @@ func TestAnalysis_CreateRequestBody(t *testing.T) {
 	mockConfig, mockHTTPClient, mockInstrumentor, mockErrorReporter, _, mockTrackerFactory, logger := setupLegacy(t, nil, false, "", orgId)
 
 	var capturedRequestBody []byte
-	expectedAnalysisUrl := fmt.Sprintf("http://localhost/analysis")
+	expectedAnalysisUrl := "http://localhost/analysis"
 	mockHTTPClient.EXPECT().Do(mock.MatchedBy(func(i interface{}) bool {
 		req := i.(*http.Request)
 		if req.URL.String() == expectedAnalysisUrl && req.Method == http.MethodPost {
@@ -588,7 +588,7 @@ func TestAnalysis_CreateRequestBody_NoShardKey(t *testing.T) {
 	mockConfig, mockHTTPClient, mockInstrumentor, mockErrorReporter, _, mockTrackerFactory, logger := setupLegacy(t, nil, false, "", orgId)
 
 	var capturedRequestBody []byte
-	expectedAnalysisUrl := fmt.Sprintf("http://localhost/analysis")
+	expectedAnalysisUrl := "http://localhost/analysis"
 	mockHTTPClient.EXPECT().Do(mock.MatchedBy(func(i interface{}) bool {
 		req := i.(*http.Request)
 		if req.URL.String() == expectedAnalysisUrl && req.Method == http.MethodPost {
