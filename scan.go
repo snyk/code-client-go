@@ -40,7 +40,6 @@ import (
 type codeScanner struct {
 	httpClient           codeClientHTTP.HTTPClient
 	bundleManager        bundle.BundleManager
-	deepcodeClient       deepcode.DeepcodeClient
 	analysisOrchestrator analysis.AnalysisOrchestrator
 	instrumentor         observability.Instrumentor
 	errorReporter        observability.ErrorReporter
