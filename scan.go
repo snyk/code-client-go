@@ -20,10 +20,11 @@ package codeclient
 import (
 	"context"
 	"fmt"
+	"time"
+
 	"github.com/google/uuid"
 	"github.com/pkg/errors"
 	"github.com/rs/zerolog"
-	"time"
 
 	"github.com/snyk/code-client-go/bundle"
 	"github.com/snyk/code-client-go/config"
@@ -164,7 +165,6 @@ func NewCodeScanner(
 	deepcodeClient := deepcode.NewDeepcodeClient(scanner.config, httpClient, scanner.logger, scanner.instrumentor, scanner.errorReporter)
 	bundleManager := bundle.NewBundleManager(deepcodeClient, scanner.logger, scanner.instrumentor, scanner.errorReporter, scanner.trackerFactory)
 	scanner.bundleManager = bundleManager
-	scanner.deepcodeClient = deepcodeClient
 	analysisOrchestrator := analysis.NewAnalysisOrchestrator(
 		scanner.config,
 		httpClient,
@@ -184,7 +184,6 @@ func NewCodeScanner(
 func (c *codeScanner) WithBundleManager(bundleManager bundle.BundleManager) *codeScanner {
 	return &codeScanner{
 		bundleManager:        bundleManager,
-		deepcodeClient:       c.deepcodeClient,
 		analysisOrchestrator: c.analysisOrchestrator,
 		errorReporter:        c.errorReporter,
 		logger:               c.logger,
@@ -197,7 +196,6 @@ func (c *codeScanner) WithBundleManager(bundleManager bundle.BundleManager) *cod
 func (c *codeScanner) WithAnalysisOrchestrator(analysisOrchestrator analysis.AnalysisOrchestrator) *codeScanner {
 	return &codeScanner{
 		bundleManager:        c.bundleManager,
-		deepcodeClient:       c.deepcodeClient,
 		analysisOrchestrator: analysisOrchestrator,
 		errorReporter:        c.errorReporter,
 		logger:               c.logger,
