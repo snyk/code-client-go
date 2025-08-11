@@ -267,6 +267,7 @@ func (c *codeScanner) UploadAndAnalyzeLegacy(
 	changedFiles map[string]bool,
 	statusChannel chan<- scan.LegacyScanStatus,
 ) (*sarif.SarifResponse, string, error) {
+	defer close(statusChannel)
 	uploadedBundle, err := c.Upload(ctx, requestId, target, files, changedFiles)
 	if err != nil || uploadedBundle == nil || uploadedBundle.GetBundleHash() == "" {
 		c.logger.Debug().Msg("empty bundle, no Snyk Code analysis")
@@ -274,7 +275,6 @@ func (c *codeScanner) UploadAndAnalyzeLegacy(
 	}
 
 	response, bundleHash, err := c.analyzeLegacy(ctx, uploadedBundle, shardKey, statusChannel)
-	close(statusChannel)
 	return response, bundleHash, err
 }
 
