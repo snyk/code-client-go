@@ -6,7 +6,7 @@ orbs:
 executors:
   default:
     docker:
-      - image: cimg/go:1.21.1
+      - image: cimg/go:1.24.5
 
 # Define the jobs we want to run for this project
 jobs:
