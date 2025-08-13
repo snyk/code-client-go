@@ -1,7 +1,6 @@
 package llm
 
 import (
-	"context"
 	"encoding/json"
 	"io"
 	http2 "net/http"
@@ -15,13 +14,12 @@ import (
 
 	"github.com/snyk/code-client-go/http"
 	"github.com/snyk/code-client-go/http/mocks"
-
 	"github.com/snyk/code-client-go/observability"
 )
 
 func TestDeepcodeLLMBinding_PublishIssues(t *testing.T) {
 	binding := NewDeepcodeLLMBinding()
-	assert.PanicsWithValue(t, "implement me", func() { _ = binding.PublishIssues(context.Background(), []map[string]string{}) })
+	assert.PanicsWithValue(t, "implement me", func() { _ = binding.PublishIssues(t.Context(), []map[string]string{}) })
 }
 
 func TestExplainWithOptions(t *testing.T) {
@@ -49,7 +47,7 @@ func TestExplainWithOptions(t *testing.T) {
 		mockHTTPClient.EXPECT().Do(gomock.Any()).Return(&mockResponse, nil)
 		testDiff := "test diff"
 		endpoint := &url.URL{Scheme: "http", Host: "test.com"}
-		explanation, err := d.ExplainWithOptions(context.Background(), ExplainOptions{Diffs: []string{testDiff}, Endpoint: endpoint})
+		explanation, err := d.ExplainWithOptions(t.Context(), ExplainOptions{Diffs: []string{testDiff}, Endpoint: endpoint})
 		assert.NoError(t, err)
 		var exptectedExplanationsResponse explainResponse
 		err = json.Unmarshal(expectedResponseBody, &exptectedExplanationsResponse)
