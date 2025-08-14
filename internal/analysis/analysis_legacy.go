@@ -22,12 +22,13 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
-	"github.com/snyk/code-client-go/scan"
 	"io"
 	"math"
 	"net/http"
 	"net/url"
 	"strings"
+
+	"github.com/snyk/code-client-go/scan"
 
 	codeClientHTTP "github.com/snyk/code-client-go/http"
 	"github.com/snyk/code-client-go/sarif"
@@ -135,18 +136,6 @@ func (a *analysisOrchestrator) getCodeApiUrl() (string, error) {
 	return u.String(), nil
 }
 
-// TODO combine?
-func (a *analysisOrchestrator) logSarifResponse(method string, sarifResponse sarif.SarifResponse) {
-	a.logger.Debug().
-		Str("method", method).
-		Str("status", sarifResponse.Status).
-		Float64("progress", sarifResponse.Progress).
-		Int("fetchingCodeTime", sarifResponse.Timing.FetchingCode).
-		Int("analysisTime", sarifResponse.Timing.Analysis).
-		Int("filesAnalyzed", len(sarifResponse.Coverage)).
-		Msg("Received response summary")
-}
-
 func (a *analysisOrchestrator) RunLegacyTest(ctx context.Context, bundleHash string, shardKey string, limitToFiles []string, severity int) (*sarif.SarifResponse, scan.LegacyScanStatus, error) {
 	method := "analysis.RunLegacyTest"
 	span := a.instrumentor.StartSpan(ctx, method)
@@ -208,7 +197,14 @@ func (a *analysisOrchestrator) RunLegacyTest(ctx context.Context, bundleHash str
 		a.logger.Err(err).Str("method", method).Str("responseBody", string(responseBody)).Msg("error unmarshalling")
 		return nil, failed, err
 	} else {
-		a.logSarifResponse(method, response)
+		a.logger.Debug().
+			Str("method", method).
+			Str("status", response.Status).
+			Float64("progress", response.Progress).
+			Int("fetchingCodeTime", response.Timing.FetchingCode).
+			Int("analysisTime", response.Timing.Analysis).
+			Int("filesAnalyzed", len(response.Coverage)).
+			Msg("Received response summary")
 	}
 
 	a.logger.Debug().Str("method", method).Str("bundleHash", bundleHash).Float64("progress",
