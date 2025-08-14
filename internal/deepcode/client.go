@@ -28,10 +28,9 @@ import (
 	"regexp"
 	"strconv"
 
+	"github.com/rs/zerolog"
 	"github.com/snyk/code-client-go/config"
 	"github.com/snyk/code-client-go/internal/util/encoding"
-
-	"github.com/rs/zerolog"
 
 	codeClientHTTP "github.com/snyk/code-client-go/http"
 	"github.com/snyk/code-client-go/observability"
