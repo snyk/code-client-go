@@ -1,10 +1,11 @@
 package testutil
 
 import (
-	"github.com/rs/zerolog/log"
 	"os/exec"
 	"path/filepath"
 	"testing"
+
+	"github.com/rs/zerolog/log"
 )
 
 func SetupCustomTestRepo(t *testing.T, url string, targetCommit string, parentDir, repoDir string) (string, error) {

@@ -4,8 +4,8 @@ GOARCH = $(shell go env GOARCH)
 
 TOOLS_BIN := $(shell pwd)/.bin
 
-OVERRIDE_GOCI_LINT_V := v1.64.8
-GOCI_LINT_TARGETS := $(TOOLS_BIN)/golangci-lint $(TOOLS_BIN)/.golangci-lint_$(OVERRIDE_GOCI_LINT_V)
+GOCI_LINT_V := v2.3.0
+GOCI_LINT_TARGETS := $(TOOLS_BIN)/golangci-lint $(TOOLS_BIN)/.golangci-lint_$(GOCI_LINT_V)
 
 PACT_CLI_V := v2.4.4
 PACT_CLI_TARGETS := $(TOOLS_BIN)/pact/bin/pact-broker $(TOOLS_BIN)/.pact_$(PACT_CLI_V)
@@ -23,8 +23,8 @@ $(TOOLS_BIN):
 
 $(GOCI_LINT_TARGETS): $(TOOLS_BIN)
 	@rm -f $(TOOLS_BIN)/.golangci-lint_*
-	@curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/$(OVERRIDE_GOCI_LINT_V)/install.sh | sh -s -- -b $(TOOLS_BIN) $(OVERRIDE_GOCI_LINT_V)
-	@touch $(TOOLS_BIN)/.golangci-lint_$(OVERRIDE_GOCI_LINT_V)
+	@curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/$(GOCI_LINT_V)/install.sh | sh -s -- -b $(TOOLS_BIN) $(GOCI_LINT_V)
+	@touch $(TOOLS_BIN)/.golangci-lint_$(GOCI_LINT_V)
 
 $(PACT_CLI_TARGETS): $(TOOLS_BIN)
 	@rm -f $(TOOLS_BIN)/.pact_*
@@ -39,16 +39,16 @@ $(PACT_GO_LIB_TARGETS):
 .PHONY: format
 format: $(GOCI_LINT_TARGETS)
 	@gofmt -w -l -e .
-	@$(TOOLS_BIN)/golangci-lint run --fix ./...
+	@$(TOOLS_BIN)/golangci-lint run --timeout=10m --fix ./...
 
 .PHONY: lint
 lint: $(GOCI_LINT_TARGETS)
-    ifdef CI
-		mkdir -p test/results
-		@$(TOOLS_BIN)/golangci-lint run --out-format junit-xml ./... > test/results/lint-tests.xml
-    else
-		@$(TOOLS_BIN)/golangci-lint run ./...
-    endif
+ifdef CI
+	mkdir -p test/results
+	@$(TOOLS_BIN)/golangci-lint run --timeout=10m --output.junit-xml.path=test/results/lint-tests.xml ./...
+else
+	@$(TOOLS_BIN)/golangci-lint run --timeout=10m ./...
+endif
 
 .PHONY: build
 build:

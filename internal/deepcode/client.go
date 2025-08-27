@@ -29,10 +29,10 @@ import (
 	"strconv"
 
 	"github.com/rs/zerolog"
-	"github.com/snyk/code-client-go/config"
-	"github.com/snyk/code-client-go/internal/util/encoding"
 
+	"github.com/snyk/code-client-go/config"
 	codeClientHTTP "github.com/snyk/code-client-go/http"
+	"github.com/snyk/code-client-go/internal/util/encoding"
 	"github.com/snyk/code-client-go/observability"
 )
 
@@ -197,7 +197,7 @@ func (s *deepcodeClient) Host() (string, error) {
 
 	organization := s.config.Organization()
 	if organization == "" {
-		return "", errors.New("Organization is required in a fedramp environment")
+		return "", errors.New("organization is required in a fedramp environment")
 	}
 
 	u.Path = "/hidden/orgs/" + organization + "/code"
