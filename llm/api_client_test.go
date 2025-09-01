@@ -11,6 +11,7 @@ import (
 	"testing"
 
 	"github.com/rs/zerolog"
+	"github.com/snyk/code-client-go/internal/deepcode"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
@@ -262,10 +263,9 @@ func testLogger(t *testing.T) *zerolog.Logger {
 
 // Test with existing headers
 func TestAddDefaultHeadersWithExistingHeaders(t *testing.T) {
-	d := &DeepCodeLLMBindingImpl{} // Initialize your struct if needed
 	req := &http.Request{Header: http.Header{"Existing-Header": {"existing-value"}}}
 
-	d.addDefaultHeaders(req, "", "")
+	deepcode.AddHeaders(http.MethodGet, req, "")
 
 	cacheControl := req.Header.Get("Cache-Control")
 	contentType := req.Header.Get("Content-Type")
