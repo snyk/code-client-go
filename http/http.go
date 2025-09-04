@@ -24,6 +24,7 @@ import (
 	"time"
 
 	"github.com/rs/zerolog"
+	"github.com/snyk/code-client-go/internal/util/encoding"
 
 	"github.com/snyk/code-client-go/observability"
 )
@@ -157,4 +158,48 @@ func (s *httpClient) httpCall(req *http.Request) (*http.Response, error) {
 func NewDefaultClientFactory() HTTPClientFactory {
 	clientFunc := func() *http.Client { return http.DefaultClient }
 	return clientFunc
+}
+
+func AddDefaultHeaders(req *http.Request, requestId string, orgId string) {
+	// if requestId is empty it will be enriched from the Gateway
+	if len(requestId) > 0 {
+		req.Header.Set("snyk-request-id", requestId)
+	}
+	if len(orgId) > 0 {
+		req.Header.Set("snyk-org-name", orgId)
+	}
+	req.Header.Set("Cache-Control", "private, max-age=0, no-cache")
+	req.Header.Set("Content-Type", "application/json")
+}
+
+func AddHeaders(method string, req *http.Request, org string) {
+	if org != "" {
+		req.Header.Set("snyk-org-name", org)
+	}
+	// https://www.keycdn.com/blog/http-cache-headers
+	req.Header.Set("Cache-Control", "private, max-age=0, no-cache")
+	if mustBeEncoded(method) {
+		req.Header.Set("Content-Type", "application/octet-stream")
+		req.Header.Set("Content-Encoding", "gzip")
+	} else {
+		req.Header.Set("Content-Type", "application/json")
+	}
+}
+
+func EncodeIfNeeded(method string, requestBody []byte) (*bytes.Buffer, error) {
+	b := new(bytes.Buffer)
+	if mustBeEncoded(method) {
+		enc := encoding.NewEncoder(b)
+		_, err := enc.Write(requestBody)
+		if err != nil {
+			return nil, err
+		}
+	} else {
+		b = bytes.NewBuffer(requestBody)
+	}
+	return b, nil
+}
+
+func mustBeEncoded(method string) bool {
+	return method == http.MethodPost || method == http.MethodPut
 }

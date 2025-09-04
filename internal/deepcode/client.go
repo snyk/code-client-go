@@ -27,9 +27,8 @@ import (
 	"regexp"
 	"strconv"
 
-	"github.com/snyk/code-client-go/config"
-
 	"github.com/rs/zerolog"
+	"github.com/snyk/code-client-go/config"
 
 	codeClientHTTP "github.com/snyk/code-client-go/http"
 	"github.com/snyk/code-client-go/observability"
@@ -215,7 +214,7 @@ func (s *deepcodeClient) Request(
 		return nil, err
 	}
 
-	bodyBuffer, err := EncodeIfNeeded(method, requestBody)
+	bodyBuffer, err := codeClientHTTP.EncodeIfNeeded(method, requestBody)
 	if err != nil {
 		return nil, err
 	}
@@ -225,7 +224,7 @@ func (s *deepcodeClient) Request(
 		return nil, err
 	}
 
-	AddHeaders(method, req, s.config.Organization())
+	codeClientHTTP.AddHeaders(method, req, s.config.Organization())
 
 	response, err := s.httpClient.Do(req)
 	if err != nil {

@@ -11,7 +11,7 @@ import (
 	"net/url"
 	"strings"
 
-	"github.com/snyk/code-client-go/internal/deepcode"
+	http2 "github.com/snyk/code-client-go/http"
 )
 
 var (
@@ -70,7 +70,7 @@ func (d *DeepCodeLLMBindingImpl) submitRequest(ctx context.Context, url *url.URL
 	defer span.Finish()
 
 	// Encode the request body
-	bodyBuffer, err := deepcode.EncodeIfNeeded(http.MethodPost, requestBody)
+	bodyBuffer, err := http2.EncodeIfNeeded(http.MethodPost, requestBody)
 	if err != nil {
 		logger.Err(err).Str("requestBody", string(requestBody)).Msg("error encoding request body")
 		return nil, err
@@ -82,7 +82,7 @@ func (d *DeepCodeLLMBindingImpl) submitRequest(ctx context.Context, url *url.URL
 		return nil, err
 	}
 
-	deepcode.AddHeaders(http.MethodPost, req, orgId)
+	http2.AddHeaders(http.MethodPost, req, orgId)
 
 	resp, err := d.httpClientFunc().Do(req) //nolint:bodyclose // this seems to be a false positive
 	if err != nil {
