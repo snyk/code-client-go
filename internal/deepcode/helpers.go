@@ -16,8 +16,6 @@
 package deepcode
 
 import (
-	"net/http"
-
 	"github.com/snyk/code-client-go/internal/util"
 )
 
