@@ -158,12 +158,13 @@ func (a *analysisOrchestrator) RunLegacyTest(ctx context.Context, bundleHash str
 
 	// Create HTTP request
 	analysisUrl := baseUrl + "/analysis"
-	req, err := http.NewRequestWithContext(span.Context(), http.MethodPost, analysisUrl, bytes.NewBuffer(requestBody))
+	httpMethod := http.MethodPost
+	req, err := http.NewRequestWithContext(span.Context(), httpMethod, analysisUrl, bytes.NewBuffer(requestBody))
 	if err != nil {
 		a.logger.Err(err).Str("method", method).Msg("error creating HTTP request")
 		return nil, scan.LegacyScanStatus{}, err
 	}
-	codeClientHTTP.AddDefaultHeaders(req, span.GetTraceId(), a.config.Organization())
+	codeClientHTTP.AddHeaders(req, span.GetTraceId(), a.config.Organization(), httpMethod)
 
 	// Make HTTP call
 	resp, err := a.httpClient.Do(req)

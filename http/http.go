@@ -160,7 +160,7 @@ func NewDefaultClientFactory() HTTPClientFactory {
 	return clientFunc
 }
 
-func AddDefaultHeaders(req *http.Request, requestId string, orgId string) {
+func AddHeaders(req *http.Request, requestId string, orgId string, method string) {
 	// if requestId is empty it will be enriched from the Gateway
 	if len(requestId) > 0 {
 		req.Header.Set("snyk-request-id", requestId)
@@ -168,16 +168,10 @@ func AddDefaultHeaders(req *http.Request, requestId string, orgId string) {
 	if len(orgId) > 0 {
 		req.Header.Set("snyk-org-name", orgId)
 	}
-	req.Header.Set("Cache-Control", "private, max-age=0, no-cache")
-	req.Header.Set("Content-Type", "application/json")
-}
 
-func AddHeaders(method string, req *http.Request, org string) {
-	if org != "" {
-		req.Header.Set("snyk-org-name", org)
-	}
 	// https://www.keycdn.com/blog/http-cache-headers
 	req.Header.Set("Cache-Control", "private, max-age=0, no-cache")
+
 	if mustBeEncoded(method) {
 		req.Header.Set("Content-Type", "application/octet-stream")
 		req.Header.Set("Content-Encoding", "gzip")
