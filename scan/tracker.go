@@ -15,7 +15,8 @@
  */
 package scan
 
-//go:generate mockgen -destination=mocks/tracker.go -source=tracker.go -package mocks
+//go:generate go tool github.com/golang/mock/mockgen -destination=mocks/tracker.go -source=tracker.go -package mocks
+
 type TrackerFactory interface {
 	GenerateTracker() Tracker
 }

@@ -36,7 +36,8 @@ import (
 	"github.com/snyk/code-client-go/observability"
 )
 
-//go:generate mockgen -destination=mocks/client.go -source=client.go -package mocks
+//go:generate go tool github.com/golang/mock/mockgen -destination=mocks/client.go -source=client.go -package mocks
+
 type DeepcodeClient interface {
 	GetFilters(ctx context.Context) (
 		filters FiltersResponse,

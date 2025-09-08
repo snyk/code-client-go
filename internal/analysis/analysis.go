@@ -42,7 +42,8 @@ import (
 	"github.com/snyk/code-client-go/scan"
 )
 
-//go:generate mockgen -destination=mocks/analysis.go -source=analysis.go -package mocks
+//go:generate go tool github.com/golang/mock/mockgen -destination=mocks/analysis.go -source=analysis.go -package mocks
+
 type AnalysisOrchestrator interface {
 	RunTest(ctx context.Context, orgId string, b bundle.Bundle, target scan.Target, reportingOptions AnalysisConfig) (*sarif.SarifResponse, *scan.ResultMetaData, error)
 	RunTestRemote(ctx context.Context, orgId string, reportingOptions AnalysisConfig) (*sarif.SarifResponse, *scan.ResultMetaData, error)

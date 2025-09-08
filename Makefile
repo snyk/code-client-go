@@ -12,11 +12,11 @@ PACT_CLI_TARGETS := $(TOOLS_BIN)/pact/bin/pact-broker $(TOOLS_BIN)/.pact_$(PACT_
 PACT_GO_V := v2.4.1
 PACT_GO_LIB_TARGETS := /tmp/.libpact-ffi_$(PACT_GO_V) # Only use a marker file since lib extension is either .so or .dll
 
-SHELL:=env PATH=$(TOOLS_BIN)/go:$(TOOLS_BIN)/pact/bin:$(PATH) $(SHELL)
+SHELL:=env PATH=$(TOOLS_BIN)/pact/bin:$(PATH) $(SHELL)
 
 ## tools: Install required tooling.
 .PHONY: tools
-tools: $(TOOLS_BIN)/go $(GOCI_LINT_TARGETS) $(PACT_CLI_TARGETS) $(PACT_GO_LIB_TARGETS)
+tools: $(GOCI_LINT_TARGETS) $(PACT_CLI_TARGETS) $(PACT_GO_LIB_TARGETS)
 
 $(TOOLS_BIN):
 	@mkdir -p $(TOOLS_BIN)
@@ -31,13 +31,9 @@ $(PACT_CLI_TARGETS): $(TOOLS_BIN)
 	@cd $(TOOLS_BIN); curl -fsSL https://raw.githubusercontent.com/pact-foundation/pact-ruby-standalone/master/install.sh | PACT_CLI_VERSION=$(PACT_CLI_V) bash; cd ../
 	@touch $(TOOLS_BIN)/.pact_$(PACT_CLI_V)
 
-$(TOOLS_BIN)/go:
-	mkdir -p ${TOOLS_BIN}/go
-	@cat tools.go | grep _ | awk -F'"' '{print $$2}' | xargs -tI % sh -c 'GOBIN=${TOOLS_BIN}/go go install %'
-
-$(PACT_GO_LIB_TARGETS): $(TOOLS_BIN)/go
+$(PACT_GO_LIB_TARGETS):
 	@rm -f /tmp/.libpact-ffi_*
-	@GOBIN=${TOOLS_BIN}/go ${TOOLS_BIN}/go/pact-go -l DEBUG install -d /tmp
+	@go tool github.com/pact-foundation/pact-go/v2 -l DEBUG install -d /tmp
 	@touch /tmp/.libpact-ffi_$(PACT_GO_V)
 
 .PHONY: format
@@ -101,11 +97,11 @@ generate:
     endif
 
 .PHONY: generate-mocks
-generate-mocks: $(TOOLS_BIN)/go/mockgen
+generate-mocks:
 	@go generate -tags MOCK ./...
 
 .PHONY: generate-apis
-generate-apis: $(TOOLS_BIN)/go/oapi-codegen download-apis
+generate-apis: download-apis
 	@go generate -tags API,!MOCK ./...
 
 .PHONY: download-apis
