@@ -17,7 +17,6 @@ package analysis_test
 
 import (
 	"bytes"
-	"context"
 	"encoding/json"
 	"fmt"
 	"io"
