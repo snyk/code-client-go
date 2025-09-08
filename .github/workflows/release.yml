@@ -39,6 +39,7 @@ jobs:
         with:
           token: ${{ github.token }}
           branch: main
+          noVersionBumpBehavior: patch
 
       - name: Create tag
         run: git tag ${{ steps.semver.outputs.next }}

@@ -18,7 +18,6 @@ package bundle_test
 
 import (
 	"bytes"
-	"context"
 	"os"
 	"path/filepath"
 	"strings"
@@ -69,7 +68,7 @@ func Test_Create(t *testing.T) {
 			require.NoError(t, err)
 
 			var bundleManager = bundle.NewBundleManager(mockSnykCodeClient, newLogger(t), mockInstrumentor, mockErrorReporter, mockTrackerFactory)
-			bundle, err := bundleManager.Create(context.Background(),
+			bundle, err := bundleManager.Create(t.Context(),
 				"testRequestId",
 				dir,
 				sliceToChannel([]string{file}),
@@ -109,7 +108,7 @@ func Test_Create(t *testing.T) {
 			require.NoError(t, err)
 
 			var bundleManager = bundle.NewBundleManager(mockSnykCodeClient, newLogger(t), mockInstrumentor, mockErrorReporter, mockTrackerFactory)
-			bundle, err := bundleManager.Create(context.Background(),
+			bundle, err := bundleManager.Create(t.Context(),
 				"testRequestId",
 				dir,
 				sliceToChannel([]string{file}),
@@ -153,7 +152,7 @@ func Test_Create(t *testing.T) {
 			require.NoError(t, err)
 
 			var bundleManager = bundle.NewBundleManager(mockSnykCodeClient, newLogger(t), mockInstrumentor, mockErrorReporter, mockTrackerFactory)
-			bundle, err := bundleManager.Create(context.Background(),
+			bundle, err := bundleManager.Create(t.Context(),
 				"testRequestId",
 				dir,
 				sliceToChannel([]string{file}),
@@ -196,7 +195,7 @@ func Test_Create(t *testing.T) {
 			)
 			require.NoError(t, err)
 			var bundleManager = bundle.NewBundleManager(mockSnykCodeClient, newLogger(t), mockInstrumentor, mockErrorReporter, mockTrackerFactory)
-			bundle, err := bundleManager.Create(context.Background(),
+			bundle, err := bundleManager.Create(t.Context(),
 				"testRequestId",
 				dir,
 				sliceToChannel([]string{file}),
@@ -234,7 +233,7 @@ func Test_Create(t *testing.T) {
 		assert.Nil(t, err)
 
 		var bundleManager = bundle.NewBundleManager(mockSnykCodeClient, newLogger(t), mockInstrumentor, mockErrorReporter, mockTrackerFactory)
-		bundle, err := bundleManager.Create(context.Background(),
+		bundle, err := bundleManager.Create(t.Context(),
 			"testRequestId",
 			tempDir,
 			sliceToChannel([]string{file}),
@@ -287,7 +286,7 @@ func Test_Create(t *testing.T) {
 		}
 
 		var bundleManager = bundle.NewBundleManager(mockSnykCodeClient, newLogger(t), mockInstrumentor, mockErrorReporter, mockTrackerFactory)
-		bundle, err := bundleManager.Create(context.Background(),
+		bundle, err := bundleManager.Create(t.Context(),
 			"testRequestId",
 			tempDir,
 			sliceToChannel(filesFullPaths),
@@ -340,7 +339,7 @@ func Test_Create(t *testing.T) {
 		}
 
 		var bundleManager = bundle.NewBundleManager(mockSnykCodeClient, newLogger(t), mockInstrumentor, mockErrorReporter, mockTrackerFactory)
-		bundle, err := bundleManager.Create(context.Background(),
+		bundle, err := bundleManager.Create(t.Context(),
 			"testRequestId",
 			tempDir,
 			sliceToChannel(filesFullPaths),
@@ -391,7 +390,7 @@ func Test_Upload(t *testing.T) {
 		bundleFileMap[documentURI] = bundleFile
 
 		_, err := bundleManager.Upload(
-			context.Background(),
+			t.Context(),
 			"testRequestId",
 			bundle.NewBundle(mockSnykCodeClient, mockInstrumentor, mockErrorReporter, &logger, "rootPath", "bundleHash", bundleFileMap, []string{}, []string{documentURI}),
 			bundleFileMap)
@@ -440,7 +439,7 @@ func Test_Upload(t *testing.T) {
 		missingFiles = append(missingFiles, path)
 
 		_, err := bundleManager.Upload(
-			context.Background(),
+			t.Context(),
 			"testRequestId",
 			bundle.NewBundle(mockSnykCodeClient, mockInstrumentor, mockErrorReporter, &logger, "rootPath", "bundleHash", bundleFileMap, []string{}, missingFiles),
 			bundleFileMap)
@@ -470,19 +469,19 @@ func Test_IsSupported_Extensions(t *testing.T) {
 	bundler := bundle.NewBundleManager(mockSnykCodeClient, newLogger(t), mockInstrumentor, mockErrorReporter, mockTrackerFactory)
 
 	t.Run("should return true for supported languages", func(t *testing.T) {
-		supported, _ := bundler.IsSupported(context.Background(), "C:\\some\\path\\Test.java")
+		supported, _ := bundler.IsSupported(t.Context(), "C:\\some\\path\\Test.java")
 		assert.True(t, supported)
 	})
 
 	t.Run("should return false for unsupported languages", func(t *testing.T) {
-		supported, _ := bundler.IsSupported(context.Background(), "C:\\some\\path\\Test.rs")
+		supported, _ := bundler.IsSupported(t.Context(), "C:\\some\\path\\Test.rs")
 		assert.False(t, supported)
 	})
 
 	t.Run("should cache supported extensions", func(t *testing.T) {
 		path := "C:\\some\\path\\Test.rs"
-		_, _ = bundler.IsSupported(context.Background(), path)
-		_, _ = bundler.IsSupported(context.Background(), path)
+		_, _ = bundler.IsSupported(t.Context(), path)
+		_, _ = bundler.IsSupported(t.Context(), path)
 	})
 }
 
@@ -514,34 +513,33 @@ func Test_IsSupported_ConfigFiles(t *testing.T) {
 	t.Run("should return true for supported config files", func(t *testing.T) {
 		for _, file := range expectedConfigFiles {
 			path := filepath.Join(dir, file)
-			supported, _ := bundler.IsSupported(context.Background(), path)
+			supported, _ := bundler.IsSupported(t.Context(), path)
 			assert.True(t, supported)
 		}
 	})
 	t.Run("should exclude .gitignore and .dcignore", func(t *testing.T) {
 		for _, file := range []string{".gitignore", ".dcignore"} {
 			path := filepath.Join(dir, file)
-			supported, _ := bundler.IsSupported(context.Background(), path)
+			supported, _ := bundler.IsSupported(t.Context(), path)
 			assert.False(t, supported)
 		}
 	})
 	t.Run("should return false for unsupported config files", func(t *testing.T) {
 		path := "C:\\some\\path\\.unsupported"
-		supported, _ := bundler.IsSupported(context.Background(), path)
+		supported, _ := bundler.IsSupported(t.Context(), path)
 		assert.False(t, supported)
 	})
 
 	t.Run("should cache supported extensions", func(t *testing.T) {
 		path := "C:\\some\\path\\Test.rs"
-		_, _ = bundler.IsSupported(context.Background(), path)
-		_, _ = bundler.IsSupported(context.Background(), path)
+		_, _ = bundler.IsSupported(t.Context(), path)
+		_, _ = bundler.IsSupported(t.Context(), path)
 	})
 }
 
 func setup(t *testing.T) string {
 	t.Helper()
-	dir, err := os.MkdirTemp("", "createFileOfSize")
-	require.NoError(t, err)
+	dir := t.TempDir()
 	return dir
 }
 

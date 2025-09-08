@@ -18,11 +18,9 @@ package bundle_test
 
 import (
 	"bytes"
-	"context"
 	"crypto/sha256"
 	"encoding/hex"
 	"fmt"
-	"golang.org/x/net/html/charset"
 	"io"
 	"os"
 	"testing"
@@ -31,6 +29,7 @@ import (
 	"github.com/rs/zerolog"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"golang.org/x/net/html/charset"
 
 	"github.com/snyk/code-client-go/bundle"
 	"github.com/snyk/code-client-go/internal/deepcode"
@@ -83,7 +82,7 @@ func Test_UploadBatch(t *testing.T) {
 		b := bundle.NewBundle(mockSnykCodeClient, mockInstrumentor, mockErrorReporter, &testLogger, "testRootPath", "testBundleHash", map[string]deepcode.BundleFile{}, []string{}, []string{})
 
 		emptyBundle := &bundle.Batch{}
-		err := b.UploadBatch(context.Background(), "testRequestId", emptyBundle)
+		err := b.UploadBatch(t.Context(), "testRequestId", emptyBundle)
 		assert.NoError(t, err)
 	})
 
@@ -102,7 +101,7 @@ func Test_UploadBatch(t *testing.T) {
 		mockErrorReporter := mocks.NewMockErrorReporter(ctrl)
 		b := bundle.NewBundle(mockSnykCodeClient, mockInstrumentor, mockErrorReporter, &testLogger, "testRootPath", "testBundleHash", map[string]deepcode.BundleFile{}, []string{}, []string{})
 
-		err := b.UploadBatch(context.Background(), "testRequestId", bundleWithFiles)
+		err := b.UploadBatch(t.Context(), "testRequestId", bundleWithFiles)
 		assert.NoError(t, err)
 	})
 
@@ -125,10 +124,10 @@ func Test_UploadBatch(t *testing.T) {
 		mockErrorReporter := mocks.NewMockErrorReporter(ctrl)
 		b := bundle.NewBundle(mockSnykCodeClient, mockInstrumentor, mockErrorReporter, &testLogger, "testRootPath", "testBundleHash", map[string]deepcode.BundleFile{}, []string{}, []string{})
 
-		err := b.UploadBatch(context.Background(), "testRequestId", bundleWithFiles)
+		err := b.UploadBatch(t.Context(), "testRequestId", bundleWithFiles)
 		require.NoError(t, err)
 		oldHash := b.GetBundleHash()
-		err = b.UploadBatch(context.Background(), "testRequestId", bundleWithMultipleFiles)
+		err = b.UploadBatch(t.Context(), "testRequestId", bundleWithMultipleFiles)
 		require.NoError(t, err)
 		newHash := b.GetBundleHash()
 		assert.NotEqual(t, oldHash, newHash)
@@ -153,7 +152,7 @@ func Test_RawContentBatch(t *testing.T) {
 
 		require.NoError(t, batchErr)
 		oldHash := b.GetBundleHash()
-		err := b.UploadBatch(context.Background(), "testRequestId", bundleFromRawContent)
+		err := b.UploadBatch(t.Context(), "testRequestId", bundleFromRawContent)
 		require.NoError(t, err)
 		newHash := b.GetBundleHash()
 		assert.NotEqual(t, oldHash, newHash)

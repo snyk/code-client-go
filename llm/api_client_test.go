@@ -1,7 +1,6 @@
 package llm
 
 import (
-	"context"
 	"encoding/base64"
 	"encoding/json"
 	"io"
@@ -98,7 +97,7 @@ func TestDeepcodeLLMBinding_runExplain(t *testing.T) {
 
 			d := NewDeepcodeLLMBinding()
 
-			ctx := context.Background()
+			ctx := t.Context()
 			ctx = observability.GetContextWithTraceId(ctx, "test-trace-id")
 
 			response, err := d.runExplain(ctx, tt.options)

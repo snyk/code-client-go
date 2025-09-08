@@ -17,7 +17,6 @@ package analysis_test
 
 import (
 	"bytes"
-	"context"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -62,7 +61,7 @@ func setupLegacy(t *testing.T, timeout *time.Duration, isFedramp bool, snykCodeA
 	ctrl := gomock.NewController(t)
 	mockSpan := mocks.NewMockSpan(ctrl)
 	mockSpan.EXPECT().GetTraceId().AnyTimes().Return("test-trace-id")
-	mockSpan.EXPECT().Context().AnyTimes().Return(context.Background())
+	mockSpan.EXPECT().Context().AnyTimes().Return(t.Context())
 	mockConfig := confMocks.NewMockConfig(ctrl)
 	mockConfig.EXPECT().Organization().AnyTimes().Return(orgId)
 	if snykCodeApi == "" {
@@ -148,7 +147,7 @@ func TestAnalysis_RunLegacyTest_Success(t *testing.T) {
 
 	// run method under test
 	result, status, err := analysisOrchestrator.RunLegacyTest(
-		context.Background(),
+		t.Context(),
 		bundleHash,
 		shardKey,
 		limitToFiles,
@@ -202,7 +201,7 @@ func TestAnalysis_RunLegacyTest_InProgress(t *testing.T) {
 
 	// run method under test
 	result, status, err := analysisOrchestrator.RunLegacyTest(
-		context.Background(),
+		t.Context(),
 		bundleHash,
 		shardKey,
 		limitToFiles,
@@ -244,7 +243,7 @@ func TestAnalysis_RunLegacyTest_Failed(t *testing.T) {
 
 	// run method under test
 	result, status, err := analysisOrchestrator.RunLegacyTest(
-		context.Background(),
+		t.Context(),
 		bundleHash,
 		shardKey,
 		limitToFiles,
@@ -286,7 +285,7 @@ func TestAnalysis_RunLegacyTest_EmptyStatus(t *testing.T) {
 
 	// run method under test
 	result, status, err := analysisOrchestrator.RunLegacyTest(
-		context.Background(),
+		t.Context(),
 		bundleHash,
 		shardKey,
 		limitToFiles,
@@ -332,7 +331,7 @@ func TestAnalysis_RunLegacyTest_HTTPError(t *testing.T) {
 
 	// run method under test
 	result, status, err := analysisOrchestrator.RunLegacyTest(
-		context.Background(),
+		t.Context(),
 		bundleHash,
 		shardKey,
 		limitToFiles,
@@ -392,7 +391,7 @@ func TestAnalysis_RunLegacyTest_Fedramp(t *testing.T) {
 
 	// run method under test
 	result, status, err := analysisOrchestrator.RunLegacyTest(
-		context.Background(),
+		t.Context(),
 		bundleHash,
 		shardKey,
 		limitToFiles,
@@ -425,7 +424,7 @@ func TestAnalysis_RunLegacyTest_FedrampNoOrg(t *testing.T) {
 
 	// run method under test
 	result, status, err := analysisOrchestrator.RunLegacyTest(
-		context.Background(),
+		t.Context(),
 		bundleHash,
 		shardKey,
 		limitToFiles,
@@ -471,7 +470,7 @@ func TestAnalysis_RunLegacyTest_MalformedJSON(t *testing.T) {
 
 	// run method under test
 	result, status, err := analysisOrchestrator.RunLegacyTest(
-		context.Background(),
+		t.Context(),
 		bundleHash,
 		shardKey,
 		limitToFiles,
@@ -531,7 +530,7 @@ func TestAnalysis_CreateRequestBody(t *testing.T) {
 
 	// run method under test
 	_, _, err := analysisOrchestrator.RunLegacyTest(
-		context.Background(),
+		t.Context(),
 		bundleHash,
 		shardKey,
 		limitToFiles,
@@ -617,7 +616,7 @@ func TestAnalysis_CreateRequestBody_NoShardKey(t *testing.T) {
 
 	// run method under test
 	_, _, err := analysisOrchestrator.RunLegacyTest(
-		context.Background(),
+		t.Context(),
 		bundleHash,
 		shardKey,
 		limitToFiles,
@@ -667,7 +666,7 @@ func TestAnalysis_GetCodeApiUrl_Regular(t *testing.T) {
 		analysis.WithErrorReporter(mockErrorReporter),
 	)
 
-	_, _, err := analysisOrchestrator.RunLegacyTest(context.Background(), "hash", "", []string{}, 0)
+	_, _, err := analysisOrchestrator.RunLegacyTest(t.Context(), "hash", "", []string{}, 0)
 	require.NoError(t, err)
 }
 
@@ -698,7 +697,7 @@ func TestAnalysis_GetCodeApiUrl_Fedramp(t *testing.T) {
 		analysis.WithErrorReporter(mockErrorReporter),
 	)
 
-	_, _, err := analysisOrchestrator.RunLegacyTest(context.Background(), "hash", "", []string{}, 0)
+	_, _, err := analysisOrchestrator.RunLegacyTest(t.Context(), "hash", "", []string{}, 0)
 	require.NoError(t, err)
 }
 
@@ -716,7 +715,7 @@ func TestAnalysis_GetCodeApiUrl_InvalidURL(t *testing.T) {
 		analysis.WithErrorReporter(mockErrorReporter),
 	)
 
-	_, _, err := analysisOrchestrator.RunLegacyTest(context.Background(), "hash", "", []string{}, 0)
+	_, _, err := analysisOrchestrator.RunLegacyTest(t.Context(), "hash", "", []string{}, 0)
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "invalid")
 }
