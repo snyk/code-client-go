@@ -33,11 +33,12 @@ func BundleFileFrom(content []byte, includeContent bool) (BundleFile, error) {
 	// contents right away.
 	bundleFileContent := ""
 	if includeContent {
-		utf8Content, err := util.ConvertToUTF8(content)
-		if err == nil {
+		utf8Content, convertErr := util.ConvertToUTF8(content)
+		if convertErr == nil {
 			bundleFileContent = string(utf8Content)
 		} else {
 			bundleFileContent = string(content)
+			err = convertErr
 		}
 	}
 

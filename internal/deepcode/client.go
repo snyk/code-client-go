@@ -28,16 +28,16 @@ import (
 	"regexp"
 	"strconv"
 
+	"github.com/rs/zerolog"
 	"github.com/snyk/code-client-go/config"
 	"github.com/snyk/code-client-go/internal/util/encoding"
-
-	"github.com/rs/zerolog"
 
 	codeClientHTTP "github.com/snyk/code-client-go/http"
 	"github.com/snyk/code-client-go/observability"
 )
 
-//go:generate mockgen -destination=mocks/client.go -source=client.go -package mocks
+//go:generate go tool github.com/golang/mock/mockgen -destination=mocks/client.go -source=client.go -package mocks
+
 type DeepcodeClient interface {
 	GetFilters(ctx context.Context) (
 		filters FiltersResponse,

@@ -1,5 +1,3 @@
-
-
 # code-client-go
 
 A library that exposes scanning capabilities for Snyk Code that can be used in the [Snyk CLI](https://github.com/snyk/cli) as well as Snyk IDE plugins using the [Snyk Language Server](https://github.com/snyk/snyk-ls).
@@ -111,3 +109,15 @@ codeScanner.UploadAndAnalyze(context.Background(), requestId, target, channelFor
 ### Observability
 
 Under [./observability](./observability) we have defined some observability interfaces which allows consumers of the library to inject their own observability implementations as long as they follow the defined interfaces.
+
+## Contributing
+
+To ensure the long-term stability and quality of this project, we are moving to a closed-contribution model effective August 2025. This change allows our core team to focus on a centralized development roadmap and rigorous quality assurance, which is essential for a component with such extensive usage.
+
+All of our development will remain public for transparency. We thank the community for its support and valuable contributions.
+
+## Getting Support
+
+GitHub issues have been disabled on this repository as part of our move to a closed-contribution model. The Snyk support team does not actively monitor GitHub issues on any Snyk development project.
+
+For help with the Snyk CLI or Snyk in general, please use the [Snyk support page](https://support.snyk.io/), which is the fastest way to get assistance.

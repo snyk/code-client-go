@@ -28,7 +28,8 @@ import (
 	"github.com/snyk/code-client-go/observability"
 )
 
-//go:generate mockgen -destination=mocks/http.go -source=http.go -package mocks
+//go:generate go tool github.com/golang/mock/mockgen -destination=mocks/http.go -source=http.go -package mocks
+
 type HTTPClient interface {
 	Do(req *http.Request) (*http.Response, error)
 }
@@ -157,4 +158,16 @@ func (s *httpClient) httpCall(req *http.Request) (*http.Response, error) {
 func NewDefaultClientFactory() HTTPClientFactory {
 	clientFunc := func() *http.Client { return http.DefaultClient }
 	return clientFunc
+}
+
+func AddDefaultHeaders(req *http.Request, requestId string, orgId string) {
+	// if requestId is empty it will be enriched from the Gateway
+	if len(requestId) > 0 {
+		req.Header.Set("snyk-request-id", requestId)
+	}
+	if len(orgId) > 0 {
+		req.Header.Set("snyk-org-name", orgId)
+	}
+	req.Header.Set("Cache-Control", "private, max-age=0, no-cache")
+	req.Header.Set("Content-Type", "application/json")
 }

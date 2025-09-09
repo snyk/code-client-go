@@ -21,15 +21,16 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/snyk/code-client-go/scan"
-
 	"github.com/puzpuzpuz/xsync"
 	"github.com/rs/zerolog"
 
 	"github.com/snyk/code-client-go/internal/deepcode"
 	"github.com/snyk/code-client-go/internal/util"
 	"github.com/snyk/code-client-go/observability"
+	"github.com/snyk/code-client-go/scan"
 )
+
+//go:generate go tool github.com/golang/mock/mockgen -destination=mocks/bundle_manager.go -source=bundle_manager.go -package mocks
 
 type bundleManager struct {
 	deepcodeClient       deepcode.DeepcodeClient
@@ -41,7 +42,6 @@ type bundleManager struct {
 	supportedConfigFiles *xsync.MapOf[string, bool]
 }
 
-//go:generate mockgen -destination=mocks/bundle_manager.go -source=bundle_manager.go -package mocks
 type BundleManager interface {
 	Create(ctx context.Context,
 		requestId string,

@@ -2,9 +2,9 @@ package config
 
 import "time"
 
+//go:generate go tool github.com/golang/mock/mockgen -destination=mocks/config.go -source=config.go -package mocks
+
 // Config defines the configurable options for the HTTP client.
-//
-//go:generate mockgen -destination=mocks/config.go -source=config.go -package mocks
 type Config interface {
 
 	// Organization is the Snyk organization in which code SAST is being run.

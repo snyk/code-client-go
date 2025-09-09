@@ -26,7 +26,8 @@ import (
 	"github.com/snyk/code-client-go/observability"
 )
 
-//go:generate mockgen -destination=mocks/bundle.go -source=bundle.go -package mocks
+//go:generate go tool github.com/golang/mock/mockgen -destination=mocks/bundle.go -source=bundle.go -package mocks
+
 type Bundle interface {
 	UploadBatch(ctx context.Context, requestId string, batch *Batch) error
 	GetBundleHash() string
