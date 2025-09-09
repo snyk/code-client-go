@@ -45,9 +45,9 @@ import (
 func Test_UploadAndAnalyze(t *testing.T) {
 	baseDir, firstDocPath, secondDocPath, firstDocContent, secondDocContent := setupDocs(t)
 	docs := sliceToChannel([]string{firstDocPath, secondDocPath})
-	firstBundle, err := deepcode.BundleFileFrom(firstDocContent)
+	firstBundle, err := deepcode.BundleFileFrom(firstDocContent, false)
 	assert.NoError(t, err)
-	secondBundle, err := deepcode.BundleFileFrom(secondDocContent)
+	secondBundle, err := deepcode.BundleFileFrom(secondDocContent, false)
 	assert.NoError(t, err)
 
 	files := map[string]deepcode.BundleFile{

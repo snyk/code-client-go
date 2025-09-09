@@ -22,10 +22,12 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"fmt"
-	"golang.org/x/net/html/charset"
 	"io"
 	"os"
 	"testing"
+
+	"github.com/snyk/code-client-go/internal/util"
+	"golang.org/x/net/html/charset"
 
 	"github.com/golang/mock/gomock"
 	"github.com/rs/zerolog"
@@ -163,7 +165,7 @@ func Test_RawContentBatch(t *testing.T) {
 func Test_BundleEncoding(t *testing.T) {
 	t.Run("utf-8 encoded content", func(t *testing.T) {
 		content := []byte("hello")
-		bundleFile, err := deepcode.BundleFileFrom(content)
+		bundleFile, err := deepcode.BundleFileFrom(content, false)
 		assert.NoError(t, err)
 
 		ExpectedShaSum := sha256.Sum256(content)
@@ -174,7 +176,7 @@ func Test_BundleEncoding(t *testing.T) {
 		content, err := os.ReadFile("testdata/rshell_font.php")
 		assert.NoError(t, err)
 
-		bundleFile, err := deepcode.BundleFileFrom(content)
+		bundleFile, err := deepcode.BundleFileFrom(content, false)
 		assert.NoError(t, err)
 
 		byteReader := bytes.NewReader(content)
@@ -183,4 +185,29 @@ func Test_BundleEncoding(t *testing.T) {
 		ExpectedShaSum := sha256.Sum256(utf8content)
 		assert.Equal(t, hex.EncodeToString(ExpectedShaSum[:]), bundleFile.Hash)
 	})
+}
+
+func Test_BundleFileContent(t *testing.T) {
+	t.Run("include file contents", func(t *testing.T) {
+		content := []byte("hello")
+		bundleFile, err := deepcode.BundleFileFrom(content, true)
+		assert.NoError(t, err)
+
+		utf8Content, err := util.ConvertToUTF8(content)
+		assert.NoError(t, err)
+
+		assert.Equal(t, string(utf8Content), bundleFile.Content)
+		assert.Equal(t, len(content), bundleFile.ContentSize)
+	})
+
+	t.Run("exclude file contents", func(t *testing.T) {
+		content := []byte("hello")
+		bundleFile, err := deepcode.BundleFileFrom(content, false)
+		assert.NoError(t, err)
+
+		assert.Equal(t, "", bundleFile.Content)
+		// Note that we still expect the bundle to indicate the expected final size.
+		assert.Equal(t, len(content), bundleFile.ContentSize)
+	})
+
 }
