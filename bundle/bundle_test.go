@@ -142,7 +142,7 @@ func Test_RawContentBatch(t *testing.T) {
 	t.Run("create a batch from raw content and upload the bundle", func(t *testing.T) {
 		ctrl := gomock.NewController(t)
 		mockSnykCodeClient := deepcodeMocks.NewMockDeepcodeClient(ctrl)
-		mockSnykCodeClient.EXPECT().ExtendBundle(gomock.Any(), "testBundleHash", bundleFilePartialMatcher{expectedKey: "hello", expectedContent: ""}, []string{}).Return("newBundleHash", []string{}, nil).Times(1)
+		mockSnykCodeClient.EXPECT().ExtendBundle(gomock.Any(), "testBundleHash", bundleFilePartialMatcher{expectedKey: "hello", expectedContent: "world"}, []string{}).Return("newBundleHash", []string{}, nil).Times(1)
 
 		mockSpan := mocks.NewMockSpan(ctrl)
 		mockSpan.EXPECT().Context().AnyTimes()
