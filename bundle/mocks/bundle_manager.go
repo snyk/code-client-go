@@ -51,6 +51,21 @@ func (mr *MockBundleManagerMockRecorder) Create(ctx, requestId, rootPath, filePa
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Create", reflect.TypeOf((*MockBundleManager)(nil).Create), ctx, requestId, rootPath, filePaths, changedFiles)
 }
 
+// CreateEmpty mocks base method.
+func (m *MockBundleManager) CreateEmpty(ctx context.Context, rootPath string, filePaths <-chan string, changedFiles map[string]bool) (bundle.Bundle, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "CreateEmpty", ctx, rootPath, filePaths, changedFiles)
+	ret0, _ := ret[0].(bundle.Bundle)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// CreateEmpty indicates an expected call of CreateEmpty.
+func (mr *MockBundleManagerMockRecorder) CreateEmpty(ctx, rootPath, filePaths, changedFiles interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CreateEmpty", reflect.TypeOf((*MockBundleManager)(nil).CreateEmpty), ctx, rootPath, filePaths, changedFiles)
+}
+
 // Upload mocks base method.
 func (m *MockBundleManager) Upload(ctx context.Context, requestId string, originalBundle bundle.Bundle, files map[string]deepcode.BundleFile) (bundle.Bundle, error) {
 	m.ctrl.T.Helper()
