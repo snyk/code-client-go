@@ -217,7 +217,7 @@ func (c *codeScanner) Upload(
 		return nil, err
 	}
 
-	originalBundle, err := c.bundleManager.Create(ctx, requestId, target.GetPath(), files, changedFiles)
+	originalBundle, err := c.bundleManager.CreateEmpty(ctx, target.GetPath(), files, changedFiles)
 	err = c.checkCancellationOrLogError(ctx, target.GetPath(), err, "error creating bundle...")
 	if err != nil {
 		return nil, err
