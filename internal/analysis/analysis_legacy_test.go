@@ -17,7 +17,6 @@ package analysis_test
 
 import (
 	"bytes"
-	"context"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -496,7 +495,6 @@ func TestAnalysis_CreateRequestBody(t *testing.T) {
 	limitToFiles := []string{"file1.js", "file2.js"}
 	severity := 2
 	orgId := "test-org-id"
-	initiator := "test-initiator"
 
 	mockConfig, mockHTTPClient, mockInstrumentor, mockErrorReporter, _, mockTrackerFactory, logger := setupLegacy(t, nil, false, "", orgId)
 
@@ -532,7 +530,7 @@ func TestAnalysis_CreateRequestBody(t *testing.T) {
 
 	// run method under test
 	_, _, err := analysisOrchestrator.RunLegacyTest(
-		context.WithValue(t.Context(), scan.InitiatorKey, initiator),
+		scan.NewContextWithScanSource(t.Context(), scan.IDE),
 		bundleHash,
 		shardKey,
 		limitToFiles,
@@ -570,7 +568,7 @@ func TestAnalysis_CreateRequestBody(t *testing.T) {
 
 	// Validate analysisContext
 	analysisContext := request["analysisContext"].(map[string]interface{})
-	assert.Equal(t, initiator, analysisContext["initiator"])
+	assert.Equal(t, scan.IDE, analysisContext["initiator"])
 	assert.Equal(t, "language-server", analysisContext["flow"])
 
 	org := analysisContext["org"].(map[string]interface{})

@@ -83,9 +83,9 @@ func (a *analysisOrchestrator) newRequestContext(ctx context.Context) requestCon
 	}
 
 	initiator := unknown
-	contextInitiator := ctx.Value(scan.InitiatorKey)
-	if contextInitiator != nil && contextInitiator != "" {
-		initiator = contextInitiator.(string)
+	contextInitiator, ok := scan.ScanSourceFromContext(ctx)
+	if ok {
+		initiator = string(contextInitiator)
 	}
 
 	return requestContext{
@@ -169,7 +169,7 @@ func (a *analysisOrchestrator) RunLegacyTest(ctx context.Context, bundleHash str
 		a.logger.Err(err).Str("method", method).Msg("error creating HTTP request")
 		return nil, scan.LegacyScanStatus{}, err
 	}
-	codeClientHTTP.AddHeaders(req, span.GetTraceId(), a.config.Organization(), httpMethod)
+	codeClientHTTP.AddDefaultHeaders(req, span.GetTraceId(), a.config.Organization(), httpMethod)
 
 	// Make HTTP call
 	resp, err := a.httpClient.Do(req)

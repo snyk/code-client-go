@@ -67,7 +67,7 @@ type CodeScanner interface {
 	) (*sarif.SarifResponse, string, error)
 
 	// UploadAndAnalyzeLegacy runs the legacy scanner (no consistent ignores)
-	// ctx may include a value with key scan.InitiatorKey for use in the requestContext (see analysis_legacy.go)
+	// ctx may include a scan.ScanSource value for use in the requestContext (see analysis_legacy.go)
 	UploadAndAnalyzeLegacy(
 		ctx context.Context,
 		requestId string,

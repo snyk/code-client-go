@@ -264,7 +264,7 @@ func testLogger(t *testing.T) *zerolog.Logger {
 func TestAddDefaultHeadersWithExistingHeaders(t *testing.T) {
 	req := &http.Request{Header: http.Header{"Existing-Header": {"existing-value"}}}
 
-	http2.AddHeaders(req, "", "", http.MethodGet)
+	http2.AddDefaultHeaders(req, http2.NoRequestId, "", http.MethodGet)
 
 	cacheControl := req.Header.Get("Cache-Control")
 	contentType := req.Header.Get("Content-Type")

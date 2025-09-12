@@ -24,8 +24,8 @@ import (
 	"time"
 
 	"github.com/rs/zerolog"
-	"github.com/snyk/code-client-go/internal/util/encoding"
 
+	"github.com/snyk/code-client-go/internal/util/encoding"
 	"github.com/snyk/code-client-go/observability"
 )
 
@@ -101,6 +101,8 @@ var retryErrorCodes = map[int]bool{
 	http.StatusInternalServerError: true,
 }
 
+const NoRequestId = ""
+
 func (s *httpClient) Do(req *http.Request) (*http.Response, error) {
 	span := s.instrumentor.StartSpan(req.Context(), "http.Do")
 	defer s.instrumentor.Finish(span)
@@ -161,7 +163,7 @@ func NewDefaultClientFactory() HTTPClientFactory {
 	return clientFunc
 }
 
-func AddHeaders(req *http.Request, requestId string, orgId string, method string) {
+func AddDefaultHeaders(req *http.Request, requestId string, orgId string, method string) {
 	// if requestId is empty it will be enriched from the Gateway
 	if len(requestId) > 0 {
 		req.Header.Set("snyk-request-id", requestId)
@@ -181,6 +183,8 @@ func AddHeaders(req *http.Request, requestId string, orgId string, method string
 	}
 }
 
+// EncodeIfNeeded returns a byte buffer for the requestBody. Depending on the request method, it may encode the buffer.
+// (See http.mustBeEncoded for the list of methods which require encoding the request body.)
 func EncodeIfNeeded(method string, requestBody []byte) (*bytes.Buffer, error) {
 	b := new(bytes.Buffer)
 	if mustBeEncoded(method) {
@@ -195,6 +199,7 @@ func EncodeIfNeeded(method string, requestBody []byte) (*bytes.Buffer, error) {
 	return b, nil
 }
 
+// mustBeEncoded returns true if the request method requires the request body to be encoded.
 func mustBeEncoded(method string) bool {
 	return method == http.MethodPost || method == http.MethodPut
 }

@@ -82,7 +82,7 @@ func (d *DeepCodeLLMBindingImpl) submitRequest(ctx context.Context, url *url.URL
 		return nil, err
 	}
 
-	http2.AddHeaders(req, "", orgId, http.MethodPost)
+	http2.AddDefaultHeaders(req, http2.NoRequestId, orgId, http.MethodPost)
 
 	resp, err := d.httpClientFunc().Do(req) //nolint:bodyclose // this seems to be a false positive
 	if err != nil {
