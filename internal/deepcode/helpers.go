@@ -25,11 +25,26 @@ type BundleFile struct {
 	ContentSize int    `json:"-"`
 }
 
-func BundleFileFrom(content []byte) (BundleFile, error) {
+func BundleFileFrom(content []byte, includeContent bool) (BundleFile, error) {
 	hash, err := util.Hash(content)
+
+	// We can either create the bundleFile empty and enrich it with content later, or include the content now.
+	// Creating empty avoids keeping the file contents in memory, so improves performance if we don't need access to the
+	// contents right away.
+	bundleFileContent := ""
+	if includeContent {
+		utf8Content, convertErr := util.ConvertToUTF8(content)
+		if convertErr == nil {
+			bundleFileContent = string(utf8Content)
+		} else {
+			bundleFileContent = string(content)
+			err = convertErr
+		}
+	}
+
 	file := BundleFile{
 		Hash:        hash,
-		Content:     "", // We create the bundleFile empty, and enrich  with content later.
+		Content:     bundleFileContent,
 		ContentSize: len(content),
 	}
 	return file, err

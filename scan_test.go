@@ -44,9 +44,9 @@ import (
 func Test_UploadAndAnalyze(t *testing.T) {
 	baseDir, firstDocPath, secondDocPath, firstDocContent, secondDocContent := setupDocs(t)
 	docs := sliceToChannel([]string{firstDocPath, secondDocPath})
-	firstBundle, err := deepcode.BundleFileFrom(firstDocContent)
+	firstBundle, err := deepcode.BundleFileFrom(firstDocContent, false)
 	assert.NoError(t, err)
-	secondBundle, err := deepcode.BundleFileFrom(secondDocContent)
+	secondBundle, err := deepcode.BundleFileFrom(secondDocContent, false)
 	assert.NoError(t, err)
 
 	files := map[string]deepcode.BundleFile{
@@ -80,7 +80,7 @@ func Test_UploadAndAnalyze(t *testing.T) {
 			requestId := uuid.NewString()
 			mockBundle := bundle.NewBundle(deepcodeMocks.NewMockDeepcodeClient(ctrl), mockInstrumentor, mockErrorReporter, &logger, "testRootPath", "", files, []string{}, []string{})
 			mockBundleManager := bundleMocks.NewMockBundleManager(ctrl)
-			mockBundleManager.EXPECT().Create(gomock.Any(), requestId, baseDir, gomock.Any(), map[string]bool{}).Return(mockBundle, nil)
+			mockBundleManager.EXPECT().CreateEmpty(gomock.Any(), baseDir, gomock.Any(), map[string]bool{}).Return(mockBundle, nil)
 			mockBundleManager.EXPECT().Upload(gomock.Any(), requestId, mockBundle, files).Return(mockBundle, nil)
 
 			codeScanner := codeclient.NewCodeScanner(
@@ -104,7 +104,7 @@ func Test_UploadAndAnalyze(t *testing.T) {
 			requestId := uuid.NewString()
 			mockBundle := bundle.NewBundle(deepcodeMocks.NewMockDeepcodeClient(ctrl), mockInstrumentor, mockErrorReporter, &logger, "testRootPath", uuid.NewString(), files, []string{}, []string{})
 			mockBundleManager := bundleMocks.NewMockBundleManager(ctrl)
-			mockBundleManager.EXPECT().Create(gomock.Any(), requestId, baseDir, gomock.Any(), map[string]bool{}).Return(mockBundle, nil)
+			mockBundleManager.EXPECT().CreateEmpty(gomock.Any(), baseDir, gomock.Any(), map[string]bool{}).Return(mockBundle, nil)
 			mockBundleManager.EXPECT().Upload(gomock.Any(), requestId, mockBundle, files).Return(mockBundle, nil)
 
 			codeScanner := codeclient.NewCodeScanner(
@@ -129,7 +129,7 @@ func Test_UploadAndAnalyze(t *testing.T) {
 			requestId := uuid.NewString()
 			mockBundle := bundle.NewBundle(deepcodeMocks.NewMockDeepcodeClient(ctrl), mockInstrumentor, mockErrorReporter, &logger, "testRootPath", uuid.NewString(), files, []string{}, []string{})
 			mockBundleManager := bundleMocks.NewMockBundleManager(ctrl)
-			mockBundleManager.EXPECT().Create(gomock.Any(), requestId, baseDir, gomock.Any(), map[string]bool{}).Return(mockBundle, nil)
+			mockBundleManager.EXPECT().CreateEmpty(gomock.Any(), baseDir, gomock.Any(), map[string]bool{}).Return(mockBundle, nil)
 			mockBundleManager.EXPECT().Upload(gomock.Any(), requestId, mockBundle, files).Return(mockBundle, nil)
 
 			mockAnalysisOrchestrator := mockAnalysis.NewMockAnalysisOrchestrator(ctrl)
@@ -166,7 +166,7 @@ func Test_UploadAndAnalyze(t *testing.T) {
 			requestId := uuid.NewString()
 			mockBundle := bundle.NewBundle(deepcodeMocks.NewMockDeepcodeClient(ctrl), mockInstrumentor, mockErrorReporter, &logger, "testRootPath", uuid.NewString(), files, []string{relativeChangedFile}, []string{})
 			mockBundleManager := bundleMocks.NewMockBundleManager(ctrl)
-			mockBundleManager.EXPECT().Create(gomock.Any(), requestId, baseDir, gomock.Any(), map[string]bool{}).Return(mockBundle, nil)
+			mockBundleManager.EXPECT().CreateEmpty(gomock.Any(), baseDir, gomock.Any(), map[string]bool{}).Return(mockBundle, nil)
 			mockBundleManager.EXPECT().Upload(gomock.Any(), requestId, mockBundle, files).Return(mockBundle, nil)
 
 			mockAnalysisOrchestrator := mockAnalysis.NewMockAnalysisOrchestrator(ctrl)

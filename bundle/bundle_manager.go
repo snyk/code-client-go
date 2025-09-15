@@ -50,6 +50,13 @@ type BundleManager interface {
 		changedFiles map[string]bool,
 	) (bundle Bundle, err error)
 
+	// CreateEmpty does not include the file contents in the bundle.
+	CreateEmpty(ctx context.Context,
+		rootPath string,
+		filePaths <-chan string,
+		changedFiles map[string]bool,
+	) (bundle Bundle, err error)
+
 	Upload(
 		ctx context.Context,
 		requestId string,
@@ -76,11 +83,31 @@ func NewBundleManager(
 	}
 }
 
-func (b *bundleManager) Create(ctx context.Context,
+func (b *bundleManager) Create(
+	ctx context.Context,
 	requestId string,
 	rootPath string,
 	filePaths <-chan string,
 	changedFiles map[string]bool,
+) (bundle Bundle, err error) {
+	return b.create(ctx, rootPath, filePaths, changedFiles, true)
+}
+
+func (b *bundleManager) CreateEmpty(
+	ctx context.Context,
+	rootPath string,
+	filePaths <-chan string,
+	changedFiles map[string]bool,
+) (bundle Bundle, err error) {
+	return b.create(ctx, rootPath, filePaths, changedFiles, false)
+}
+
+func (b *bundleManager) create(
+	ctx context.Context,
+	rootPath string,
+	filePaths <-chan string,
+	changedFiles map[string]bool,
+	includeFileContents bool,
 ) (bundle Bundle, err error) {
 	span := b.instrumentor.StartSpan(ctx, "code.createBundle")
 	defer b.instrumentor.Finish(span)
@@ -129,7 +156,7 @@ func (b *bundleManager) Create(ctx context.Context,
 		}
 		relativePath = util.EncodePath(relativePath)
 
-		bundleFile, fileErr := deepcode.BundleFileFrom(fileContent)
+		bundleFile, fileErr := deepcode.BundleFileFrom(fileContent, includeFileContents)
 		if fileErr != nil {
 			b.logger.Error().Err(err).Str("filePath", absoluteFilePath).Msg("Error creating bundle file")
 		}

@@ -84,7 +84,7 @@ Implement the `config.Config` interface to configure the Snyk Code API client fr
 
 ### Code Scanner
 
-Use the Code Scanner to trigger a scan for a Snyk Code workspace using the Bundle Manager created above.
+Use the Code Scanner to trigger a scan for a Snyk Code workspace using the Bundle Manager.
 
 The Code Scanner exposes a `UploadAndAnalyze` function, which can be used like this:
 

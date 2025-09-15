@@ -145,7 +145,7 @@ func NewBatchFromRawContent(documents map[string][]byte) (*Batch, error) {
 	bundleFiles := make(map[string]deepcode.BundleFile)
 
 	for key, rawData := range documents {
-		bundleFile, err := deepcode.BundleFileFrom(rawData)
+		bundleFile, err := deepcode.BundleFileFrom(rawData, true)
 		if err != nil {
 			return nil, fmt.Errorf("failed to create file from raw data: %v", err)
 		}
