@@ -568,7 +568,7 @@ func TestAnalysis_CreateRequestBody(t *testing.T) {
 
 	// Validate analysisContext
 	analysisContext := request["analysisContext"].(map[string]interface{})
-	assert.Equal(t, scan.IDE, analysisContext["initiator"])
+	assert.Equal(t, string(scan.IDE), analysisContext["initiator"])
 	assert.Equal(t, "language-server", analysisContext["flow"])
 
 	org := analysisContext["org"].(map[string]interface{})
