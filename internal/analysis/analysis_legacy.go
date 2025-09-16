@@ -28,10 +28,9 @@ import (
 	"net/url"
 	"strings"
 
-	"github.com/snyk/code-client-go/scan"
-
 	codeClientHTTP "github.com/snyk/code-client-go/http"
 	"github.com/snyk/code-client-go/sarif"
+	"github.com/snyk/code-client-go/scan"
 )
 
 // Legacy analysis types and constants
@@ -76,15 +75,21 @@ type FailedError struct {
 func (e FailedError) Error() string { return e.Msg }
 
 // Legacy analysis helper functions
-func (a *analysisOrchestrator) newRequestContext() requestContext {
+func (a *analysisOrchestrator) newRequestContext(ctx context.Context) requestContext {
 	unknown := "unknown"
 	orgId := unknown
 	if a.config.Organization() != "" {
 		orgId = a.config.Organization()
 	}
 
+	initiator := unknown
+	contextInitiator, ok := scan.ScanSourceFromContext(ctx)
+	if ok {
+		initiator = string(contextInitiator)
+	}
+
 	return requestContext{
-		Initiator: "IDE",
+		Initiator: initiator,
 		Flow:      "language-server",
 		Org: requestContextOrg{
 			Name:        unknown,
@@ -94,7 +99,7 @@ func (a *analysisOrchestrator) newRequestContext() requestContext {
 	}
 }
 
-func (a *analysisOrchestrator) createRequestBody(bundleHash, shardKey string, limitToFiles []string, severity int) ([]byte, error) {
+func (a *analysisOrchestrator) createRequestBody(ctx context.Context, bundleHash, shardKey string, limitToFiles []string, severity int) ([]byte, error) {
 	request := Request{
 		Key: RequestKey{
 			Type:         "file",
@@ -102,7 +107,7 @@ func (a *analysisOrchestrator) createRequestBody(bundleHash, shardKey string, li
 			LimitToFiles: limitToFiles,
 		},
 		Legacy:          false,
-		AnalysisContext: a.newRequestContext(),
+		AnalysisContext: a.newRequestContext(ctx),
 	}
 	if len(shardKey) > 0 {
 		request.Key.Shard = shardKey
@@ -144,7 +149,7 @@ func (a *analysisOrchestrator) RunLegacyTest(ctx context.Context, bundleHash str
 	a.logger.Debug().Str("method", method).Str("bundleHash", bundleHash).Msg("API: Retrieving analysis for bundle")
 	defer a.logger.Debug().Str("method", method).Str("bundleHash", bundleHash).Msg("API: Retrieving analysis done")
 
-	requestBody, err := a.createRequestBody(bundleHash, shardKey, limitToFiles, severity)
+	requestBody, err := a.createRequestBody(ctx, bundleHash, shardKey, limitToFiles, severity)
 	if err != nil {
 		a.logger.Err(err).Str("method", method).Str("requestBody", string(requestBody)).Msg("error creating request body")
 		return nil, scan.LegacyScanStatus{}, err
@@ -158,12 +163,13 @@ func (a *analysisOrchestrator) RunLegacyTest(ctx context.Context, bundleHash str
 
 	// Create HTTP request
 	analysisUrl := baseUrl + "/analysis"
-	req, err := http.NewRequestWithContext(span.Context(), http.MethodPost, analysisUrl, bytes.NewBuffer(requestBody))
+	httpMethod := http.MethodPost
+	req, err := http.NewRequestWithContext(span.Context(), httpMethod, analysisUrl, bytes.NewBuffer(requestBody))
 	if err != nil {
 		a.logger.Err(err).Str("method", method).Msg("error creating HTTP request")
 		return nil, scan.LegacyScanStatus{}, err
 	}
-	codeClientHTTP.AddDefaultHeaders(req, span.GetTraceId(), a.config.Organization())
+	codeClientHTTP.AddDefaultHeaders(req, span.GetTraceId(), a.config.Organization(), httpMethod)
 
 	// Make HTTP call
 	resp, err := a.httpClient.Do(req)

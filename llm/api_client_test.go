@@ -10,10 +10,10 @@ import (
 	"testing"
 
 	"github.com/rs/zerolog"
+	http2 "github.com/snyk/code-client-go/http"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	codeClientHTTP "github.com/snyk/code-client-go/http"
 	"github.com/snyk/code-client-go/observability"
 )
 
@@ -264,7 +264,7 @@ func testLogger(t *testing.T) *zerolog.Logger {
 func TestAddDefaultHeadersWithExistingHeaders(t *testing.T) {
 	req := &http.Request{Header: http.Header{"Existing-Header": {"existing-value"}}}
 
-	codeClientHTTP.AddDefaultHeaders(req, "", "")
+	http2.AddDefaultHeaders(req, http2.NoRequestId, "", http.MethodGet)
 
 	cacheControl := req.Header.Get("Cache-Control")
 	contentType := req.Header.Get("Content-Type")

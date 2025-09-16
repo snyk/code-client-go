@@ -17,7 +17,6 @@
 package deepcode
 
 import (
-	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
@@ -30,7 +29,6 @@ import (
 
 	"github.com/rs/zerolog"
 	"github.com/snyk/code-client-go/config"
-	"github.com/snyk/code-client-go/internal/util/encoding"
 
 	codeClientHTTP "github.com/snyk/code-client-go/http"
 	"github.com/snyk/code-client-go/observability"
@@ -217,7 +215,7 @@ func (s *deepcodeClient) Request(
 		return nil, err
 	}
 
-	bodyBuffer, err := s.encodeIfNeeded(method, requestBody)
+	bodyBuffer, err := codeClientHTTP.EncodeIfNeeded(method, requestBody)
 	if err != nil {
 		return nil, err
 	}
@@ -227,7 +225,7 @@ func (s *deepcodeClient) Request(
 		return nil, err
 	}
 
-	s.addHeaders(method, req)
+	codeClientHTTP.AddDefaultHeaders(req, codeClientHTTP.NoRequestId, s.config.Organization(), method)
 
 	response, err := s.httpClient.Do(req)
 	if err != nil {
@@ -253,41 +251,6 @@ func (s *deepcodeClient) Request(
 	}
 
 	return responseBody, nil
-}
-
-func (s *deepcodeClient) addHeaders(method string, req *http.Request) {
-	// Setting a chosen org name for the request
-	org := s.config.Organization()
-	if org != "" {
-		req.Header.Set("snyk-org-name", org)
-	}
-	// https://www.keycdn.com/blog/http-cache-headers
-	req.Header.Set("Cache-Control", "private, max-age=0, no-cache")
-	if s.mustBeEncoded(method) {
-		req.Header.Set("Content-Type", "application/octet-stream")
-		req.Header.Set("Content-Encoding", "gzip")
-	} else {
-		req.Header.Set("Content-Type", "application/json")
-	}
-}
-
-func (s *deepcodeClient) encodeIfNeeded(method string, requestBody []byte) (*bytes.Buffer, error) {
-	b := new(bytes.Buffer)
-	mustBeEncoded := s.mustBeEncoded(method)
-	if mustBeEncoded {
-		enc := encoding.NewEncoder(b)
-		_, err := enc.Write(requestBody)
-		if err != nil {
-			return nil, err
-		}
-	} else {
-		b = bytes.NewBuffer(requestBody)
-	}
-	return b, nil
-}
-
-func (s *deepcodeClient) mustBeEncoded(method string) bool {
-	return method == http.MethodPost || method == http.MethodPut
 }
 
 func (s *deepcodeClient) checkResponseCode(r *http.Response) error {
