@@ -88,7 +88,8 @@ Implement the `config.Config` interface to configure the Snyk Code API client fr
 
 Use the Code Scanner to trigger a scan for a Snyk Code workspace using the Bundle Manager created above.
 
-The Code Scanner exposes a `UploadAndAnalyze` function, which can be used like this:
+The Code Scanner exposes two scanning functions: `UploadAndAnalyze` (which supports Code Consistent Ignores) and 
+`UploadAndAnalyzeLegacy`. These functions may be used like this:
 
 ```go
 import (
@@ -104,7 +105,12 @@ codeScanner := codeClient.NewCodeScanner(
     codeClientHTTP.WithInstrumentor(instrumentor),
     codeClientHTTP.WithErrorReporter(errorReporter),
 )
-codeScanner.UploadAndAnalyze(context.Background(), requestId, target, channelForWalkingFiles, changedFiles)
+if useCodeConsistentIgnores() {
+    codeScanner.UploadAndAnalyze(context.Background(), requestId, target, channelForWalkingFiles, changedFiles)
+} else {
+    codeScanner.UploadAndAnalyzeLegacy(context.Background(), requestId, target, shardKey, files, changedFiles, statusChannel)
+}
+
 ```
 
 

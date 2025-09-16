@@ -1,7 +1,6 @@
 package llm
 
 import (
-	"bytes"
 	"context"
 	"encoding/base64"
 	"encoding/json"
@@ -12,7 +11,7 @@ import (
 	"net/url"
 	"strings"
 
-	codeClientHTTP "github.com/snyk/code-client-go/http"
+	http2 "github.com/snyk/code-client-go/http"
 )
 
 var (
@@ -70,13 +69,20 @@ func (d *DeepCodeLLMBindingImpl) submitRequest(ctx context.Context, url *url.URL
 	span := d.instrumentor.StartSpan(ctx, "code.SubmitRequest")
 	defer span.Finish()
 
-	req, err := http.NewRequestWithContext(ctx, http.MethodPost, url.String(), bytes.NewBuffer(requestBody))
+	// Encode the request body
+	bodyBuffer, err := http2.EncodeIfNeeded(http.MethodPost, requestBody)
+	if err != nil {
+		logger.Err(err).Str("requestBody", string(requestBody)).Msg("error encoding request body")
+		return nil, err
+	}
+
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, url.String(), bodyBuffer)
 	if err != nil {
 		logger.Err(err).Str("requestBody", string(requestBody)).Msg("error creating request")
 		return nil, err
 	}
 
-	codeClientHTTP.AddDefaultHeaders(req, span.GetTraceId(), orgId)
+	http2.AddDefaultHeaders(req, http2.NoRequestId, orgId, http.MethodPost)
 
 	resp, err := d.httpClientFunc().Do(req) //nolint:bodyclose // this seems to be a false positive
 	if err != nil {
