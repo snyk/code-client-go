@@ -69,13 +69,14 @@ func mockGetDocumentResponse(t *testing.T, sarifResponse sarif.SarifDocument, ex
 	}, mockDeriveErrorFromStatusCode(responseCode))
 }
 
-func mockResultCompletedResponse(t *testing.T, mockHTTPClient *httpmocks.MockHTTPClient, expectedWebuilink string, projectId uuid.UUID, orgId string, testId uuid.UUID, documentPath string, responseCode int) {
+func mockResultCompletedResponse(t *testing.T, mockHTTPClient *httpmocks.MockHTTPClient, expectedWebuilink string, projectId uuid.UUID, snapshotId uuid.UUID, orgId string, testId uuid.UUID, documentPath string, responseCode int) {
 	t.Helper()
 	response := v20241221.NewTestResponse()
 	state := v20241221.NewTestCompleteState()
 	state.Documents.EnrichedSarif = documentPath
 	state.Results.Webui.Link = &expectedWebuilink
 	state.Results.Webui.ProjectId = &projectId
+	state.Results.Webui.SnapshotId = &snapshotId
 	stateBytes, err := json.Marshal(state)
 	assert.NoError(t, err)
 	response.Data.Attributes.UnmarshalJSON(stateBytes)
@@ -151,6 +152,7 @@ func TestAnalysis_RunTest(t *testing.T) {
 
 	orgId := "4a72d1db-b465-4764-99e1-ecedad03b06a"
 	projectId := uuid.New()
+	snapshotId := uuid.New()
 	testId := uuid.New()
 	report := true
 	inputBundle := mocks2.NewMockBundle(ctrl)
@@ -166,7 +168,7 @@ func TestAnalysis_RunTest(t *testing.T) {
 	// Get Test Result Response
 	expectedWebuilink := ""
 	expectedDocumentPath := "/1234"
-	mockResultCompletedResponse(t, mockHTTPClient, expectedWebuilink, projectId, orgId, testId, expectedDocumentPath, http.StatusOK)
+	mockResultCompletedResponse(t, mockHTTPClient, expectedWebuilink, projectId, snapshotId, orgId, testId, expectedDocumentPath, http.StatusOK)
 
 	// get document
 	sarifResponse := sarif.SarifDocument{
@@ -198,6 +200,8 @@ func TestAnalysis_RunTest(t *testing.T) {
 	assert.NotNil(t, result)
 	assert.NotNil(t, resultMetadata)
 	assert.Equal(t, expectedWebuilink, resultMetadata.WebUiUrl)
+	assert.Equal(t, projectId.String(), resultMetadata.ProjectId)
+	assert.Equal(t, snapshotId.String(), resultMetadata.SnapshotId)
 	assert.Equal(t, sarifResponse.Version, result.Sarif.Version)
 }
 
@@ -208,6 +212,7 @@ func TestAnalysis_RunTestRemote(t *testing.T) {
 
 	orgId := "4a72d1db-b465-4764-99e1-ecedad03b06a"
 	projectId := uuid.New()
+	snapshotId := uuid.New()
 	testId := uuid.New()
 	commitId := "abc123"
 	report := true
@@ -218,7 +223,7 @@ func TestAnalysis_RunTestRemote(t *testing.T) {
 	// Get Test Result Response
 	expectedWebuilink := ""
 	expectedDocumentPath := "/1234"
-	mockResultCompletedResponse(t, mockHTTPClient, expectedWebuilink, projectId, orgId, testId, expectedDocumentPath, http.StatusOK)
+	mockResultCompletedResponse(t, mockHTTPClient, expectedWebuilink, projectId, snapshotId, orgId, testId, expectedDocumentPath, http.StatusOK)
 
 	// get document
 	sarifResponse := sarif.SarifDocument{
@@ -250,6 +255,8 @@ func TestAnalysis_RunTestRemote(t *testing.T) {
 	assert.NotNil(t, result)
 	assert.NotNil(t, resultMetadata)
 	assert.Equal(t, expectedWebuilink, resultMetadata.WebUiUrl)
+	assert.Equal(t, projectId.String(), resultMetadata.ProjectId)
+	assert.Equal(t, snapshotId.String(), resultMetadata.SnapshotId)
 	assert.Equal(t, sarifResponse.Version, result.Sarif.Version)
 }
 
@@ -309,7 +316,7 @@ func TestAnalysis_RunTestRemote_PollingFailed(t *testing.T) {
 	// Get Test Result Response
 	expectedWebuilink := ""
 	expectedDocumentPath := "/1234"
-	mockResultCompletedResponse(t, mockHTTPClient, expectedWebuilink, projectId, orgId, testId, expectedDocumentPath, http.StatusInternalServerError)
+	mockResultCompletedResponse(t, mockHTTPClient, expectedWebuilink, projectId, uuid.New(), orgId, testId, expectedDocumentPath, http.StatusInternalServerError)
 
 	analysisOrchestrator := analysis.NewAnalysisOrchestrator(
 		mockConfig,
@@ -353,7 +360,7 @@ func TestAnalysis_RunTestRemote_GetDocumentFailed(t *testing.T) {
 	// Get Test Result Response
 	expectedWebuilink := ""
 	expectedDocumentPath := "/1234"
-	mockResultCompletedResponse(t, mockHTTPClient, expectedWebuilink, projectId, orgId, testId, expectedDocumentPath, http.StatusOK)
+	mockResultCompletedResponse(t, mockHTTPClient, expectedWebuilink, projectId, uuid.New(), orgId, testId, expectedDocumentPath, http.StatusOK)
 
 	// get document
 	sarifResponse := sarif.SarifDocument{

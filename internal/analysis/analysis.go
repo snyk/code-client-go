@@ -341,9 +341,19 @@ func (a *analysisOrchestrator) retrieveTestURL(ctx context.Context, client *test
 			result := &scan.ResultMetaData{
 				FindingsUrl: findingsUrl,
 			}
-			if testCompleted.Results.Webui != nil && testCompleted.Results.Webui.Link != nil {
-				result.WebUiUrl = *testCompleted.Results.Webui.Link
+
+			if testCompleted.Results.Webui != nil {
+				if testCompleted.Results.Webui.Link != nil {
+					result.WebUiUrl = *testCompleted.Results.Webui.Link
+				}
+				if testCompleted.Results.Webui.ProjectId != nil {
+					result.ProjectId = testCompleted.Results.Webui.ProjectId.String()
+				}
+				if testCompleted.Results.Webui.SnapshotId != nil {
+					result.SnapshotId = testCompleted.Results.Webui.SnapshotId.String()
+				}
 			}
+
 			return result, true, nil
 		default:
 			return nil, false, fmt.Errorf("unexpected test status \"%s\"", stateDiscriminator)
