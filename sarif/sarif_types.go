@@ -179,6 +179,11 @@ type RunProperties struct {
 		Lang        string `json:"lang"`
 		Type        string `json:"type"`
 	} `json:"coverage"`
+	UploadResult struct {
+		ProjectId  string `json:"projectId"`
+		SnapshotId string `json:"snapshotId"`
+		ReportUrl  string `json:"reportUrl"`
+	} `json:"uploadResult,omitempty"`
 }
 
 type Run struct {
