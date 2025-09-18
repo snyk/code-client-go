@@ -18,7 +18,6 @@ package bundle_test
 
 import (
 	"bytes"
-	"context"
 	"os"
 	"path/filepath"
 	"strings"
@@ -40,6 +39,7 @@ import (
 func Test_Create(t *testing.T) {
 	t.Run(
 		"when < maxFileSize creates deepCodeBundle", func(t *testing.T) {
+			testBundleHash := "test-bundle-hash-123"
 			ctrl := gomock.NewController(t)
 			mockSpan := mocks.NewMockSpan(ctrl)
 			mockSpan.EXPECT().Context().AnyTimes()
@@ -50,7 +50,7 @@ func Test_Create(t *testing.T) {
 			}, nil)
 			mockSnykCodeClient.EXPECT().CreateBundle(gomock.Any(), map[string]string{
 				"file.java": "386f1997f6da5133a0f75c347d5cdff15a428b817231278e2509832c1a80b3ea",
-			}).Times(1)
+			}).Return(testBundleHash, []string{}, nil).Times(1)
 			mockInstrumentor := mocks.NewMockInstrumentor(ctrl)
 			mockInstrumentor.EXPECT().StartSpan(gomock.Any(), gomock.Any()).Return(mockSpan).AnyTimes()
 			mockInstrumentor.EXPECT().Finish(gomock.Any()).AnyTimes()
@@ -68,13 +68,14 @@ func Test_Create(t *testing.T) {
 			require.NoError(t, err)
 
 			var bundleManager = bundle.NewBundleManager(mockSnykCodeClient, newLogger(t), mockInstrumentor, mockErrorReporter, mockTrackerFactory)
-			bundle, err := bundleManager.Create(context.Background(),
+			bundle, err := bundleManager.Create(t.Context(),
 				"testRequestId",
 				dir,
 				sliceToChannel([]string{file}),
 				map[string]bool{})
 			require.NoError(t, err)
 			assert.Len(t, bundle.GetFiles(), 1, "deepCodeBundle should have 1 deepCodeBundle files")
+			assert.Equal(t, testBundleHash, bundle.GetBundleHash(), "Bundle should have valid hash")
 		},
 	)
 
@@ -88,6 +89,8 @@ func Test_Create(t *testing.T) {
 				ConfigFiles: []string{},
 				Extensions:  []string{".java"},
 			}, nil)
+			// Bundle creation should only occur if we have candidate files. If all files are too big, we skip creation.
+			mockSnykCodeClient.EXPECT().CreateBundle(gomock.Any(), gomock.Any()).Times(0)
 			mockInstrumentor := mocks.NewMockInstrumentor(ctrl)
 			mockInstrumentor.EXPECT().StartSpan(gomock.Any(), gomock.Any()).Return(mockSpan).AnyTimes()
 			mockInstrumentor.EXPECT().Finish(gomock.Any()).AnyTimes()
@@ -105,7 +108,7 @@ func Test_Create(t *testing.T) {
 			require.NoError(t, err)
 
 			var bundleManager = bundle.NewBundleManager(mockSnykCodeClient, newLogger(t), mockInstrumentor, mockErrorReporter, mockTrackerFactory)
-			bundle, err := bundleManager.Create(context.Background(),
+			bundle, err := bundleManager.Create(t.Context(),
 				"testRequestId",
 				dir,
 				sliceToChannel([]string{file}),
@@ -126,6 +129,8 @@ func Test_Create(t *testing.T) {
 				ConfigFiles: []string{},
 				Extensions:  []string{".java"},
 			}, nil)
+			// Bundle creation should only occur if we have candidate files. If all files are skipped we skip creation.
+			mockSnykCodeClient.EXPECT().CreateBundle(gomock.Any(), gomock.Any()).Times(0)
 			mockInstrumentor := mocks.NewMockInstrumentor(ctrl)
 			mockInstrumentor.EXPECT().StartSpan(gomock.Any(), gomock.Any()).Return(mockSpan).AnyTimes()
 			mockInstrumentor.EXPECT().Finish(gomock.Any()).AnyTimes()
@@ -147,7 +152,7 @@ func Test_Create(t *testing.T) {
 			require.NoError(t, err)
 
 			var bundleManager = bundle.NewBundleManager(mockSnykCodeClient, newLogger(t), mockInstrumentor, mockErrorReporter, mockTrackerFactory)
-			bundle, err := bundleManager.Create(context.Background(),
+			bundle, err := bundleManager.Create(t.Context(),
 				"testRequestId",
 				dir,
 				sliceToChannel([]string{file}),
@@ -168,6 +173,8 @@ func Test_Create(t *testing.T) {
 				ConfigFiles: []string{},
 				Extensions:  []string{".java"},
 			}, nil)
+			// Bundle creation should only occur if we have candidate files. If all files are ignored, we skip creation.
+			mockSnykCodeClient.EXPECT().CreateBundle(gomock.Any(), gomock.Any()).Times(0)
 			mockInstrumentor := mocks.NewMockInstrumentor(ctrl)
 			mockInstrumentor.EXPECT().StartSpan(gomock.Any(), gomock.Any()).Return(mockSpan).AnyTimes()
 			mockInstrumentor.EXPECT().Finish(gomock.Any()).AnyTimes()
@@ -188,7 +195,7 @@ func Test_Create(t *testing.T) {
 			)
 			require.NoError(t, err)
 			var bundleManager = bundle.NewBundleManager(mockSnykCodeClient, newLogger(t), mockInstrumentor, mockErrorReporter, mockTrackerFactory)
-			bundle, err := bundleManager.Create(context.Background(),
+			bundle, err := bundleManager.Create(t.Context(),
 				"testRequestId",
 				dir,
 				sliceToChannel([]string{file}),
@@ -209,7 +216,7 @@ func Test_Create(t *testing.T) {
 		}, nil)
 		mockSnykCodeClient.EXPECT().CreateBundle(gomock.Any(), map[string]string{
 			".test": "9c05690c5b8e22df259431c95df33d01267f799de6810382ada1a9ff1b89710e",
-		}).Times(1)
+		}).Return("test-bundle-hash-456", []string{}, nil).Times(1)
 		mockInstrumentor := mocks.NewMockInstrumentor(ctrl)
 		mockInstrumentor.EXPECT().StartSpan(gomock.Any(), gomock.Any()).Return(mockSpan).AnyTimes()
 		mockInstrumentor.EXPECT().Finish(gomock.Any()).AnyTimes()
@@ -226,7 +233,7 @@ func Test_Create(t *testing.T) {
 		assert.Nil(t, err)
 
 		var bundleManager = bundle.NewBundleManager(mockSnykCodeClient, newLogger(t), mockInstrumentor, mockErrorReporter, mockTrackerFactory)
-		bundle, err := bundleManager.Create(context.Background(),
+		bundle, err := bundleManager.Create(t.Context(),
 			"testRequestId",
 			tempDir,
 			sliceToChannel([]string{file}),
@@ -248,7 +255,7 @@ func Test_Create(t *testing.T) {
 		mockSnykCodeClient.EXPECT().CreateBundle(gomock.Any(), map[string]string{
 			"path/to/file1.java":            "9c05690c5b8e22df259431c95df33d01267f799de6810382ada1a9ff1b89710e",
 			"path/with%20spaces/file2.java": "9c05690c5b8e22df259431c95df33d01267f799de6810382ada1a9ff1b89710e",
-		}).Times(1)
+		}).Return("test-bundle-hash-789", []string{}, nil).Times(1)
 		mockInstrumentor := mocks.NewMockInstrumentor(ctrl)
 		mockInstrumentor.EXPECT().StartSpan(gomock.Any(), gomock.Any()).Return(mockSpan).AnyTimes()
 		mockInstrumentor.EXPECT().Finish(gomock.Any()).AnyTimes()
@@ -279,7 +286,7 @@ func Test_Create(t *testing.T) {
 		}
 
 		var bundleManager = bundle.NewBundleManager(mockSnykCodeClient, newLogger(t), mockInstrumentor, mockErrorReporter, mockTrackerFactory)
-		bundle, err := bundleManager.Create(context.Background(),
+		bundle, err := bundleManager.Create(t.Context(),
 			"testRequestId",
 			tempDir,
 			sliceToChannel(filesFullPaths),
@@ -302,7 +309,7 @@ func Test_Create(t *testing.T) {
 		mockSnykCodeClient.EXPECT().CreateBundle(gomock.Any(), map[string]string{
 			"path/to/file1.java":            "9c05690c5b8e22df259431c95df33d01267f799de6810382ada1a9ff1b89710e",
 			"path/with%20spaces/file2.java": "9c05690c5b8e22df259431c95df33d01267f799de6810382ada1a9ff1b89710e",
-		}).Times(1)
+		}).Return("test-bundle-hash-abc", []string{}, nil).Times(1)
 		mockInstrumentor := mocks.NewMockInstrumentor(ctrl)
 		mockInstrumentor.EXPECT().StartSpan(gomock.Any(), gomock.Any()).Return(mockSpan).AnyTimes()
 		mockInstrumentor.EXPECT().Finish(gomock.Any()).AnyTimes()
@@ -332,7 +339,7 @@ func Test_Create(t *testing.T) {
 		}
 
 		var bundleManager = bundle.NewBundleManager(mockSnykCodeClient, newLogger(t), mockInstrumentor, mockErrorReporter, mockTrackerFactory)
-		bundle, err := bundleManager.Create(context.Background(),
+		bundle, err := bundleManager.Create(t.Context(),
 			"testRequestId",
 			tempDir,
 			sliceToChannel(filesFullPaths),
@@ -383,7 +390,7 @@ func Test_Upload(t *testing.T) {
 		bundleFileMap[documentURI] = bundleFile
 
 		_, err := bundleManager.Upload(
-			context.Background(),
+			t.Context(),
 			"testRequestId",
 			bundle.NewBundle(mockSnykCodeClient, mockInstrumentor, mockErrorReporter, &logger, "rootPath", "bundleHash", bundleFileMap, []string{}, []string{documentURI}),
 			bundleFileMap)
@@ -432,7 +439,7 @@ func Test_Upload(t *testing.T) {
 		missingFiles = append(missingFiles, path)
 
 		_, err := bundleManager.Upload(
-			context.Background(),
+			t.Context(),
 			"testRequestId",
 			bundle.NewBundle(mockSnykCodeClient, mockInstrumentor, mockErrorReporter, &logger, "rootPath", "bundleHash", bundleFileMap, []string{}, missingFiles),
 			bundleFileMap)
@@ -444,7 +451,8 @@ func createTempFileInDir(t *testing.T, name string, size int, temporaryDir strin
 	t.Helper()
 
 	documentURI, fileContent := createFileOfSize(t, name, size, temporaryDir)
-	return documentURI, deepcode.BundleFile{Hash: util.Hash(fileContent), Content: string(fileContent)}
+	hash, _ := util.Hash(fileContent)
+	return documentURI, deepcode.BundleFile{Hash: hash, ContentSize: size}
 }
 
 func Test_IsSupported_Extensions(t *testing.T) {
@@ -461,19 +469,19 @@ func Test_IsSupported_Extensions(t *testing.T) {
 	bundler := bundle.NewBundleManager(mockSnykCodeClient, newLogger(t), mockInstrumentor, mockErrorReporter, mockTrackerFactory)
 
 	t.Run("should return true for supported languages", func(t *testing.T) {
-		supported, _ := bundler.IsSupported(context.Background(), "C:\\some\\path\\Test.java")
+		supported, _ := bundler.IsSupported(t.Context(), "C:\\some\\path\\Test.java")
 		assert.True(t, supported)
 	})
 
 	t.Run("should return false for unsupported languages", func(t *testing.T) {
-		supported, _ := bundler.IsSupported(context.Background(), "C:\\some\\path\\Test.rs")
+		supported, _ := bundler.IsSupported(t.Context(), "C:\\some\\path\\Test.rs")
 		assert.False(t, supported)
 	})
 
 	t.Run("should cache supported extensions", func(t *testing.T) {
 		path := "C:\\some\\path\\Test.rs"
-		_, _ = bundler.IsSupported(context.Background(), path)
-		_, _ = bundler.IsSupported(context.Background(), path)
+		_, _ = bundler.IsSupported(t.Context(), path)
+		_, _ = bundler.IsSupported(t.Context(), path)
 	})
 }
 
@@ -505,34 +513,33 @@ func Test_IsSupported_ConfigFiles(t *testing.T) {
 	t.Run("should return true for supported config files", func(t *testing.T) {
 		for _, file := range expectedConfigFiles {
 			path := filepath.Join(dir, file)
-			supported, _ := bundler.IsSupported(context.Background(), path)
+			supported, _ := bundler.IsSupported(t.Context(), path)
 			assert.True(t, supported)
 		}
 	})
 	t.Run("should exclude .gitignore and .dcignore", func(t *testing.T) {
 		for _, file := range []string{".gitignore", ".dcignore"} {
 			path := filepath.Join(dir, file)
-			supported, _ := bundler.IsSupported(context.Background(), path)
+			supported, _ := bundler.IsSupported(t.Context(), path)
 			assert.False(t, supported)
 		}
 	})
 	t.Run("should return false for unsupported config files", func(t *testing.T) {
 		path := "C:\\some\\path\\.unsupported"
-		supported, _ := bundler.IsSupported(context.Background(), path)
+		supported, _ := bundler.IsSupported(t.Context(), path)
 		assert.False(t, supported)
 	})
 
 	t.Run("should cache supported extensions", func(t *testing.T) {
 		path := "C:\\some\\path\\Test.rs"
-		_, _ = bundler.IsSupported(context.Background(), path)
-		_, _ = bundler.IsSupported(context.Background(), path)
+		_, _ = bundler.IsSupported(t.Context(), path)
+		_, _ = bundler.IsSupported(t.Context(), path)
 	})
 }
 
 func setup(t *testing.T) string {
 	t.Helper()
-	dir, err := os.MkdirTemp("", "createFileOfSize")
-	require.NoError(t, err)
+	dir := t.TempDir()
 	return dir
 }
 

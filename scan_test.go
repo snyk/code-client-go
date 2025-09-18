@@ -16,7 +16,6 @@
 package codeclient_test
 
 import (
-	"context"
 	"os"
 	"path/filepath"
 	"testing"
@@ -45,9 +44,9 @@ import (
 func Test_UploadAndAnalyze(t *testing.T) {
 	baseDir, firstDocPath, secondDocPath, firstDocContent, secondDocContent := setupDocs(t)
 	docs := sliceToChannel([]string{firstDocPath, secondDocPath})
-	firstBundle, err := deepcode.BundleFileFrom(firstDocContent)
+	firstBundle, err := deepcode.BundleFileFrom(firstDocContent, false)
 	assert.NoError(t, err)
-	secondBundle, err := deepcode.BundleFileFrom(secondDocContent)
+	secondBundle, err := deepcode.BundleFileFrom(secondDocContent, false)
 	assert.NoError(t, err)
 
 	files := map[string]deepcode.BundleFile{
@@ -67,7 +66,7 @@ func Test_UploadAndAnalyze(t *testing.T) {
 	mockConfig.EXPECT().Organization().AnyTimes().Return(testOrgId)
 	mockConfig.EXPECT().SnykApi().AnyTimes().Return("")
 	mockSpan := mocks.NewMockSpan(ctrl)
-	mockSpan.EXPECT().Context().Return(context.Background()).AnyTimes()
+	mockSpan.EXPECT().Context().Return(t.Context()).AnyTimes()
 	mockInstrumentor := mocks.NewMockInstrumentor(ctrl)
 	mockInstrumentor.EXPECT().StartSpan(gomock.Any(), gomock.Any()).Return(mockSpan).AnyTimes()
 	mockInstrumentor.EXPECT().Finish(gomock.Any()).AnyTimes()
@@ -81,7 +80,7 @@ func Test_UploadAndAnalyze(t *testing.T) {
 			requestId := uuid.NewString()
 			mockBundle := bundle.NewBundle(deepcodeMocks.NewMockDeepcodeClient(ctrl), mockInstrumentor, mockErrorReporter, &logger, "testRootPath", "", files, []string{}, []string{})
 			mockBundleManager := bundleMocks.NewMockBundleManager(ctrl)
-			mockBundleManager.EXPECT().Create(gomock.Any(), requestId, baseDir, gomock.Any(), map[string]bool{}).Return(mockBundle, nil)
+			mockBundleManager.EXPECT().CreateEmpty(gomock.Any(), baseDir, gomock.Any(), map[string]bool{}).Return(mockBundle, nil)
 			mockBundleManager.EXPECT().Upload(gomock.Any(), requestId, mockBundle, files).Return(mockBundle, nil)
 
 			codeScanner := codeclient.NewCodeScanner(
@@ -93,7 +92,7 @@ func Test_UploadAndAnalyze(t *testing.T) {
 				codeclient.WithLogger(&logger),
 			)
 
-			response, bundleHash, err := codeScanner.WithBundleManager(mockBundleManager).UploadAndAnalyze(context.Background(), requestId, target, docs, map[string]bool{})
+			response, bundleHash, err := codeScanner.WithBundleManager(mockBundleManager).UploadAndAnalyze(t.Context(), requestId, target, docs, map[string]bool{})
 			require.NoError(t, err)
 			assert.Equal(t, "", bundleHash)
 			assert.Nil(t, response)
@@ -105,7 +104,7 @@ func Test_UploadAndAnalyze(t *testing.T) {
 			requestId := uuid.NewString()
 			mockBundle := bundle.NewBundle(deepcodeMocks.NewMockDeepcodeClient(ctrl), mockInstrumentor, mockErrorReporter, &logger, "testRootPath", uuid.NewString(), files, []string{}, []string{})
 			mockBundleManager := bundleMocks.NewMockBundleManager(ctrl)
-			mockBundleManager.EXPECT().Create(gomock.Any(), requestId, baseDir, gomock.Any(), map[string]bool{}).Return(mockBundle, nil)
+			mockBundleManager.EXPECT().CreateEmpty(gomock.Any(), baseDir, gomock.Any(), map[string]bool{}).Return(mockBundle, nil)
 			mockBundleManager.EXPECT().Upload(gomock.Any(), requestId, mockBundle, files).Return(mockBundle, nil)
 
 			codeScanner := codeclient.NewCodeScanner(
@@ -119,7 +118,7 @@ func Test_UploadAndAnalyze(t *testing.T) {
 
 			uploadedBundle, err := codeScanner.
 				WithBundleManager(mockBundleManager).
-				Upload(context.Background(), requestId, target, docs, map[string]bool{})
+				Upload(t.Context(), requestId, target, docs, map[string]bool{})
 			require.NoError(t, err)
 			assert.Equal(t, mockBundle.GetBundleHash(), uploadedBundle.GetBundleHash())
 		},
@@ -130,7 +129,7 @@ func Test_UploadAndAnalyze(t *testing.T) {
 			requestId := uuid.NewString()
 			mockBundle := bundle.NewBundle(deepcodeMocks.NewMockDeepcodeClient(ctrl), mockInstrumentor, mockErrorReporter, &logger, "testRootPath", uuid.NewString(), files, []string{}, []string{})
 			mockBundleManager := bundleMocks.NewMockBundleManager(ctrl)
-			mockBundleManager.EXPECT().Create(gomock.Any(), requestId, baseDir, gomock.Any(), map[string]bool{}).Return(mockBundle, nil)
+			mockBundleManager.EXPECT().CreateEmpty(gomock.Any(), baseDir, gomock.Any(), map[string]bool{}).Return(mockBundle, nil)
 			mockBundleManager.EXPECT().Upload(gomock.Any(), requestId, mockBundle, files).Return(mockBundle, nil)
 
 			mockAnalysisOrchestrator := mockAnalysis.NewMockAnalysisOrchestrator(ctrl)
@@ -154,7 +153,7 @@ func Test_UploadAndAnalyze(t *testing.T) {
 			response, bundleHash, err := codeScanner.
 				WithBundleManager(mockBundleManager).
 				WithAnalysisOrchestrator(mockAnalysisOrchestrator).
-				UploadAndAnalyze(context.Background(), requestId, target, docs, map[string]bool{})
+				UploadAndAnalyze(t.Context(), requestId, target, docs, map[string]bool{})
 			require.NoError(t, err)
 			assert.Equal(t, "COMPLETE", response.Status)
 			assert.Equal(t, mockBundle.GetBundleHash(), bundleHash)
@@ -167,7 +166,7 @@ func Test_UploadAndAnalyze(t *testing.T) {
 			requestId := uuid.NewString()
 			mockBundle := bundle.NewBundle(deepcodeMocks.NewMockDeepcodeClient(ctrl), mockInstrumentor, mockErrorReporter, &logger, "testRootPath", uuid.NewString(), files, []string{relativeChangedFile}, []string{})
 			mockBundleManager := bundleMocks.NewMockBundleManager(ctrl)
-			mockBundleManager.EXPECT().Create(gomock.Any(), requestId, baseDir, gomock.Any(), map[string]bool{}).Return(mockBundle, nil)
+			mockBundleManager.EXPECT().CreateEmpty(gomock.Any(), baseDir, gomock.Any(), map[string]bool{}).Return(mockBundle, nil)
 			mockBundleManager.EXPECT().Upload(gomock.Any(), requestId, mockBundle, files).Return(mockBundle, nil)
 
 			mockAnalysisOrchestrator := mockAnalysis.NewMockAnalysisOrchestrator(ctrl)
@@ -191,7 +190,7 @@ func Test_UploadAndAnalyze(t *testing.T) {
 			response, _, err := codeScanner.
 				WithBundleManager(mockBundleManager).
 				WithAnalysisOrchestrator(mockAnalysisOrchestrator).
-				UploadAndAnalyze(context.Background(), requestId, target, docs, map[string]bool{})
+				UploadAndAnalyze(t.Context(), requestId, target, docs, map[string]bool{})
 			require.NoError(t, err)
 			assert.Equal(t, "COMPLETE", response.Status)
 		},
@@ -209,7 +208,7 @@ func TestAnalyzeRemote(t *testing.T) {
 	mockErrorReporter := mocks.NewMockErrorReporter(ctrl)
 	mockSpan := mocks.NewMockSpan(ctrl)
 	mockSpan.EXPECT().GetTraceId().AnyTimes().Return("testTraceId")
-	mockSpan.EXPECT().Context().AnyTimes().Return(context.Background())
+	mockSpan.EXPECT().Context().AnyTimes().Return(t.Context())
 	mockInstrumentor.EXPECT().StartSpan(gomock.Any(), gomock.Any()).AnyTimes().Return(mockSpan)
 	mockInstrumentor.EXPECT().Finish(gomock.Any()).AnyTimes()
 
@@ -231,7 +230,7 @@ func TestAnalyzeRemote(t *testing.T) {
 			gomock.Any(),
 		).Return(&sarif.SarifResponse{Status: "COMPLETE"}, &scan.ResultMetaData{}, nil)
 
-		response, _, err := codeScanner.AnalyzeRemote(context.Background())
+		response, _, err := codeScanner.AnalyzeRemote(t.Context())
 		if err != nil {
 			t.Fatalf("AnalyzeRemote failed: %v", err)
 		}
@@ -249,7 +248,7 @@ func TestAnalyzeRemote(t *testing.T) {
 
 		mockErrorReporter.EXPECT().CaptureError(gomock.Any(), gomock.Any())
 
-		response, _, err := codeScanner.AnalyzeRemote(context.Background())
+		response, _, err := codeScanner.AnalyzeRemote(t.Context())
 		assert.Nil(t, response)
 		assert.Error(t, err)
 	})

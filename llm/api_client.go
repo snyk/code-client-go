@@ -1,7 +1,6 @@
 package llm
 
 import (
-	"bytes"
 	"context"
 	"encoding/base64"
 	"encoding/json"
@@ -11,6 +10,8 @@ import (
 	"net/http"
 	"net/url"
 	"strings"
+
+	http2 "github.com/snyk/code-client-go/http"
 )
 
 var (
@@ -68,13 +69,20 @@ func (d *DeepCodeLLMBindingImpl) submitRequest(ctx context.Context, url *url.URL
 	span := d.instrumentor.StartSpan(ctx, "code.SubmitRequest")
 	defer span.Finish()
 
-	req, err := http.NewRequestWithContext(ctx, http.MethodPost, url.String(), bytes.NewBuffer(requestBody))
+	// Encode the request body
+	bodyBuffer, err := http2.EncodeIfNeeded(http.MethodPost, requestBody)
+	if err != nil {
+		logger.Err(err).Str("requestBody", string(requestBody)).Msg("error encoding request body")
+		return nil, err
+	}
+
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, url.String(), bodyBuffer)
 	if err != nil {
 		logger.Err(err).Str("requestBody", string(requestBody)).Msg("error creating request")
 		return nil, err
 	}
 
-	d.addDefaultHeaders(req, span.GetTraceId(), orgId)
+	http2.AddDefaultHeaders(req, http2.NoRequestId, orgId, http.MethodPost)
 
 	resp, err := d.httpClientFunc().Do(req) //nolint:bodyclose // this seems to be a false positive
 	if err != nil {
@@ -257,16 +265,4 @@ func prepareDiffs(diffs []string) []string {
 		encodedDiffs = append(encodedDiffs, base64.StdEncoding.EncodeToString([]byte(diff)))
 	}
 	return encodedDiffs
-}
-
-func (d *DeepCodeLLMBindingImpl) addDefaultHeaders(req *http.Request, requestId string, orgId string) {
-	// if requestId is empty it will be enriched from the Gateway
-	if len(requestId) > 0 {
-		req.Header.Set("snyk-request-id", requestId)
-	}
-	if len(orgId) > 0 {
-		req.Header.Set("snyk-org-name", orgId)
-	}
-	req.Header.Set("Cache-Control", "private, max-age=0, no-cache")
-	req.Header.Set("Content-Type", "application/json")
 }

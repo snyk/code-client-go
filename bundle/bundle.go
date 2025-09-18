@@ -26,11 +26,13 @@ import (
 	"github.com/snyk/code-client-go/observability"
 )
 
-//go:generate mockgen -destination=mocks/bundle.go -source=bundle.go -package mocks
+//go:generate go tool github.com/golang/mock/mockgen -destination=mocks/bundle.go -source=bundle.go -package mocks
+
 type Bundle interface {
 	UploadBatch(ctx context.Context, requestId string, batch *Batch) error
 	GetBundleHash() string
 	GetFiles() map[string]deepcode.BundleFile
+	ClearFiles()
 	GetMissingFiles() []string
 	GetLimitToFiles() []string
 	GetRootPath() string
@@ -80,6 +82,10 @@ func (b *deepCodeBundle) GetBundleHash() string {
 
 func (b *deepCodeBundle) GetFiles() map[string]deepcode.BundleFile {
 	return b.files
+}
+
+func (b *deepCodeBundle) ClearFiles() {
+	b.files = make(map[string]deepcode.BundleFile)
 }
 
 func (b *deepCodeBundle) GetMissingFiles() []string {
@@ -139,11 +145,10 @@ func NewBatchFromRawContent(documents map[string][]byte) (*Batch, error) {
 	bundleFiles := make(map[string]deepcode.BundleFile)
 
 	for key, rawData := range documents {
-		bundleFile, err := deepcode.BundleFileFrom(rawData)
+		bundleFile, err := deepcode.BundleFileFrom(rawData, true)
 		if err != nil {
 			return nil, fmt.Errorf("failed to create file from raw data: %v", err)
 		}
-
 		bundleFiles[key] = bundleFile
 	}
 
@@ -154,15 +159,15 @@ func NewBatchFromRawContent(documents map[string][]byte) (*Batch, error) {
 
 // todo simplify the size computation
 // maybe consider an addFile / canFitFile interface with proper error handling
-func (b *Batch) canFitFile(uri string, content []byte) bool {
-	docPayloadSize := b.getTotalDocPayloadSize(uri, content)
+func (b *Batch) canFitFile(uri string, contentSize int) bool {
+	docPayloadSize := b.getTotalDocPayloadSize(uri, contentSize)
 	newSize := docPayloadSize + b.getSize()
 	b.size += docPayloadSize
 	return newSize < maxUploadBatchSize
 }
 
-func (b *Batch) getTotalDocPayloadSize(documentURI string, content []byte) int {
-	return len(jsonHashSizePerFile) + len(jsonOverheadPerFile) + len([]byte(documentURI)) + len(content)
+func (b *Batch) getTotalDocPayloadSize(documentURI string, contentSize int) int {
+	return len(jsonHashSizePerFile) + len(jsonOverheadPerFile) + len([]byte(documentURI)) + contentSize
 }
 
 func (b *Batch) getSize() int {

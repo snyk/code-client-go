@@ -17,22 +17,26 @@
 package bundle_test
 
 import (
-	"context"
+	"bytes"
 	"crypto/sha256"
 	"encoding/hex"
 	"fmt"
+	"io"
 	"os"
 	"testing"
 
+	"golang.org/x/net/html/charset"
+
 	"github.com/golang/mock/gomock"
 	"github.com/rs/zerolog"
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
 
 	"github.com/snyk/code-client-go/bundle"
 	"github.com/snyk/code-client-go/internal/deepcode"
 	deepcodeMocks "github.com/snyk/code-client-go/internal/deepcode/mocks"
+	"github.com/snyk/code-client-go/internal/util"
 	"github.com/snyk/code-client-go/observability/mocks"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 var bundleWithFiles = bundle.NewBatch(map[string]deepcode.BundleFile{"file": {}})
@@ -80,7 +84,7 @@ func Test_UploadBatch(t *testing.T) {
 		b := bundle.NewBundle(mockSnykCodeClient, mockInstrumentor, mockErrorReporter, &testLogger, "testRootPath", "testBundleHash", map[string]deepcode.BundleFile{}, []string{}, []string{})
 
 		emptyBundle := &bundle.Batch{}
-		err := b.UploadBatch(context.Background(), "testRequestId", emptyBundle)
+		err := b.UploadBatch(t.Context(), "testRequestId", emptyBundle)
 		assert.NoError(t, err)
 	})
 
@@ -99,7 +103,7 @@ func Test_UploadBatch(t *testing.T) {
 		mockErrorReporter := mocks.NewMockErrorReporter(ctrl)
 		b := bundle.NewBundle(mockSnykCodeClient, mockInstrumentor, mockErrorReporter, &testLogger, "testRootPath", "testBundleHash", map[string]deepcode.BundleFile{}, []string{}, []string{})
 
-		err := b.UploadBatch(context.Background(), "testRequestId", bundleWithFiles)
+		err := b.UploadBatch(t.Context(), "testRequestId", bundleWithFiles)
 		assert.NoError(t, err)
 	})
 
@@ -122,10 +126,10 @@ func Test_UploadBatch(t *testing.T) {
 		mockErrorReporter := mocks.NewMockErrorReporter(ctrl)
 		b := bundle.NewBundle(mockSnykCodeClient, mockInstrumentor, mockErrorReporter, &testLogger, "testRootPath", "testBundleHash", map[string]deepcode.BundleFile{}, []string{}, []string{})
 
-		err := b.UploadBatch(context.Background(), "testRequestId", bundleWithFiles)
+		err := b.UploadBatch(t.Context(), "testRequestId", bundleWithFiles)
 		require.NoError(t, err)
 		oldHash := b.GetBundleHash()
-		err = b.UploadBatch(context.Background(), "testRequestId", bundleWithMultipleFiles)
+		err = b.UploadBatch(t.Context(), "testRequestId", bundleWithMultipleFiles)
 		require.NoError(t, err)
 		newHash := b.GetBundleHash()
 		assert.NotEqual(t, oldHash, newHash)
@@ -150,7 +154,7 @@ func Test_RawContentBatch(t *testing.T) {
 
 		require.NoError(t, batchErr)
 		oldHash := b.GetBundleHash()
-		err := b.UploadBatch(context.Background(), "testRequestId", bundleFromRawContent)
+		err := b.UploadBatch(t.Context(), "testRequestId", bundleFromRawContent)
 		require.NoError(t, err)
 		newHash := b.GetBundleHash()
 		assert.NotEqual(t, oldHash, newHash)
@@ -160,21 +164,48 @@ func Test_RawContentBatch(t *testing.T) {
 func Test_BundleEncoding(t *testing.T) {
 	t.Run("utf-8 encoded content", func(t *testing.T) {
 		content := []byte("hello")
-		bundle, err := deepcode.BundleFileFrom(content)
+		bundleFile, err := deepcode.BundleFileFrom(content, false)
 		assert.NoError(t, err)
 
-		actualShasum := sha256.Sum256([]byte(bundle.Content))
-		assert.Equal(t, bundle.Hash, hex.EncodeToString(actualShasum[:]))
+		ExpectedShaSum := sha256.Sum256(content)
+		assert.Equal(t, hex.EncodeToString(ExpectedShaSum[:]), bundleFile.Hash)
 	})
 
 	t.Run("non utf-8 / binary file", func(t *testing.T) {
 		content, err := os.ReadFile("testdata/rshell_font.php")
 		assert.NoError(t, err)
 
-		bundle, err := deepcode.BundleFileFrom(content)
+		bundleFile, err := deepcode.BundleFileFrom(content, false)
 		assert.NoError(t, err)
 
-		actualShasum := sha256.Sum256([]byte(bundle.Content))
-		assert.Equal(t, bundle.Hash, hex.EncodeToString(actualShasum[:]))
+		byteReader := bytes.NewReader(content)
+		reader, _ := charset.NewReaderLabel("UTF-8", byteReader)
+		utf8content, _ := io.ReadAll(reader)
+		ExpectedShaSum := sha256.Sum256(utf8content)
+		assert.Equal(t, hex.EncodeToString(ExpectedShaSum[:]), bundleFile.Hash)
+	})
+}
+
+func Test_BundleFileContent(t *testing.T) {
+	t.Run("include file contents", func(t *testing.T) {
+		content := []byte("hello")
+		bundleFile, err := deepcode.BundleFileFrom(content, true)
+		assert.NoError(t, err)
+
+		utf8Content, err := util.ConvertToUTF8(content)
+		assert.NoError(t, err)
+
+		assert.Equal(t, string(utf8Content), bundleFile.Content)
+		assert.Equal(t, len(content), bundleFile.ContentSize)
+	})
+
+	t.Run("exclude file contents", func(t *testing.T) {
+		content := []byte("hello")
+		bundleFile, err := deepcode.BundleFileFrom(content, false)
+		assert.NoError(t, err)
+
+		assert.Equal(t, "", bundleFile.Content)
+		// Note that we still expect the bundle to indicate the expected final size.
+		assert.Equal(t, len(content), bundleFile.ContentSize)
 	})
 }

@@ -19,6 +19,8 @@ package codeclient
 
 import (
 	"context"
+	"fmt"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/pkg/errors"
@@ -62,6 +64,18 @@ type CodeScanner interface {
 		target scan.Target,
 		files <-chan string,
 		changedFiles map[string]bool,
+	) (*sarif.SarifResponse, string, error)
+
+	// UploadAndAnalyzeLegacy runs the legacy scanner (no consistent ignores)
+	// ctx may include a scan.ScanSource value for use in the requestContext (see analysis_legacy.go)
+	UploadAndAnalyzeLegacy(
+		ctx context.Context,
+		requestId string,
+		target scan.Target,
+		shardKey string,
+		files <-chan string,
+		changedFiles map[string]bool,
+		statusChannel chan<- scan.LegacyScanStatus,
 	) (*sarif.SarifResponse, string, error)
 }
 
@@ -203,7 +217,7 @@ func (c *codeScanner) Upload(
 		return nil, err
 	}
 
-	originalBundle, err := c.bundleManager.Create(ctx, requestId, target.GetPath(), files, changedFiles)
+	originalBundle, err := c.bundleManager.CreateEmpty(ctx, target.GetPath(), files, changedFiles)
 	err = c.checkCancellationOrLogError(ctx, target.GetPath(), err, "error creating bundle...")
 	if err != nil {
 		return nil, err
@@ -235,7 +249,6 @@ func (c *codeScanner) checkCancellationOrLogError(ctx context.Context, targetPat
 	return returnError
 }
 
-// UploadAndAnalyze returns a fake SARIF response for testing. Use target-service to run analysis on.
 func (c *codeScanner) UploadAndAnalyze(
 	ctx context.Context,
 	requestId string,
@@ -247,7 +260,69 @@ func (c *codeScanner) UploadAndAnalyze(
 	return response, bundleHash, err
 }
 
-// UploadAndAnalyzeWithOptions returns a fake SARIF response for testing. Use target-service to run analysis on.
+func (c *codeScanner) UploadAndAnalyzeLegacy(
+	ctx context.Context,
+	requestId string,
+	target scan.Target,
+	shardKey string,
+	files <-chan string,
+	changedFiles map[string]bool,
+	statusChannel chan<- scan.LegacyScanStatus,
+) (*sarif.SarifResponse, string, error) {
+	defer close(statusChannel)
+	uploadedBundle, err := c.Upload(ctx, requestId, target, files, changedFiles)
+	if err != nil || uploadedBundle == nil || uploadedBundle.GetBundleHash() == "" {
+		c.logger.Debug().Msg("empty bundle, no Snyk Code analysis")
+		return nil, "", err
+	}
+
+	response, bundleHash, err := c.analyzeLegacy(ctx, uploadedBundle, shardKey, statusChannel)
+	return response, bundleHash, err
+}
+
+func (c *codeScanner) analyzeLegacy(
+	ctx context.Context,
+	bundle bundle.Bundle,
+	shardKey string,
+	statusChannel chan<- scan.LegacyScanStatus,
+) (*sarif.SarifResponse, string, error) {
+	bundleHash := bundle.GetBundleHash()
+	limitToFiles := bundle.GetLimitToFiles()
+	severity := 0
+
+	start := time.Now()
+	for {
+		response, status, err := c.analysisOrchestrator.RunLegacyTest(ctx, bundleHash, shardKey, limitToFiles, severity)
+
+		if err != nil {
+			c.logger.Error().Err(err).
+				Int("fileCount", len(bundle.GetFiles())).
+				Msg("error retrieving diagnostics...")
+			statusChannel <- scan.NewLegacyScanDoneStatus(fmt.Sprintf("Analysis failed: %v", err))
+			return nil, "", err
+		}
+
+		if status.Message == analysis.StatusComplete {
+			c.logger.Trace().Msg("sending diagnostics...")
+			statusChannel <- scan.NewLegacyScanDoneStatus("Analysis complete")
+			return response, bundleHash, err
+		} else if status.Message == analysis.StatusAnalyzing {
+			c.logger.Trace().Msg("\"Analyzing\" message received")
+		}
+
+		if time.Since(start) > c.config.SnykCodeAnalysisTimeout() {
+			err := errors.New("analysis call timed out")
+			c.logger.Error().Err(err).Msg("timeout...")
+			statusChannel <- scan.NewLegacyScanDoneStatus("Snyk Code Analysis timed out")
+			return nil, "", err
+		}
+
+		time.Sleep(1 * time.Second)
+		c.logger.Trace().Msg("sending In-Progress message to client")
+		statusChannel <- status
+	}
+}
+
 func (c *codeScanner) UploadAndAnalyzeWithOptions(
 	ctx context.Context,
 	requestId string,

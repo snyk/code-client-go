@@ -16,25 +16,36 @@
 package deepcode
 
 import (
-	"bytes"
-
 	"github.com/snyk/code-client-go/internal/util"
 )
 
 type BundleFile struct {
-	Hash    string `json:"hash"`
-	Content string `json:"content"`
+	Hash        string `json:"hash"`
+	Content     string `json:"content"`
+	ContentSize int    `json:"-"`
 }
 
-func BundleFileFrom(rawContent []byte) (BundleFile, error) {
-	fileContent, err := util.ConvertToUTF8(bytes.NewReader(rawContent))
-	if err != nil {
-		return BundleFile{}, err
+func BundleFileFrom(content []byte, includeContent bool) (BundleFile, error) {
+	hash, err := util.Hash(content)
+
+	// We can either create the bundleFile empty and enrich it with content later, or include the content now.
+	// Creating empty avoids keeping the file contents in memory, so improves performance if we don't need access to the
+	// contents right away.
+	bundleFileContent := ""
+	if includeContent {
+		utf8Content, convertErr := util.ConvertToUTF8(content)
+		if convertErr == nil {
+			bundleFileContent = string(utf8Content)
+		} else {
+			bundleFileContent = string(content)
+			err = convertErr
+		}
 	}
 
 	file := BundleFile{
-		Hash:    util.Hash(fileContent),
-		Content: string(fileContent),
+		Hash:        hash,
+		Content:     bundleFileContent,
+		ContentSize: len(content),
 	}
-	return file, nil
+	return file, err
 }

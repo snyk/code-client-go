@@ -4,35 +4,50 @@ GOARCH = $(shell go env GOARCH)
 
 TOOLS_BIN := $(shell pwd)/.bin
 
-OVERRIDE_GOCI_LINT_V := v1.60.1
-SHELL:=env PATH=$(TOOLS_BIN)/go:$(TOOLS_BIN)/pact/bin:$(PATH) $(SHELL)
+OVERRIDE_GOCI_LINT_V := v1.64.8
+GOCI_LINT_TARGETS := $(TOOLS_BIN)/golangci-lint $(TOOLS_BIN)/.golangci-lint_$(OVERRIDE_GOCI_LINT_V)
+
+PACT_CLI_V := v2.4.4
+PACT_CLI_TARGETS := $(TOOLS_BIN)/pact/bin/pact-broker $(TOOLS_BIN)/.pact_$(PACT_CLI_V)
+PACT_GO_V := v2.4.1
+PACT_GO_LIB_TARGETS := /tmp/.libpact-ffi_$(PACT_GO_V) # Only use a marker file since lib extension is either .so or .dll
+
+SHELL:=env PATH=$(TOOLS_BIN)/pact/bin:$(PATH) $(SHELL)
 
 ## tools: Install required tooling.
 .PHONY: tools
-tools: $(TOOLS_BIN)/golangci-lint $(TOOLS_BIN)/go
-$(TOOLS_BIN)/golangci-lint:
-	@curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/$(OVERRIDE_GOCI_LINT_V)/install.sh | sh -s -- -b $(TOOLS_BIN)/ $(OVERRIDE_GOCI_LINT_V)
+tools: $(GOCI_LINT_TARGETS) $(PACT_CLI_TARGETS) $(PACT_GO_LIB_TARGETS)
 
-$(TOOLS_BIN)/pact-broker:
-	@cd $(TOOLS_BIN); curl -fsSL https://raw.githubusercontent.com/pact-foundation/pact-ruby-standalone/master/install.sh | PACT_CLI_VERSION=v2.4.4 bash; cd ../
+$(TOOLS_BIN):
+	@mkdir -p $(TOOLS_BIN)
 
-$(TOOLS_BIN)/go:
-	mkdir -p ${TOOLS_BIN}/go
-	@cat tools.go | grep _ | awk -F'"' '{print $$2}' | xargs -tI % sh -c 'GOBIN=${TOOLS_BIN}/go go install %'
-	@GOBIN=${TOOLS_BIN}/go ${TOOLS_BIN}/go/pact-go -l DEBUG install -d /tmp
+$(GOCI_LINT_TARGETS): $(TOOLS_BIN)
+	@rm -f $(TOOLS_BIN)/.golangci-lint_*
+	@curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/$(OVERRIDE_GOCI_LINT_V)/install.sh | sh -s -- -b $(TOOLS_BIN) $(OVERRIDE_GOCI_LINT_V)
+	@touch $(TOOLS_BIN)/.golangci-lint_$(OVERRIDE_GOCI_LINT_V)
+
+$(PACT_CLI_TARGETS): $(TOOLS_BIN)
+	@rm -f $(TOOLS_BIN)/.pact_*
+	@cd $(TOOLS_BIN); curl -fsSL https://raw.githubusercontent.com/pact-foundation/pact-ruby-standalone/master/install.sh | PACT_CLI_VERSION=$(PACT_CLI_V) bash; cd ../
+	@touch $(TOOLS_BIN)/.pact_$(PACT_CLI_V)
+
+$(PACT_GO_LIB_TARGETS):
+	@rm -f /tmp/.libpact-ffi_*
+	@go tool github.com/pact-foundation/pact-go/v2 -l DEBUG install -d /tmp
+	@touch /tmp/.libpact-ffi_$(PACT_GO_V)
 
 .PHONY: format
-format:
+format: $(GOCI_LINT_TARGETS)
 	@gofmt -w -l -e .
-	@$(TOOLS_BIN)/golangci-lint run --fix -v ./...
+	@$(TOOLS_BIN)/golangci-lint run --fix ./...
 
 .PHONY: lint
-lint: $(TOOLS_BIN)/golangci-lint
+lint: $(GOCI_LINT_TARGETS)
     ifdef CI
 		mkdir -p test/results
 		@$(TOOLS_BIN)/golangci-lint run --out-format junit-xml ./... > test/results/lint-tests.xml
     else
-		@$(TOOLS_BIN)/golangci-lint run -v ./...
+		@$(TOOLS_BIN)/golangci-lint run ./...
     endif
 
 .PHONY: build
@@ -45,6 +60,8 @@ clean:
 	@echo "Cleaning up..."
 	@GOOS=$(GOOS) GOARCH=$(GOARCH) go clean -testcache
 	@rm -rf $(TOOLS_BIN)
+	@rm -f /tmp/.libpact-ffi_*
+	@rm -f /tmp/libpact_ffi.*
 
 .PHONY: test
 test:
@@ -62,12 +79,12 @@ smoke-test:
 	@go test -tags=smoke
 
 .PHONY: contract-test
-contract-test: $(TOOLS_BIN)
+contract-test: $(PACT_GO_LIB_TARGETS)
 	@echo "Contract testing..."
 	@go test -tags=contract ./...
 
 .PHONY: publish-contract
-publish-contract: $(TOOLS_BIN)/pact-broker
+publish-contract: $(PACT_CLI_TARGETS)
 	./scripts/publish-contract.sh
 
 .PHONY: generate
@@ -80,11 +97,11 @@ generate:
     endif
 
 .PHONY: generate-mocks
-generate-mocks: $(TOOLS_BIN)/go/mockgen
+generate-mocks:
 	@go generate -tags MOCK ./...
 
 .PHONY: generate-apis
-generate-apis: $(TOOLS_BIN)/go/oapi-codegen download-apis
+generate-apis: download-apis
 	@go generate -tags API,!MOCK ./...
 
 .PHONY: download-apis

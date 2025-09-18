@@ -25,10 +25,12 @@ import (
 
 	"github.com/rs/zerolog"
 
+	"github.com/snyk/code-client-go/internal/util/encoding"
 	"github.com/snyk/code-client-go/observability"
 )
 
-//go:generate mockgen -destination=mocks/http.go -source=http.go -package mocks
+//go:generate go tool github.com/golang/mock/mockgen -destination=mocks/http.go -source=http.go -package mocks
+
 type HTTPClient interface {
 	Do(req *http.Request) (*http.Response, error)
 }
@@ -99,6 +101,8 @@ var retryErrorCodes = map[int]bool{
 	http.StatusInternalServerError: true,
 }
 
+const NoRequestId = ""
+
 func (s *httpClient) Do(req *http.Request) (*http.Response, error) {
 	span := s.instrumentor.StartSpan(req.Context(), "http.Do")
 	defer s.instrumentor.Finish(span)
@@ -157,4 +161,45 @@ func (s *httpClient) httpCall(req *http.Request) (*http.Response, error) {
 func NewDefaultClientFactory() HTTPClientFactory {
 	clientFunc := func() *http.Client { return http.DefaultClient }
 	return clientFunc
+}
+
+func AddDefaultHeaders(req *http.Request, requestId string, orgId string, method string) {
+	// if requestId is empty it will be enriched from the Gateway
+	if len(requestId) > 0 {
+		req.Header.Set("snyk-request-id", requestId)
+	}
+	if len(orgId) > 0 {
+		req.Header.Set("snyk-org-name", orgId)
+	}
+
+	// https://www.keycdn.com/blog/http-cache-headers
+	req.Header.Set("Cache-Control", "private, max-age=0, no-cache")
+
+	if mustBeEncoded(method) {
+		req.Header.Set("Content-Type", "application/octet-stream")
+		req.Header.Set("Content-Encoding", "gzip")
+	} else {
+		req.Header.Set("Content-Type", "application/json")
+	}
+}
+
+// EncodeIfNeeded returns a byte buffer for the requestBody. Depending on the request method, it may encode the buffer.
+// (See http.mustBeEncoded for the list of methods which require encoding the request body.)
+func EncodeIfNeeded(method string, requestBody []byte) (*bytes.Buffer, error) {
+	b := new(bytes.Buffer)
+	if mustBeEncoded(method) {
+		enc := encoding.NewEncoder(b)
+		_, err := enc.Write(requestBody)
+		if err != nil {
+			return nil, err
+		}
+	} else {
+		b = bytes.NewBuffer(requestBody)
+	}
+	return b, nil
+}
+
+// mustBeEncoded returns true if the request method requires the request body to be encoded.
+func mustBeEncoded(method string) bool {
+	return method == http.MethodPost || method == http.MethodPut
 }
