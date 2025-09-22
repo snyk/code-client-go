@@ -5,6 +5,8 @@ import "context"
 type ResultMetaData struct {
 	FindingsUrl string
 	WebUiUrl    string
+	ProjectId   string
+	SnapshotId  string
 }
 
 type ScanSource string
