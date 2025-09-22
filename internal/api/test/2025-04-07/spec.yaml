@@ -1,0 +1,313 @@
+openapi: 3.0.3
+x-snyk-api-stability: beta
+info:
+  title: Test Resource
+  version: 3.0.3
+  x-plural-name: tests
+  x-singular-name: test
+servers:
+  - url: https://api.snyk.io/internal
+    description: Test service internal API
+tags:
+  - name: Test
+    description: The Test API which provides an entry point to trigger tests across product lines
+components:
+  x-snyk-common:
+    $ref: https://raw.githubusercontent.com/snyk/sweater-comb/common-model-v1/components/common.yaml
+paths:
+  /orgs/{org_id}/tests:
+    post:
+      summary: Tests an input and provides a test URL that can be used to check state and results of the test
+      operationId: createTest
+      description: "Tests an input and provides a test URL that can be used to check state and results of the test"
+      x-cerberus:
+        authentication:
+          strategies:
+            - SharedSecret:
+                env: AUTHN_SHARED_SECRET
+        enableAccessAudit: true
+      tags:
+        - Test
+      parameters:
+        - { $ref: "./common/common.yaml#/components/parameters/Version" }
+        - { $ref: "./parameters/orgs.yaml#/components/parameters/OrgId" }
+      requestBody:
+        description: The input to be tested
+        content:
+          application/vnd.api+json:
+            schema:
+              { $ref: "./models/tests.yaml#/components/schemas/CreateTestRequestBody" }
+      responses:
+        "201":
+          description: Test accepted and queued for scheduling
+          headers:
+            location:
+              { $ref: "./common/common.yaml#/components/headers/LocationHeader" }
+            snyk-version-requested:
+              {
+                $ref: "./common/common.yaml#/components/headers/VersionRequestedResponseHeader",
+              }
+            snyk-version-served:
+              {
+                $ref: "./common/common.yaml#/components/headers/VersionServedResponseHeader",
+              }
+            snyk-request-id:
+              {
+                $ref: "./common/common.yaml#/components/headers/RequestIdResponseHeader",
+              }
+            snyk-version-lifecycle-stage:
+              {
+                $ref: "./common/common.yaml#/components/headers/VersionStageResponseHeader",
+              }
+            deprecation:
+              { $ref: "./common/common.yaml#/components/headers/DeprecationHeader" }
+            sunset: { $ref: "./common/common.yaml#/components/headers/SunsetHeader" }
+          content:
+            application/vnd.api+json:
+              schema:
+                { $ref: "./models/tests.yaml#/components/schemas/TestResponse" }
+        "400": { $ref: "./common/common.yaml#/components/responses/400" }
+        "401": { $ref: "./common/common.yaml#/components/responses/401" }
+        "403": { $ref: "./common/common.yaml#/components/responses/403" }
+        "404": { $ref: "./common/common.yaml#/components/responses/404" }
+        "429":
+          description: "Too many requests"
+          headers:
+            snyk-version-requested:
+              {
+                $ref: "./common/common.yaml#/components/headers/VersionRequestedResponseHeader",
+              }
+            snyk-version-served:
+              {
+                $ref: "./common/common.yaml#/components/headers/VersionServedResponseHeader",
+              }
+            snyk-request-id:
+              {
+                $ref: "./common/common.yaml#/components/headers/RequestIdResponseHeader",
+              }
+            snyk-version-lifecycle-stage:
+              {
+                $ref: "./common/common.yaml#/components/headers/VersionStageResponseHeader",
+              }
+            deprecation:
+              { $ref: "./common/common.yaml#/components/headers/DeprecationHeader" }
+            sunset: { $ref: "./common/common.yaml#/components/headers/SunsetHeader" }
+          content:
+            application/vnd.api+json:
+              schema:
+                { $ref: "./common/common.yaml#/components/schemas/ErrorDocument" }
+        "500": { $ref: "./common/common.yaml#/components/responses/500" }
+  /orgs/{org_id}/tests/{test_id}:
+    get:
+      summary: Returns the results of a test result
+      description: This endpoint returns the result of a test
+      operationId: getTestResult
+      x-cerberus:
+        authentication:
+          strategies:
+            - SharedSecret:
+                env: AUTHN_SHARED_SECRET
+        enableAccessAudit: true
+      tags:
+        - Test
+      parameters:
+        - { $ref: "./common/common.yaml#/components/parameters/Version" }
+        - { $ref: "./parameters/orgs.yaml#/components/parameters/OrgId" }
+        - { $ref: "./parameters/tests.yaml#/components/parameters/TestId" }
+      responses:
+        "200":
+          description: Test results including components collected from Snyk engines
+          headers:
+            location:
+              { $ref: "./common/common.yaml#/components/headers/LocationHeader" }
+            snyk-version-requested:
+              {
+                $ref: "./common/common.yaml#/components/headers/VersionRequestedResponseHeader",
+              }
+            snyk-version-served:
+              {
+                $ref: "./common/common.yaml#/components/headers/VersionServedResponseHeader",
+              }
+            snyk-request-id:
+              {
+                $ref: "./common/common.yaml#/components/headers/RequestIdResponseHeader",
+              }
+            snyk-version-lifecycle-stage:
+              {
+                $ref: "./common/common.yaml#/components/headers/VersionStageResponseHeader",
+              }
+            deprecation:
+              { $ref: "./common/common.yaml#/components/headers/DeprecationHeader" }
+            sunset: { $ref: "./common/common.yaml#/components/headers/SunsetHeader" }
+          content:
+            application/vnd.api+json:
+              schema:
+                {
+                  $ref: "./models/tests.yaml#/components/schemas/TestResult",
+                }
+        "400": { $ref: "./common/common.yaml#/components/responses/400" }
+        "401": { $ref: "./common/common.yaml#/components/responses/401" }
+        "403": { $ref: "./common/common.yaml#/components/responses/403" }
+        "404": { $ref: "./common/common.yaml#/components/responses/404" }
+        "429":
+          description: "Too many requests"
+          headers:
+            snyk-version-requested:
+              {
+                $ref: "./common/common.yaml#/components/headers/VersionRequestedResponseHeader",
+              }
+            snyk-version-served:
+              {
+                $ref: "./common/common.yaml#/components/headers/VersionServedResponseHeader",
+              }
+            snyk-request-id:
+              {
+                $ref: "./common/common.yaml#/components/headers/RequestIdResponseHeader",
+              }
+            snyk-version-lifecycle-stage:
+              {
+                $ref: "./common/common.yaml#/components/headers/VersionStageResponseHeader",
+              }
+            deprecation:
+              { $ref: "./common/common.yaml#/components/headers/DeprecationHeader" }
+            sunset: { $ref: "./common/common.yaml#/components/headers/SunsetHeader" }
+          content:
+            application/vnd.api+json:
+              schema:
+                { $ref: "./common/common.yaml#/components/schemas/ErrorDocument" }
+        "500": { $ref: "./common/common.yaml#/components/responses/500" }
+  /orgs/{org_id}/tests/{test_id}/configuration:
+    x-snyk-resource-singleton: true
+    get:
+      summary: Returns the initial configuration for the test
+      description: This endpoint returns the initial configuration of a test
+      operationId: getTestInitialConfiguration
+      x-cerberus:
+        authentication:
+          strategies:
+            - SharedSecret:
+                env: AUTHN_SHARED_SECRET
+        enableAccessAudit: true
+      tags:
+        - Test
+      parameters:
+        - { $ref: "./common/common.yaml#/components/parameters/Version" }
+        - { $ref: "./parameters/orgs.yaml#/components/parameters/OrgId" }
+        - { $ref: "./parameters/tests.yaml#/components/parameters/TestId" }
+      responses:
+        "200":
+          description: Test initial configuration including the input, scan and output configuration
+          headers:
+            location:
+              { $ref: "./common/common.yaml#/components/headers/LocationHeader" }
+            snyk-version-requested:
+              {
+                $ref: "./common/common.yaml#/components/headers/VersionRequestedResponseHeader",
+              }
+            snyk-version-served:
+              {
+                $ref: "./common/common.yaml#/components/headers/VersionServedResponseHeader",
+              }
+            snyk-request-id:
+              {
+                $ref: "./common/common.yaml#/components/headers/RequestIdResponseHeader",
+              }
+            snyk-version-lifecycle-stage:
+              {
+                $ref: "./common/common.yaml#/components/headers/VersionStageResponseHeader",
+              }
+            deprecation:
+              { $ref: "./common/common.yaml#/components/headers/DeprecationHeader" }
+            sunset: { $ref: "./common/common.yaml#/components/headers/SunsetHeader" }
+          content:
+            application/vnd.api+json:
+              schema:
+                {
+                  $ref: "./models/tests.yaml#/components/schemas/TestInitialConfigurationResponse",
+                }
+        "400": { $ref: "./common/common.yaml#/components/responses/400" }
+        "401": { $ref: "./common/common.yaml#/components/responses/401" }
+        "403": { $ref: "./common/common.yaml#/components/responses/403" }
+        "404": { $ref: "./common/common.yaml#/components/responses/404" }
+        "429":
+          description: "Too many requests"
+          headers:
+            snyk-version-requested:
+              {
+                $ref: "./common/common.yaml#/components/headers/VersionRequestedResponseHeader",
+              }
+            snyk-version-served:
+              {
+                $ref: "./common/common.yaml#/components/headers/VersionServedResponseHeader",
+              }
+            snyk-request-id:
+              {
+                $ref: "./common/common.yaml#/components/headers/RequestIdResponseHeader",
+              }
+            snyk-version-lifecycle-stage:
+              {
+                $ref: "./common/common.yaml#/components/headers/VersionStageResponseHeader",
+              }
+            deprecation:
+              { $ref: "./common/common.yaml#/components/headers/DeprecationHeader" }
+            sunset: { $ref: "./common/common.yaml#/components/headers/SunsetHeader" }
+          content:
+            application/vnd.api+json:
+              schema:
+                { $ref: "./common/common.yaml#/components/schemas/ErrorDocument" }
+        "500": { $ref: "./common/common.yaml#/components/responses/500" }
+  /orgs/{org_id}/tests/{test_id}/components:
+    x-snyk-resource-singleton: true
+    get:
+      summary: Fetch components for a test
+      operationId: getComponents
+      description: Retrieve a list of components created as part of a test
+      x-cerberus:
+        authentication:
+          strategies:
+            - SharedSecret:
+                env: AUTHN_SHARED_SECRET
+        enableAccessAudit: true
+      tags:
+        - Test
+      parameters:
+        - { $ref: "./common/common.yaml#/components/parameters/Version" }
+        - { $ref: "./parameters/orgs.yaml#/components/parameters/OrgId" }
+        - { $ref: "./parameters/tests.yaml#/components/parameters/TestId" }
+        - { $ref: "./common/common.yaml#/components/parameters/Limit" }
+        - { $ref: "./common/common.yaml#/components/parameters/StartingAfter" }
+        - { $ref: "./common/common.yaml#/components/parameters/EndingBefore" }
+      responses:
+        "200":
+          description: Components retrieved successfully
+          headers:
+            location:
+              { $ref: "./common/common.yaml#/components/headers/LocationHeader" }
+            snyk-version-requested:
+              {
+                $ref: "./common/common.yaml#/components/headers/VersionRequestedResponseHeader",
+              }
+            snyk-version-served:
+              {
+                $ref: "./common/common.yaml#/components/headers/VersionServedResponseHeader",
+              }
+            snyk-request-id:
+              {
+                $ref: "./common/common.yaml#/components/headers/RequestIdResponseHeader",
+              }
+            snyk-version-lifecycle-stage:
+               {
+                $ref: "./common/common.yaml#/components/headers/VersionStageResponseHeader",
+              }
+            deprecation:
+              { $ref: "./common/common.yaml#/components/headers/DeprecationHeader" }
+            sunset: { $ref: "./common/common.yaml#/components/headers/SunsetHeader" }
+          content:
+            application/vnd.api+json:
+              schema:
+                { $ref: "./models/components.yaml#/components/schemas/GetComponentsResponse" }
+        "400": { $ref: "./common/common.yaml#/components/responses/400" }
+        "401": { $ref: "./common/common.yaml#/components/responses/401" }
+        "403": { $ref: "./common/common.yaml#/components/responses/403" }
+        "404": { $ref: "./common/common.yaml#/components/responses/404" }
+        "500": { $ref: "./common/common.yaml#/components/responses/500" }

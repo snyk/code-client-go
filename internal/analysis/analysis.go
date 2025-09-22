@@ -35,8 +35,8 @@ import (
 	"github.com/snyk/code-client-go/bundle"
 	"github.com/snyk/code-client-go/config"
 	codeClientHTTP "github.com/snyk/code-client-go/http"
-	testApi "github.com/snyk/code-client-go/internal/api/test/2024-12-21"
-	testModels "github.com/snyk/code-client-go/internal/api/test/2024-12-21/models"
+	testApi "github.com/snyk/code-client-go/internal/api/test/2025-04-07"
+	testModels "github.com/snyk/code-client-go/internal/api/test/2025-04-07/models"
 	"github.com/snyk/code-client-go/observability"
 	"github.com/snyk/code-client-go/sarif"
 	"github.com/snyk/code-client-go/scan"
@@ -66,7 +66,7 @@ type analysisOrchestrator struct {
 	logger         *zerolog.Logger
 	trackerFactory scan.TrackerFactory
 	config         config.Config
-	testType       testModels.Scan
+	testType       testModels.ResultType
 }
 
 var _ AnalysisOrchestrator = (*analysisOrchestrator)(nil)
@@ -97,7 +97,7 @@ func WithTrackerFactory(factory scan.TrackerFactory) func(*analysisOrchestrator)
 	}
 }
 
-func WithResultType(t testModels.Scan) func(*analysisOrchestrator) {
+func WithResultType(t testModels.ResultType) func(*analysisOrchestrator) {
 	return func(a *analysisOrchestrator) {
 		a.testType = t
 	}
@@ -231,14 +231,21 @@ func (a *analysisOrchestrator) createTestAndGetResults(ctx context.Context, orgI
 }
 
 func (a *analysisOrchestrator) RunTest(ctx context.Context, orgId string, b bundle.Bundle, target scan.Target, reportingConfig AnalysisConfig) (*sarif.SarifResponse, *scan.ResultMetaData, error) {
+	var commitId *string = nil
 	var repoUrl *string = nil
 	if repoTarget, ok := target.(*scan.RepositoryTarget); ok {
-		tmp := repoTarget.GetRepositoryUrl()
-		repoUrl = &tmp
+		tmpRepoUrl := repoTarget.GetRepositoryUrl()
+		if len(tmpRepoUrl) > 0 {
+			repoUrl = &tmpRepoUrl
+		}
+		tmpCommitId := repoTarget.GetCommitId()
+		if len(tmpCommitId) > 0 {
+			commitId = &tmpCommitId
+		}
 	}
 
 	body := testApi.NewCreateTestApplicationBody(
-		testApi.WithInputBundle(b.GetBundleHash(), target.GetPath(), repoUrl, b.GetLimitToFiles()),
+		testApi.WithInputBundle(b.GetBundleHash(), target.GetPath(), repoUrl, b.GetLimitToFiles(), commitId),
 		testApi.WithScanType(a.testType),
 		testApi.WithProjectName(reportingConfig.ProjectName),
 		testApi.WithTargetName(reportingConfig.TargetName),
@@ -330,38 +337,96 @@ func (a *analysisOrchestrator) retrieveTestURL(ctx context.Context, client *test
 		}
 
 		switch stateDiscriminator {
-		case string(testModels.TestAcceptedStateStatusAccepted):
+		case string(testModels.Accepted):
 			fallthrough
-		case string(testModels.TestInProgressStateStatusInProgress):
+		case string(testModels.InProgress):
 			return nil, false, nil
-		case string(testModels.TestCompletedStateStatusCompleted):
-			testCompleted, stateCompleteError := parsedResponse.ApplicationvndApiJSON200.Data.Attributes.AsTestCompletedState()
+		case string(testModels.Completed):
+			_, stateCompleteError := parsedResponse.ApplicationvndApiJSON200.Data.Attributes.AsTestCompletedState()
 			if stateCompleteError != nil {
 				return nil, false, stateCompleteError
 			}
-
-			findingsUrl := a.host(true) + testCompleted.Documents.EnrichedSarif + "?version=" + testApi.DocumentApiVersion
-			result := &scan.ResultMetaData{
-				FindingsUrl: findingsUrl,
+			components, err := a.retrieveTestComponents(ctx, client, org, testId)
+			if err != nil {
+				return nil, false, err
 			}
 
-			if testCompleted.Results.Webui != nil {
-				if testCompleted.Results.Webui.Link != nil {
-					result.WebUiUrl = *testCompleted.Results.Webui.Link
-				}
-				if testCompleted.Results.Webui.ProjectId != nil {
-					result.ProjectId = testCompleted.Results.Webui.ProjectId.String()
-				}
-				if testCompleted.Results.Webui.SnapshotId != nil {
-					result.SnapshotId = testCompleted.Results.Webui.SnapshotId.String()
-				}
-			}
-
-			return result, true, nil
+			return components, true, nil
 		default:
 			return nil, false, fmt.Errorf("unexpected test status \"%s\"", stateDiscriminator)
 		}
 	default:
 		return nil, false, fmt.Errorf("unexpected response status \"%d\"", parsedResponse.StatusCode())
 	}
+}
+
+func (a *analysisOrchestrator) retrieveTestComponents(ctx context.Context, client *testApi.Client, org uuid.UUID, testId openapi_types.UUID) (*scan.ResultMetaData, error) {
+	method := "analysis.retrieveTestComponents"
+	logger := a.logger.With().Str("method", method).Logger()
+	logger.Debug().Msg("retrieving Test Components")
+
+	httpResponse, err := client.GetComponents(
+		ctx,
+		org,
+		testId,
+		&testApi.GetComponentsParams{Version: testApi.ApiVersion},
+	)
+
+	if err != nil {
+		logger.Err(err).Str("testId", testId.String()).Msg("error requesting the test components")
+		return nil, err
+	}
+
+	defer func() {
+		closeErr := httpResponse.Body.Close()
+		if closeErr != nil {
+			a.logger.Err(closeErr).Msg("failed to close response body")
+		}
+	}()
+
+	parsedResponse, err := testApi.ParseGetComponentsResponse(httpResponse)
+	if err != nil {
+		return nil, err
+	}
+
+	if parsedResponse.ApplicationvndApiJSON200 == nil {
+		return nil, fmt.Errorf("%s: unexpected response status \"%d\"", method, parsedResponse.StatusCode())
+	}
+	data := parsedResponse.ApplicationvndApiJSON200.Data
+	var sastComponent *testModels.GetComponentsResponseItem
+	for _, component := range data {
+		if component.Attributes.Type == "sast" {
+			a.logger.Trace().Msgf("inner component: %+v", component)
+			sastComponent = &component
+			break
+		}
+	}
+	if sastComponent == nil {
+		return nil, fmt.Errorf("%s: no sast component found", method)
+	}
+
+	result := &scan.ResultMetaData{}
+	attributes := sastComponent.Attributes
+
+	if !attributes.Success {
+		return nil, fmt.Errorf("%s: sast scan did not complete successfully", method)
+	}
+
+	if attributes.FindingsDocumentType != nil && *attributes.FindingsDocumentType == testModels.Sarif {
+		findingsUrl := a.host(true) + *attributes.FindingsDocumentPath + "?version=" + testApi.DocumentApiVersion
+		result.FindingsUrl = findingsUrl
+
+		if attributes.Webui != nil {
+			if attributes.Webui.Link != nil {
+				result.WebUiUrl = *attributes.Webui.Link
+			}
+			if attributes.Webui.ProjectId != nil {
+				result.ProjectId = attributes.Webui.ProjectId.String()
+			}
+			if attributes.Webui.SnapshotId != nil {
+				result.SnapshotId = attributes.Webui.SnapshotId.String()
+			}
+		}
+	}
+	return result, nil
 }

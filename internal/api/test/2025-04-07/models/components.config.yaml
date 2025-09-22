@@ -1,0 +1,8 @@
+package: v20250407
+generate:
+  models: true
+output-options:
+  skip-prune: true
+output: models/components.go
+import-mapping:
+  ../common/common.yaml: github.com/snyk/code-client-go/internal/api/test/2025-04-07/common

@@ -1,0 +1,10 @@
+components:
+  parameters:
+    TestId:
+      name: test_id
+      in: path
+      required: true
+      description: Test ID
+      schema:
+        type: string
+        format: uuid

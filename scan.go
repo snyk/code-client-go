@@ -30,7 +30,7 @@ import (
 	"github.com/snyk/code-client-go/config"
 	codeClientHTTP "github.com/snyk/code-client-go/http"
 	"github.com/snyk/code-client-go/internal/analysis"
-	testModels "github.com/snyk/code-client-go/internal/api/test/2024-12-21/models"
+	testModels "github.com/snyk/code-client-go/internal/api/test/2025-04-07/models"
 	"github.com/snyk/code-client-go/internal/deepcode"
 	"github.com/snyk/code-client-go/observability"
 	"github.com/snyk/code-client-go/sarif"
@@ -46,7 +46,7 @@ type codeScanner struct {
 	trackerFactory       scan.TrackerFactory
 	logger               *zerolog.Logger
 	config               config.Config
-	resultTypes          testModels.Scan
+	resultTypes          testModels.ResultType
 }
 
 type CodeScanner interface {

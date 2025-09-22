@@ -1,0 +1,110 @@
+components:
+  schemas:
+    WebUI:
+      type: object
+      properties:
+        link:
+          description: Link to the asset created in the Snyk web UI for this component
+          type: string
+        project_id:
+          description: The ID of the created project in the Snyk web UI for this component
+          format: uuid
+          type: string
+        snapshot_id:
+          description: The ID of the created snapshot in the Snyk web UI for this
+            component
+          format: uuid
+          type: string
+    SeverityCounts:
+      type: object
+      properties:
+        critical:
+          type: integer
+          description: Number of critical severity findings
+          example: 1
+        high:
+          type: integer
+          description: Number of high severity findings
+          example: 2
+        medium:
+          type: integer
+          description: Number of medium severity findings
+          example: 3
+        low:
+          type: integer
+          description: Number of low severity findings
+          example: 4
+    ComponentAttributes:
+      type: object
+      properties:
+        id:
+          type: string
+          example: Code analysis
+        name:
+          type: string
+          example: Code analysis
+        type:
+          type: string
+          description: Type of the component
+          example: npm
+        success:
+          type: boolean
+          description: Scan success status of the component
+          example: true
+        findings_document_type:
+          type: string
+          description: Type of the findings document
+          enum:
+          - cyclonedx
+          - sarif
+          example: cyclonedx
+        findings_document_path:
+          type: string
+          description: URL path for the findings document
+          example: /hidden/orgs/4f557e06-a379-4686-a4fe-852b8c6f80bd/tests/9ef35e3c-4738-42da-8688-25898d04fb84/documents/82c1213f-a10b-431b-b43a-1b19e501e354/blob?version=2025-04-03
+        webui:
+          $ref: '#/components/schemas/WebUI'
+        severity_counts:
+          $ref: '#/components/schemas/SeverityCounts'
+      required:
+      - id
+      - type
+      - success
+    GetComponentsResponseItem:
+      type: object
+      properties:
+        id:
+          type: string
+        type:
+          type: string
+          enum:
+          - component
+        attributes:
+          $ref: '#/components/schemas/ComponentAttributes'
+      required:
+      - id
+      - type
+      - attributes
+    GetComponentsResponse:
+      type: object
+      properties:
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/GetComponentsResponseItem'
+        jsonapi:
+          $ref: ../common/common.yaml#/components/schemas/JsonApi
+        links:
+          type: object
+          properties:
+            prev:
+              $ref: ../common/common.yaml#/components/schemas/LinkProperty
+            next:
+              $ref: ../common/common.yaml#/components/schemas/LinkProperty
+            self:
+              $ref: ../common/common.yaml#/components/schemas/LinkProperty
+      additionalProperties: false
+      required:
+      - data
+      - jsonapi
+      - links

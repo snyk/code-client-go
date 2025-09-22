@@ -1,0 +1,6 @@
+package: v20250407
+generate:
+  models: true
+output-options:
+  skip-prune: true
+output: parameters/tests.go
