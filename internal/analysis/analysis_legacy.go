@@ -18,7 +18,6 @@
 package analysis
 
 import (
-	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
@@ -164,7 +163,15 @@ func (a *analysisOrchestrator) RunLegacyTest(ctx context.Context, bundleHash str
 	// Create HTTP request
 	analysisUrl := baseUrl + "/analysis"
 	httpMethod := http.MethodPost
-	req, err := http.NewRequestWithContext(span.Context(), httpMethod, analysisUrl, bytes.NewBuffer(requestBody))
+
+	// Encode the request body
+	bodyBuffer, err := codeClientHTTP.EncodeIfNeeded(http.MethodPost, requestBody)
+	if err != nil {
+		a.logger.Err(err).Str("requestBody", string(requestBody)).Msg("error encoding request body")
+		return nil, scan.LegacyScanStatus{}, err
+	}
+
+	req, err := http.NewRequestWithContext(span.Context(), httpMethod, analysisUrl, bodyBuffer)
 	if err != nil {
 		a.logger.Err(err).Str("method", method).Msg("error creating HTTP request")
 		return nil, scan.LegacyScanStatus{}, err
