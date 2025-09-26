@@ -66,6 +66,8 @@ type CodeScanner interface {
 		changedFiles map[string]bool,
 	) (*sarif.SarifResponse, string, error)
 
+	// UploadAndAnalyzeLegacy runs the legacy scanner (no consistent ignores)
+	// ctx may include a scan.ScanSource value for use in the requestContext (see analysis_legacy.go)
 	UploadAndAnalyzeLegacy(
 		ctx context.Context,
 		requestId string,

@@ -17,6 +17,8 @@ package analysis_test
 
 import (
 	"bytes"
+	"compress/gzip"
+	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -87,6 +89,32 @@ func setupLegacy(t *testing.T, timeout *time.Duration, isFedramp bool, snykCodeA
 
 	logger := zerolog.Nop()
 	return mockConfig, mockHTTPClient, mockInstrumentor, mockErrorReporter, mockTracker, mockTrackerFactory, logger
+}
+
+// decodeRequestBody decodes a gzip-compressed and base64-encoded request body
+func decodeRequestBody(encodedBody []byte) ([]byte, error) {
+	// First, decompress with gzip
+	gr, err := gzip.NewReader(bytes.NewBuffer(encodedBody))
+	if err != nil {
+		return nil, err
+	}
+	defer func(gr *gzip.Reader) { _ = gr.Close() }(gr)
+
+	decompressed, err := io.ReadAll(gr)
+	if err != nil {
+		return nil, err
+	}
+
+	// Then, decode base64
+	r := bytes.NewReader(decompressed)
+	dec := base64.NewDecoder(base64.StdEncoding, r)
+
+	decoded, err := io.ReadAll(dec)
+	if err != nil {
+		return nil, err
+	}
+
+	return decoded, nil
 }
 
 func TestAnalysis_RunLegacyTest_Success(t *testing.T) {
@@ -530,7 +558,7 @@ func TestAnalysis_CreateRequestBody(t *testing.T) {
 
 	// run method under test
 	_, _, err := analysisOrchestrator.RunLegacyTest(
-		t.Context(),
+		scan.NewContextWithScanSource(t.Context(), scan.IDE),
 		bundleHash,
 		shardKey,
 		limitToFiles,
@@ -540,9 +568,13 @@ func TestAnalysis_CreateRequestBody(t *testing.T) {
 	require.NoError(t, err)
 	assert.NotEmpty(t, capturedRequestBody)
 
+	// Decode the captured request body (it's now encoded using httpClient.EncodeIfNeeded())
+	decodedRequestBody, err := decodeRequestBody(capturedRequestBody)
+	require.NoError(t, err)
+
 	// Parse and validate the request body structure
 	var request map[string]interface{}
-	err = json.Unmarshal(capturedRequestBody, &request)
+	err = json.Unmarshal(decodedRequestBody, &request)
 	require.NoError(t, err)
 
 	// Validate request structure
@@ -568,7 +600,7 @@ func TestAnalysis_CreateRequestBody(t *testing.T) {
 
 	// Validate analysisContext
 	analysisContext := request["analysisContext"].(map[string]interface{})
-	assert.Equal(t, "IDE", analysisContext["initiator"])
+	assert.Equal(t, string(scan.IDE), analysisContext["initiator"])
 	assert.Equal(t, "language-server", analysisContext["flow"])
 
 	org := analysisContext["org"].(map[string]interface{})
@@ -625,9 +657,13 @@ func TestAnalysis_CreateRequestBody_NoShardKey(t *testing.T) {
 
 	require.NoError(t, err)
 
+	// Decode the captured request body (it's now encoded using httpClient.EncodeIfNeeded())
+	decodedRequestBody, err := decodeRequestBody(capturedRequestBody)
+	require.NoError(t, err)
+
 	// Parse and validate the request body
 	var request map[string]interface{}
-	err = json.Unmarshal(capturedRequestBody, &request)
+	err = json.Unmarshal(decodedRequestBody, &request)
 	require.NoError(t, err)
 
 	key := request["key"].(map[string]interface{})
