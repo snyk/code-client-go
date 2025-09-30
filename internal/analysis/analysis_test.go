@@ -32,11 +32,14 @@ import (
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 
+	openapi_types "github.com/oapi-codegen/runtime/types"
 	mocks2 "github.com/snyk/code-client-go/bundle/mocks"
 	confMocks "github.com/snyk/code-client-go/config/mocks"
 	httpmocks "github.com/snyk/code-client-go/http/mocks"
 	"github.com/snyk/code-client-go/internal/analysis"
-	v20241221 "github.com/snyk/code-client-go/internal/api/test/2024-12-21"
+	v20250407 "github.com/snyk/code-client-go/internal/api/test/2025-04-07"
+	externalRef0 "github.com/snyk/code-client-go/internal/api/test/2025-04-07/common"
+	v20250407Models "github.com/snyk/code-client-go/internal/api/test/2025-04-07/models"
 	"github.com/snyk/code-client-go/observability/mocks"
 	"github.com/snyk/code-client-go/sarif"
 	"github.com/snyk/code-client-go/scan"
@@ -51,11 +54,55 @@ func mockDeriveErrorFromStatusCode(statusCode int) error {
 	return fmt.Errorf("Statuscode: %d", statusCode)
 }
 
-func mockGetDocumentResponse(t *testing.T, sarifResponse sarif.SarifDocument, expectedDocumentPath string, mockHTTPClient *httpmocks.MockHTTPClient, responseCode int) {
+func mockTestStatusResponse(t *testing.T, mockHTTPClient *httpmocks.MockHTTPClient, orgId string, testId uuid.UUID, responseCode int) {
+	t.Helper()
+
+	response := v20250407Models.TestResult{
+		Data: struct {
+			Attributes v20250407Models.TestState          `json:"attributes"`
+			Id         openapi_types.UUID                 `json:"id"`
+			Type       v20250407Models.TestResultDataType `json:"type"`
+		}{
+			Id:   testId,
+			Type: v20250407Models.TestResultDataTypeTest,
+		},
+		Jsonapi: externalRef0.JsonApi{Version: "1.0"},
+		Links:   externalRef0.SelfLink{Self: &externalRef0.LinkProperty{}},
+	}
+
+	completedStateJSON := map[string]interface{}{
+		"created_at": time.Now().Format(time.RFC3339),
+		"status":     "completed",
+		"result":     "passed",
+	}
+
+	stateBytes, err := json.Marshal(completedStateJSON)
+	assert.NoError(t, err)
+	response.Data.Attributes = v20250407Models.TestState{}
+	err = response.Data.Attributes.UnmarshalJSON(stateBytes)
+	assert.NoError(t, err)
+
+	responseBodyBytes, err := json.Marshal(response)
+	assert.NoError(t, err)
+
+	expectedTestStatusUrl := fmt.Sprintf("http://localhost/hidden/orgs/%s/tests/%s?version=%s", orgId, testId, v20250407.ApiVersion)
+	mockHTTPClient.EXPECT().Do(mock.MatchedBy(func(i interface{}) bool {
+		req := i.(*http.Request)
+		return req.URL.String() == expectedTestStatusUrl && req.Method == http.MethodGet
+	})).Times(1).Return(&http.Response{
+		StatusCode: responseCode,
+		Header: http.Header{
+			"Content-Type": []string{"application/json"},
+		},
+		Body: io.NopCloser(bytes.NewReader(responseBodyBytes)),
+	}, mockDeriveErrorFromStatusCode(responseCode))
+}
+
+func mockGetComponentResponse(t *testing.T, sarifResponse sarif.SarifDocument, expectedDocumentPath string, mockHTTPClient *httpmocks.MockHTTPClient, responseCode int) {
 	t.Helper()
 	responseBodyBytes, err := json.Marshal(sarifResponse)
 	assert.NoError(t, err)
-	expectedDocumentUrl := fmt.Sprintf("http://localhost/hidden%s?version=%s", expectedDocumentPath, v20241221.DocumentApiVersion)
+	expectedDocumentUrl := fmt.Sprintf("http://localhost/hidden%s?version=%s", expectedDocumentPath, v20250407.DocumentApiVersion)
 	mockHTTPClient.EXPECT().Do(mock.MatchedBy(func(i interface{}) bool {
 		req := i.(*http.Request)
 		return req.URL.String() == expectedDocumentUrl
@@ -70,18 +117,20 @@ func mockGetDocumentResponse(t *testing.T, sarifResponse sarif.SarifDocument, ex
 
 func mockResultCompletedResponse(t *testing.T, mockHTTPClient *httpmocks.MockHTTPClient, expectedWebuilink string, projectId uuid.UUID, snapshotId uuid.UUID, orgId string, testId uuid.UUID, documentPath string, responseCode int) {
 	t.Helper()
-	response := v20241221.NewTestResponse()
-	state := v20241221.NewTestCompleteState()
-	state.Documents.EnrichedSarif = documentPath
-	state.Results.Webui.Link = &expectedWebuilink
-	state.Results.Webui.ProjectId = &projectId
-	state.Results.Webui.SnapshotId = &snapshotId
-	stateBytes, err := json.Marshal(state)
+	state := v20250407.NewGetComponentsState()
+	state.Data[0].Attributes.Type = "sast"
+	state.Data[0].Attributes.FindingsDocumentPath = &documentPath
+	findingsDocumentType := v20250407Models.Sarif
+	state.Data[0].Attributes.FindingsDocumentType = &findingsDocumentType
+	state.Data[0].Attributes.Success = true
+	state.Data[0].Attributes.Webui = &v20250407Models.WebUI{
+		Link:       &expectedWebuilink,
+		ProjectId:  &projectId,
+		SnapshotId: &snapshotId,
+	}
+	responseBodyBytes, err := json.Marshal(state)
 	assert.NoError(t, err)
-	response.Data.Attributes.UnmarshalJSON(stateBytes)
-	responseBodyBytes, err := json.Marshal(response)
-	assert.NoError(t, err)
-	expectedRetrieveTestUrl := fmt.Sprintf("http://localhost/hidden/orgs/%s/tests/%s?version=%s", orgId, testId, v20241221.ApiVersion)
+	expectedRetrieveTestUrl := fmt.Sprintf("http://localhost/hidden/orgs/%s/tests/%s/components?version=%s", orgId, testId, v20250407.ApiVersion)
 	mockHTTPClient.EXPECT().Do(mock.MatchedBy(func(i interface{}) bool {
 		req := i.(*http.Request)
 		return req.URL.String() == expectedRetrieveTestUrl
@@ -96,13 +145,15 @@ func mockResultCompletedResponse(t *testing.T, mockHTTPClient *httpmocks.MockHTT
 
 func mockTestCreatedResponse(t *testing.T, mockHTTPClient *httpmocks.MockHTTPClient, testId uuid.UUID, orgId string, responseCode int) {
 	t.Helper()
-	response := v20241221.NewTestResponse()
+	response := v20250407.NewTestResponse()
 	response.Data.Id = testId
 	responseBodyBytes, err := json.Marshal(response)
 	assert.NoError(t, err)
-	expectedTestCreatedUrl := fmt.Sprintf("http://localhost/hidden/orgs/%s/tests?version=%s", orgId, v20241221.ApiVersion)
+	expectedTestCreatedUrl := fmt.Sprintf("http://localhost/hidden/orgs/%s/tests?version=%s", orgId, v20250407.ApiVersion)
 	mockHTTPClient.EXPECT().Do(mock.MatchedBy(func(i interface{}) bool {
 		req := i.(*http.Request)
+		validateTestRequestBody(t, req.Body)
+
 		return req.URL.String() == expectedTestCreatedUrl &&
 			req.Method == http.MethodPost
 	})).Times(1).Return(&http.Response{
@@ -112,6 +163,23 @@ func mockTestCreatedResponse(t *testing.T, mockHTTPClient *httpmocks.MockHTTPCli
 		},
 		Body: io.NopCloser(bytes.NewReader(responseBodyBytes)),
 	}, mockDeriveErrorFromStatusCode(responseCode))
+}
+
+func validateTestRequestBody(t *testing.T, request io.Reader) {
+	t.Helper()
+	body, _ := io.ReadAll(request)
+	var testRequestBody v20250407Models.CreateTestRequestBody
+	err := json.Unmarshal(body, &testRequestBody)
+	assert.NoError(t, err)
+	bundle, err := testRequestBody.Data.Attributes.Input.AsTestInputSourceBundle()
+	assert.NoError(t, err)
+
+	if bundle.Metadata.CommitId != nil {
+		assert.Regexp(t, "^[0-9a-f]{40}$", *bundle.Metadata.CommitId)
+	}
+	if bundle.Metadata.RepoUrl != nil {
+		assert.Regexp(t, "^git@github.com:[a-zA-Z0-9_-]+/[a-zA-Z0-9_-]+.git$", *bundle.Metadata.RepoUrl)
+	}
 }
 
 func setup(t *testing.T, timeout *time.Duration) (*confMocks.MockConfig, *httpmocks.MockHTTPClient, *mocks.MockInstrumentor, *mocks.MockErrorReporter, *trackerMocks.MockTracker, *trackerMocks.MockTrackerFactory, zerolog.Logger) {
@@ -164,6 +232,9 @@ func TestAnalysis_RunTest(t *testing.T) {
 	// Test Created Response
 	mockTestCreatedResponse(t, mockHTTPClient, testId, orgId, http.StatusCreated)
 
+	// Test Status Response
+	mockTestStatusResponse(t, mockHTTPClient, orgId, testId, http.StatusOK)
+
 	// Get Test Result Response
 	expectedWebuilink := ""
 	expectedDocumentPath := "/1234"
@@ -173,7 +244,8 @@ func TestAnalysis_RunTest(t *testing.T) {
 	sarifResponse := sarif.SarifDocument{
 		Version: "42.0",
 	}
-	mockGetDocumentResponse(t, sarifResponse, expectedDocumentPath, mockHTTPClient, http.StatusOK)
+
+	mockGetComponentResponse(t, sarifResponse, expectedDocumentPath, mockHTTPClient, http.StatusOK)
 
 	analysisOrchestrator := analysis.NewAnalysisOrchestrator(
 		mockConfig,
@@ -219,6 +291,9 @@ func TestAnalysis_RunTestRemote(t *testing.T) {
 	// Test Created Response
 	mockTestCreatedResponse(t, mockHTTPClient, testId, orgId, http.StatusCreated)
 
+	// Test Status Response
+	mockTestStatusResponse(t, mockHTTPClient, orgId, testId, http.StatusOK)
+
 	// Get Test Result Response
 	expectedWebuilink := ""
 	expectedDocumentPath := "/1234"
@@ -228,7 +303,7 @@ func TestAnalysis_RunTestRemote(t *testing.T) {
 	sarifResponse := sarif.SarifDocument{
 		Version: "42.0",
 	}
-	mockGetDocumentResponse(t, sarifResponse, expectedDocumentPath, mockHTTPClient, http.StatusOK)
+	mockGetComponentResponse(t, sarifResponse, expectedDocumentPath, mockHTTPClient, http.StatusOK)
 
 	analysisOrchestrator := analysis.NewAnalysisOrchestrator(
 		mockConfig,
@@ -312,6 +387,9 @@ func TestAnalysis_RunTestRemote_PollingFailed(t *testing.T) {
 	// Test Created Response
 	mockTestCreatedResponse(t, mockHTTPClient, testId, orgId, http.StatusCreated)
 
+	// Test Status Response
+	mockTestStatusResponse(t, mockHTTPClient, orgId, testId, http.StatusOK)
+
 	// Get Test Result Response
 	expectedWebuilink := ""
 	expectedDocumentPath := "/1234"
@@ -356,6 +434,9 @@ func TestAnalysis_RunTestRemote_GetDocumentFailed(t *testing.T) {
 	// Test Created Response
 	mockTestCreatedResponse(t, mockHTTPClient, testId, orgId, http.StatusCreated)
 
+	// Test Status Response
+	mockTestStatusResponse(t, mockHTTPClient, orgId, testId, http.StatusOK)
+
 	// Get Test Result Response
 	expectedWebuilink := ""
 	expectedDocumentPath := "/1234"
@@ -365,7 +446,7 @@ func TestAnalysis_RunTestRemote_GetDocumentFailed(t *testing.T) {
 	sarifResponse := sarif.SarifDocument{
 		Version: "42.0",
 	}
-	mockGetDocumentResponse(t, sarifResponse, expectedDocumentPath, mockHTTPClient, http.StatusInternalServerError)
+	mockGetComponentResponse(t, sarifResponse, expectedDocumentPath, mockHTTPClient, http.StatusInternalServerError)
 
 	analysisOrchestrator := analysis.NewAnalysisOrchestrator(
 		mockConfig,

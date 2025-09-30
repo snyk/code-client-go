@@ -10,8 +10,8 @@ from utils import formatSpecWithComponents
 from utils import formatSpecWithParameters
 from utils import replaceInFile
 
-API_VERSION = "2024-12-21"
-COMMIT_SHA = "1d8067f2a190d032982e1bb7ee9fa524558a8265"
+API_VERSION = "2025-04-07"
+COMMIT_SHA = "4ebcbf0dba5a2a44a142e519b6ad79fb827afa5a" # v5.3.1
 SERVICE = "test-service"
 FOLDER = "test"
 BASELOCALDIR = f"./internal/api/{FOLDER}/{API_VERSION}"
@@ -22,11 +22,13 @@ mkDir(f"{BASELOCALDIR}/parameters")
 mkDir(f"{BASELOCALDIR}/models")
 
 # Download main spec file
-saveGitHubFile(SERVICE, f"internal/api/public/resources/tests/{API_VERSION}/spec.yaml", f"{BASELOCALDIR}/spec.yaml", COMMIT_SHA)
+saveGitHubFile(SERVICE, f"internal/api/private/resources/tests/{API_VERSION}/spec.yaml", f"{BASELOCALDIR}/spec.yaml", COMMIT_SHA)
 replaceInFile("#/components/x-snyk-common", "./common/common.yaml#/components", f"{BASELOCALDIR}/spec.yaml")
 replaceInFile("../../../../parameters/orgs.yaml#", "./parameters/orgs.yaml#/components/parameters", f"{BASELOCALDIR}/spec.yaml")
 replaceInFile("../../../../parameters/tests.yaml#", "./parameters/tests.yaml#/components/parameters", f"{BASELOCALDIR}/spec.yaml")
-replaceInFile("../../../../models/tests.yaml#", "./models/tests.yaml#/components", f"{BASELOCALDIR}/spec.yaml")
+replaceInFile("../../../../parameters/pagination.yaml#","./common/common.yaml#/components/parameters",f"{BASELOCALDIR}/spec.yaml")
+replaceInFile(f"../../../../models/{API_VERSION}/components.yaml#","./models/components.yaml#/components",f"{BASELOCALDIR}/spec.yaml")
+replaceInFile(f"../../../../models/{API_VERSION}/tests.yaml#", "./models/tests.yaml#/components", f"{BASELOCALDIR}/spec.yaml")
 
 # Download common spec
 saveGitHubFile("sweater-comb", "components/common.yaml", f"{BASELOCALDIR}/common/common.yaml", "main")
@@ -45,10 +47,13 @@ formatSpecWithParameters(f"{BASELOCALDIR}/parameters/tests.yaml")
 formatSpecWithComponents(f"{BASELOCALDIR}/parameters/tests.yaml")
 
 # Download models spec
-saveGitHubFile(SERVICE, f"internal/api/models/tests.yaml", f"{BASELOCALDIR}/models/tests.yaml", COMMIT_SHA)
+saveGitHubFile(SERVICE, f"internal/api/models/{API_VERSION}/tests.yaml", f"{BASELOCALDIR}/models/tests.yaml", COMMIT_SHA)
 replaceInFile("https://raw.githubusercontent.com/snyk/sweater-comb/common-model-v1/components/common.yaml#", "../common/common.yaml#/components", f"{BASELOCALDIR}/models/tests.yaml")
 formatSpecWithComponents(f"{BASELOCALDIR}/models/tests.yaml")
 replaceInFile("#/schemas/", "#/components/schemas/", f"{BASELOCALDIR}/models/tests.yaml")
 
-
-
+# Download components spec
+saveGitHubFile(SERVICE, f"internal/api/models/{API_VERSION}/components.yaml", f"{BASELOCALDIR}/models/components.yaml", COMMIT_SHA)
+replaceInFile("https://raw.githubusercontent.com/snyk/sweater-comb/common-model-v1/components/common.yaml#", "../common/common.yaml#/components", f"{BASELOCALDIR}/models/components.yaml")
+formatSpecWithComponents(f"{BASELOCALDIR}/models/components.yaml")
+replaceInFile("#/schemas/", "#/components/schemas/", f"{BASELOCALDIR}/models/components.yaml")

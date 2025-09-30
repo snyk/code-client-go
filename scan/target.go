@@ -5,6 +5,7 @@ import "github.com/snyk/code-client-go/internal/util"
 type RepositoryTarget struct {
 	LocalFilePath string
 	repositoryUrl string
+	commitId      string
 }
 
 type Target interface {
@@ -19,10 +20,17 @@ func (r RepositoryTarget) GetRepositoryUrl() string {
 	return r.repositoryUrl
 }
 
+func (r RepositoryTarget) GetCommitId() string {
+	return r.commitId
+}
+
 func (r RepositoryTarget) String() string {
 	result := "[path=" + r.LocalFilePath
 	if r.repositoryUrl != "" {
 		result += "; repository=" + r.repositoryUrl
+	}
+	if r.commitId != "" {
+		result += "; commit=" + r.commitId
 	}
 	result += "]"
 	return result
@@ -38,6 +46,13 @@ func WithRepositoryUrl(repositoryUrl string) TargetOptions {
 	}
 }
 
+func WithCommitId(commitId string) TargetOptions {
+	return func(target *RepositoryTarget) error {
+		target.commitId = commitId
+		return nil
+	}
+}
+
 func NewRepositoryTarget(path string, options ...TargetOptions) (Target, error) {
 	result := &RepositoryTarget{
 		LocalFilePath: path,
@@ -50,6 +65,10 @@ func NewRepositoryTarget(path string, options ...TargetOptions) (Target, error) 
 	if len(result.repositoryUrl) == 0 {
 		var err error
 		result.repositoryUrl, err = util.GetRepositoryUrl(path)
+		if err != nil {
+			return result, err
+		}
+		result.commitId, err = util.GetCommitId(path)
 		if err != nil {
 			return result, err
 		}

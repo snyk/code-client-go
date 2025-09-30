@@ -1,0 +1,566 @@
+components:
+  schemas:
+    ResultType:
+      type: string
+      enum:
+      - code_security
+      - code_security, code_quality
+    ScanConfig:
+      type: object
+      properties:
+        scanners:
+          type: array
+          items:
+            type: string
+            enum:
+            - sast
+            - sca
+            - legacy_scanners
+        result_type:
+          $ref: '#/components/schemas/ResultType'
+        limit_test_to_files:
+          description: A list of file paths to use in the scan. If empty the whole
+            target is tested.
+          type: array
+          items:
+            type: string
+        exclusion_globs:
+          description: A list of file paths and directories to exclude from the workspace.
+            If empty default exclusion globs apply, according to the coordinate type.
+          type: array
+          items:
+            type: string
+      additionalProperties: false
+    OutputConfig:
+      type: object
+      properties:
+        report:
+          type: boolean
+          description: Determines if the test is stateless (false) or stateful (true)
+        project_name:
+          type: string
+          pattern: ^[?#@&+=%a-zA-Z0-9_.~\/\\:\s-]+$
+        project_id:
+          type: string
+          format: uuid
+        target_name:
+          type: string
+          pattern: ^[?#@&+=%a-zA-Z0-9_.~\/\\:\s-]+$
+        target_reference:
+          type: string
+          description: A reference for the target's version - can be a git branch
+            or a commit sha
+          example: main
+        label:
+          type: string
+          description: Arbitrary value up to the user
+          pattern: ^[:/?#@&+=%a-zA-Z0-9_.~-]+$
+        origin:
+          type: string
+          description: The source control management system or platform origin
+          pattern: ^[a-zA-Z-]+$
+          example: github
+        initiator:
+          type: string
+          description: The type of test flow or system that initiated the test
+          enum:
+          - api_test
+          - pr_check
+          - cli_test
+          - ide_test
+          - manual_test
+          - recurring_test
+          - import
+          - auto_import
+          example: api_test
+      additionalProperties: false
+    TestConfiguration:
+      type: object
+      properties:
+        scan:
+          $ref: '#/components/schemas/ScanConfig'
+        output:
+          $ref: '#/components/schemas/OutputConfig'
+      additionalProperties: false
+    TestAttributes:
+      type: object
+      properties:
+        input:
+          oneOf:
+          - $ref: '#/components/schemas/TestInputSourceBundle'
+          - $ref: '#/components/schemas/TestInputSBOMBundle'
+          - $ref: '#/components/schemas/TestInputLegacyScmProject'
+          - $ref: '#/components/schemas/TestInputGitUrlCoordinates'
+          - $ref: '#/components/schemas/TestInputDiffTarget'
+          - $ref: '#/components/schemas/TestInputTarget'
+          - $ref: '#/components/schemas/TestInputScmTarget'
+          - $ref: '#/components/schemas/TestInputSBOMSourceBundles'
+          - $ref: '#/components/schemas/TestInputWorkspace'
+        configuration:
+          $ref: '#/components/schemas/TestConfiguration'
+      additionalProperties: false
+    TestInputSourceBundle:
+      type: object
+      properties:
+        type:
+          type: string
+          enum:
+          - source_bundle
+          example: source_bundle
+        bundle_id:
+          description: A Snyk bundle id
+          type: string
+          maxLength: 100
+          example: 275af21f-e92b-40aa-8604-ef9b00c9bd8d
+        metadata:
+          description: Metadata of the input to be tested
+          type: object
+          properties:
+            local_file_path:
+              type: string
+              description: This can be a file path or a folder id for IDE
+            repo_url:
+              type: string
+              maxLength: 1000
+              description: 'The repo URL of the input being tested. This is used for
+                correlating the results of the test with the asset.
+
+                This will result in stable finding identities for subsequent tests
+                of the same repository.
+
+                '
+              example: 'https://github.com/test-repo/test-goof
+
+                github.com:test-repo/test-repo.git
+
+                git@github.com:test-repo/test-repo.git
+
+                '
+            commit_id:
+              description: SHA of the commit being tested
+              type: string
+              example: 024db817148169e6ca9e7f33408cca01002c1dce
+            limit_test_to_files:
+              description: The findings will be limited to a subset of files only.
+              type: array
+              items:
+                type: string
+          required:
+          - local_file_path
+      required:
+      - type
+      - bundle_id
+      - metadata
+    TestInputSBOMBundle:
+      type: object
+      properties:
+        type:
+          type: string
+          enum:
+          - sbom_bundle
+          example: sbom_bundle
+        bundle_id:
+          description: Bundle id of the SBOM bundle
+          type: string
+          maxLength: 100
+          example: 275af21f-e92b-40aa-8604-ef9b00c9bd8d
+        metadata:
+          description: Metadata of the SBOM bundle
+          type: object
+          properties:
+            local_file_path:
+              type: string
+              description: SBOM file path
+          required:
+          - local_file_path
+      required:
+      - type
+      - bundle_id
+      - metadata
+    TestInputSBOMSourceBundles:
+      type: object
+      properties:
+        type:
+          type: string
+          enum:
+          - sbom_sast_bundles
+          example: sbom_sast_bundles
+        source:
+          type: object
+          properties:
+            bundle_id:
+              description: Bundle id of the source code bundle
+              type: string
+              maxLength: 100
+              example: 275af21f-e92b-40aa-8604-ef9b00c9bd8d
+            metadata:
+              description: Metadata of the source code bundle
+              type: object
+              properties:
+                local_file_path:
+                  type: string
+                  description: File or directory path for the source code
+              required:
+              - local_file_path
+          required:
+          - bundle_id
+          - metadata
+        sbom:
+          type: object
+          properties:
+            bundle_id:
+              description: Bundle id of the SBOM bundle
+              type: string
+              maxLength: 100
+              example: 275af21f-e92b-40aa-8604-ef9b00c9bd8d
+            metadata:
+              description: Metadata of the SBOM bundle
+              type: object
+              properties:
+                local_file_path:
+                  type: string
+                  description: SBOM file path
+              required:
+              - local_file_path
+          required:
+          - bundle_id
+          - metadata
+      required:
+      - type
+      - sbom
+      - source
+    TestInputLegacyScmProject:
+      type: object
+      properties:
+        type:
+          type: string
+          enum:
+          - legacy_scm_project
+          example: legacy_scm_project
+        project_id:
+          description: Id of the project to be tested
+          type: string
+          format: uuid
+          example: 275af21f-e92b-40aa-8604-ef9b00c9bd8d
+        commit_id:
+          description: SHA of the commit to be tested
+          type: string
+          example: 024db817148169e6ca9e7f33408cca01002c1dce
+      required:
+      - type
+      - project_id
+      - commit_id
+    TestInputGitUrlCoordinates:
+      type: object
+      properties:
+        type:
+          type: string
+          enum:
+          - git_url_coordinates
+          example: git_url_coordinates
+        integration_id:
+          description: A Snyk integration id that has access to the repository.
+          type: string
+          format: uuid
+          example: 275af21f-e92b-40aa-8604-ef9b00c9bd8d
+        repo_url:
+          description: A repository url for which a test will run.
+          type: string
+          format: uri
+          example: https://github/com/snyk/goof
+        revision:
+          description: SHA of the commit to be tested.
+          type: string
+          example: 97cea0113b8807b00a5c70d5e9073f908a8baae2
+      required:
+      - type
+      - integration_id
+      - repo_url
+      - revision
+    TestInputDiffTarget:
+      type: object
+      properties:
+        type:
+          type: string
+          enum:
+          - diff_scm_target
+          example: diff_scm_target
+        target_id:
+          description: Id of the target to be tested
+          example: 275af21f-e92b-40aa-8604-ef9b00c9bd8d
+          format: uuid
+          type: string
+        base_version:
+          description: SHA of the last commit existing in base branch
+          type: string
+          example: 024db817148169e6ca9e7f33408cca01002c1dce
+        head_version:
+          description: SHA of the commit to be tested
+          type: string
+          example: 024db817148169e6ca9e7f33408cca01002c1dce
+      required:
+      - type
+      - target_id
+      - base_version
+      - head_version
+    TestInputTarget:
+      type: object
+      properties:
+        type:
+          type: string
+          enum:
+          - target
+          example: target
+        target_id:
+          description: Id of the target to be tested
+          type: string
+          format: uuid
+          example: 275af21f-e92b-40aa-8604-ef9b00c9bd8d
+        version:
+          description: This target's version, like a git branch, a commit sha, or
+            a Docker image tag
+          type: string
+          example: main
+      required:
+      - type
+      - target_id
+      - version
+    TestInputScmTarget:
+      type: object
+      properties:
+        type:
+          type: string
+          enum:
+          - scm_target
+          example: scm_target
+        target_id:
+          description: Id of the target to be tested
+          type: string
+          format: uuid
+          example: 275af21f-e92b-40aa-8604-ef9b00c9bd8d
+        version:
+          description: This target's version, like a git branch, a commit sha, or
+            a Docker image tag
+          type: string
+          example: main
+      required:
+      - type
+      - target_id
+      - version
+    TestInputWorkspace:
+      type: object
+      properties:
+        type:
+          type: string
+          enum:
+          - workspace
+          example: workspace
+        workspace_id:
+          description: Id of the workspace to be tested
+          type: string
+          format: uuid
+          example: 275af21f-e92b-40aa-8604-ef9b00c9bd8d
+      required:
+      - type
+      - workspace_id
+    TestResponse:
+      type: object
+      properties:
+        data:
+          type: object
+          properties:
+            id:
+              description: The id of the Snyk test
+              type: string
+              format: uuid
+              example: 275af21f-e92b-40aa-8604-ef9b00c9bd8d
+            type:
+              type: string
+              enum:
+              - test
+              example: test
+          required:
+          - id
+          - type
+        links:
+          $ref: ../common/common.yaml#/components/schemas/SelfLink
+        jsonapi:
+          $ref: ../common/common.yaml#/components/schemas/JsonApi
+      additionalProperties: false
+      required:
+      - data
+      - links
+    CreateTestRequestBody:
+      type: object
+      properties:
+        data:
+          type: object
+          properties:
+            type:
+              type: string
+              enum:
+              - test
+              example: test
+            attributes:
+              $ref: '#/components/schemas/TestAttributes'
+              required:
+              - input
+          additionalProperties: false
+          required:
+          - type
+          - attributes
+      additionalProperties: false
+      required:
+      - data
+    TestResult:
+      type: object
+      properties:
+        jsonapi:
+          $ref: ../common/common.yaml#/components/schemas/JsonApi
+        links:
+          $ref: ../common/common.yaml#/components/schemas/SelfLink
+        data:
+          type: object
+          properties:
+            type:
+              type: string
+              enum:
+              - test
+              example: test
+            id:
+              type: string
+              format: uuid
+              description: The id of the test
+            attributes:
+              $ref: '#/components/schemas/TestState'
+          additionalProperties: false
+          required:
+          - type
+          - id
+          - attributes
+      additionalProperties: false
+      required:
+      - data
+      - jsonapi
+      - links
+    TestInitialConfigurationResponse:
+      type: object
+      properties:
+        jsonapi:
+          $ref: ../common/common.yaml#/components/schemas/JsonApi
+        links:
+          $ref: ../common/common.yaml#/components/schemas/SelfLink
+        data:
+          type: object
+          properties:
+            type:
+              type: string
+              enum:
+              - test
+              example: test
+            attributes:
+              $ref: '#/components/schemas/TestAttributes'
+          additionalProperties: false
+      additionalProperties: false
+    TestState:
+      oneOf:
+      - $ref: '#/components/schemas/TestAcceptedState'
+      - $ref: '#/components/schemas/TestInProgressState'
+      - $ref: '#/components/schemas/TestCompletedState'
+      - $ref: '#/components/schemas/TestErrorState'
+      discriminator:
+        propertyName: status
+    TestAcceptedState:
+      type: object
+      properties:
+        created_at:
+          type: string
+          format: date-time
+          description: Timestamp when the test was created
+        status:
+          type: string
+          enum:
+          - accepted
+      required:
+      - created_at
+      - status
+    TestInProgressState:
+      type: object
+      properties:
+        created_at:
+          type: string
+          format: date-time
+          description: Timestamp when the test was created
+        status:
+          type: string
+          enum:
+          - in_progress
+      required:
+      - created_at
+      - status
+    TestCompletedState:
+      type: object
+      properties:
+        created_at:
+          type: string
+          format: date-time
+          description: Timestamp when the test was created
+        status:
+          type: string
+          enum:
+          - completed
+        result:
+          description: The outcome of the test. This field is deprecated.
+          type: string
+          enum:
+          - passed
+          - failed
+          deprecated: true
+      required:
+      - created_at
+      - status
+      - result
+    TestErrorState:
+      type: object
+      properties:
+        created_at:
+          type: string
+          format: date-time
+          description: Timestamp when the test was created
+        status:
+          type: string
+          enum:
+          - error
+        errors:
+          type: array
+          items:
+            type: object
+            properties:
+              title:
+                type: string
+                description: The high-level description of an error catalog error
+              message:
+                type: string
+                description: A custom description of an error.
+                example: The server cannot process the request due to an unexpected
+                  error. Check Snyk status, then try again.
+              error_code:
+                type: string
+                description: The Snyk error code
+                example: SNYK-9999
+              classification:
+                type: string
+                example: UNEXPECTED
+                description: A type of error
+              info_url:
+                type: string
+                description: The URL to link to more information about the error
+                example: https://docs.snyk.io/scan-with-snyk/error-catalog#snyk-9999
+            required:
+            - title
+            - message
+            - error_code
+            - classification
+      required:
+      - created_at
+      - status

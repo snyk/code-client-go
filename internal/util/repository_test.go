@@ -104,3 +104,44 @@ func Test_GetRepositoryUrl_repo_submodule(t *testing.T) {
 	assert.NoError(t, err)
 	assert.Equal(t, "https://github.com/snyk-fixtures/mono-repo.git", actualUrl)
 }
+
+func Test_GetCommitId_valid_repo(t *testing.T) {
+	expectedRepoUrl := "https://github.com/snyk-fixtures/shallow-goof-locked.git"
+	repoDir, err := testutil.SetupCustomTestRepo(t, expectedRepoUrl, "master", "", "shallow-goof-locked")
+	require.NoError(t, err)
+
+	commitId, err := util.GetCommitId(repoDir)
+	assert.NoError(t, err)
+	assert.NotEmpty(t, commitId)
+	assert.Regexp(t, "^[a-f0-9]{40}$", commitId)
+}
+
+func Test_GetCommitId_repo_subfolder(t *testing.T) {
+	expectedRepoUrl := "https://github.com/snyk-fixtures/mono-repo.git"
+	repoDir, err := testutil.SetupCustomTestRepo(t, expectedRepoUrl, "master", "", "mono-repo")
+	require.NoError(t, err)
+
+	commitId, err := util.GetCommitId(filepath.Join(repoDir, "multi-module"))
+	assert.NoError(t, err)
+	assert.NotEmpty(t, commitId)
+	assert.Len(t, commitId, 40)
+	assert.Regexp(t, "^[a-f0-9]{40}$", commitId)
+}
+
+func Test_GetCommitId_no_repo(t *testing.T) {
+	repoDir := t.TempDir()
+
+	commitId, err := util.GetCommitId(repoDir)
+	assert.Error(t, err)
+	assert.Empty(t, commitId)
+	assert.Contains(t, err.Error(), "open local repository")
+}
+
+func Test_GetCommitId_nonexistent_path(t *testing.T) {
+	nonexistentPath := "/path/that/does/not/exist"
+
+	commitId, err := util.GetCommitId(nonexistentPath)
+	assert.Error(t, err)
+	assert.Empty(t, commitId)
+	assert.Contains(t, err.Error(), "open local repository")
+}

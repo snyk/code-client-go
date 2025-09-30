@@ -23,20 +23,21 @@ import (
 )
 
 func GetRepositoryUrl(path string) (string, error) {
+	failureContext := "failed to get repository url"
 	repo, err := git.PlainOpenWithOptions(path, &git.PlainOpenOptions{
 		DetectDotGit: true,
 	})
 	if err != nil {
-		return "", fmt.Errorf("open local repository: %w", err)
+		return "", fmt.Errorf("%s: open local repository: %w", failureContext, err)
 	}
 
 	remote, err := repo.Remote("origin")
 	if err != nil {
-		return "", fmt.Errorf("get remote: %w", err)
+		return "", fmt.Errorf("%s: get remote: %w", failureContext, err)
 	}
 
 	if len(remote.Config().URLs) == 0 {
-		return "", fmt.Errorf("no repository urls available")
+		return "", fmt.Errorf("%s: no repository urls available", failureContext)
 	}
 
 	// based on the docs, the first URL is being used to fetch, so this is the one we use
@@ -44,6 +45,23 @@ func GetRepositoryUrl(path string) (string, error) {
 	repoUrl, err = SanitiseCredentials(repoUrl)
 
 	return repoUrl, err
+}
+
+func GetCommitId(path string) (string, error) {
+	failureContext := "failed to get commit id"
+	repo, err := git.PlainOpenWithOptions(path, &git.PlainOpenOptions{
+		DetectDotGit: true,
+	})
+	if err != nil {
+		return "", fmt.Errorf("%s: open local repository: %w", failureContext, err)
+	}
+
+	commitId, err := repo.Head()
+	if err != nil {
+		return "", fmt.Errorf("%s: get commit id: %w", failureContext, err)
+	}
+
+	return commitId.Hash().String(), nil
 }
 
 func SanitiseCredentials(rawUrl string) (string, error) {

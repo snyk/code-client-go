@@ -29,10 +29,12 @@ func TestTarget_pathToNonRepo(t *testing.T) {
 func TestTarget_withRepoUrl(t *testing.T) {
 	expectedRepoUrl := "https://myrepo.com/hello_world"
 	expectedPath := "/hello_world"
-	target, err := NewRepositoryTarget(expectedPath, WithRepositoryUrl("https://user:pass@myrepo.com/hello_world"))
+	expectedCommitId := "1234567890"
+	target, err := NewRepositoryTarget(expectedPath, WithRepositoryUrl("https://user:pass@myrepo.com/hello_world"), WithCommitId(expectedCommitId))
 	assert.NoError(t, err)
 	repoTarget, ok := target.(*RepositoryTarget)
 	assert.True(t, ok)
 	assert.Equal(t, expectedRepoUrl, repoTarget.GetRepositoryUrl())
 	assert.Equal(t, expectedPath, repoTarget.GetPath())
+	assert.Equal(t, expectedCommitId, repoTarget.GetCommitId())
 }
