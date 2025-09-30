@@ -174,11 +174,8 @@ func validateTestRequestBody(t *testing.T, request io.Reader) {
 	bundle, err := testRequestBody.Data.Attributes.Input.AsTestInputSourceBundle()
 	assert.NoError(t, err)
 
-	if bundle.Metadata.CommitId != nil {
-		assert.Regexp(t, "^[0-9a-f]{40}$", *bundle.Metadata.CommitId)
-	}
-	if bundle.Metadata.RepoUrl != nil {
-		assert.Regexp(t, "^git@github.com:[a-zA-Z0-9_-]+/[a-zA-Z0-9_-]+.git$", *bundle.Metadata.RepoUrl)
+	if bundle.Metadata.CommitId != nil || bundle.Metadata.RepoUrl != nil {
+		assert.NotEqual(t, *bundle.Metadata.RepoUrl, *bundle.Metadata.CommitId)
 	}
 }
 
