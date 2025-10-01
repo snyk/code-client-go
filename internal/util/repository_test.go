@@ -16,13 +16,13 @@
 package util_test
 
 import (
-	"github.com/go-git/go-git/v5"
-	"github.com/stretchr/testify/require"
 	"net/url"
 	"path/filepath"
 	"testing"
 
+	"github.com/go-git/go-git/v5"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 
 	"github.com/snyk/code-client-go/internal/util"
 	"github.com/snyk/code-client-go/internal/util/testutil"

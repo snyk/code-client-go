@@ -18,8 +18,9 @@ package util
 
 import (
 	"fmt"
-	"github.com/go-git/go-git/v5"
 	"net/url"
+
+	"github.com/go-git/go-git/v5"
 )
 
 func GetRepositoryUrl(path string) (string, error) {

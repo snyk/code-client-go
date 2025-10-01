@@ -1,91 +1,81 @@
+version: '2'
 run:
   build-tags:
     - integration
   concurrency: 4
   issues-exit-code: 1
   tests: true
-  timeout: 5m
-
-linters-settings:
-  errcheck:
-    check-blank: true
-    check-type-assertions: true
-  exhaustive:
-    default-signifies-exhaustive: true
-  goconst:
-    ignore-calls: false
-  gocritic:
-    enabled-tags:
-      - diagnostic
-      - experimental
-      - opinionated
-      - performance
-      - style
-  gocyclo:
-    min-complexity: 15
-  gofumpt:
-    module-path: github.com/snyk/code-client-go
-    extra-rules: true
-  goimports:
-    local-prefixes: github.com/snyk/code-client-go
-  gosimple:
-    checks: ['all']
-  govet:
-    enable-all: true
-    disable:
-      - fieldalignment
-  lll:
-    line-length: 160
-  misspell:
-    locale: US
-  nolintlint:
-    allow-unused: false
-    require-explanation: true
-    require-specific: true
-  prealloc:
-    simple: true
-    range-loops: true
-    for-loops: true
-  promlinter:
-    strict: true
-  revive:
-    rules:
-      - name: blank-imports
-        disabled: true
-      - name: context-as-argument
-      - name: context-keys-type
-      - name: dot-imports
-      - name: error-return
-      - name: error-strings
-      - name: error-naming
-      - name: exported
-        disable-stuttering-check: true
-      - name: if-return
-      - name: increment-decrement
-      - name: var-naming
-      - name: var-declaration
-        disabled: true
-      - name: package-comments
-      - name: range
-      - name: receiver-naming
-      - name: time-naming
-      - name: unexported-return
-      - name: indent-error-flow
-      - name: errorf
-      - name: empty-block
-      - name: superfluous-else
-      - name: unused-parameter
-      - name: unreachable-code
-      - name: redefines-builtin-id
-  staticcheck:
-    checks: ['all']
-  stylecheck:
-    checks: ['all']
-    http-status-code-whitelist: []
-  varcheck:
-    exported-fields: true
-
 linters:
+  settings:
+    errcheck:
+      check-blank: true
+      check-type-assertions: true
+    exhaustive:
+      default-signifies-exhaustive: true
+    goconst:
+      ignore-calls: false
+    gocritic:
+      enabled-tags:
+        - diagnostic
+        - experimental
+        - opinionated
+        - performance
+        - style
+    gocyclo:
+      min-complexity: 15
+    govet:
+      enable-all: true
+      disable:
+        - fieldalignment
+    lll:
+      line-length: 160
+    misspell:
+      locale: US
+    nolintlint:
+      allow-unused: false
+      require-explanation: true
+      require-specific: true
+    prealloc:
+      simple: true
+      range-loops: true
+      for-loops: true
+    promlinter:
+      strict: true
+    revive:
+      rules:
+        - name: blank-imports
+          disabled: true
+        - name: context-as-argument
+        - name: context-keys-type
+        - name: dot-imports
+        - name: error-return
+        - name: error-strings
+        - name: error-naming
+        - name: exported
+        - name: if-return
+        - name: increment-decrement
+        - name: var-naming
+        - name: var-declaration
+          disabled: true
+        - name: package-comments
+        - name: range
+        - name: receiver-naming
+        - name: time-naming
+        - name: unexported-return
+        - name: indent-error-flow
+        - name: errorf
+        - name: empty-block
+        - name: superfluous-else
+        - name: unused-parameter
+        - name: unreachable-code
+        - name: redefines-builtin-id
+    staticcheck:
+      checks:
+        - all
+        - -ST1000 # Disable package comment enforcement.
+        - -ST1003 # Disable naming convention checks (e.g. myId -> myID).
+    unused:
+      exported-fields-are-used: false # Check unused exported fields
   enable:
     - asasalint
     - asciicheck
@@ -146,6 +136,7 @@ linters:
     #- revive
     - rowserrcheck
     - sqlclosecheck
+    - staticcheck
     # TODO(stylecheck): revisit in a followup; some breaking API changes
     #- stylecheck
     # NOTE: removed tagliatelle as it conflicts too much with existing API wireformats
@@ -156,36 +147,52 @@ linters:
     - unconvert
     # TODO(unparam): revisit
     #- unparam
+    - unused
     - usestdlibvars
     - usetesting
     - wastedassign
     - whitespace
     # TODO(wrapcheck): wrap errors in a followup
     #- wrapcheck
-
-issues:
-  exclude-dirs:
-    - "licenses"
-    - "pact"
-    - ".bin"
-    - ".github"
-    - ".vscode"
-    - "build"
-
-  exclude-rules:
-    - path: _test\.go
-      linters:
-        - bodyclose
-        - forcetypeassert
-        - goconst
-        - ireturn
-    - path: test/
-      linters:
-        - testpackage
-    - path: \.go
-      # TODO: remove this soon; unchecked errors are BAD
-      linters:
-        - errcheck
-  include:
-    - EXC0012
-    - EXC0014
+  exclusions:
+    paths:
+      - "licenses"
+      - "pact"
+      - ".bin"
+      - ".github"
+      - ".vscode"
+      - "build"
+    rules:
+      - path: _test\.go
+        linters:
+          - bodyclose
+          - forcetypeassert
+          - goconst
+          - ireturn
+      - path: test/
+        linters:
+          - testpackage
+      - path: \.go
+        # TODO: remove this soon; unchecked errors are BAD
+        linters:
+          - errcheck
+formatters:
+  enable:
+    # TODO(gofumpt): revisit
+    #- gofumpt
+    - goimports
+  settings:
+    gofumpt:
+      module-path: github.com/snyk/code-client-go
+      extra-rules: true
+    goimports:
+      local-prefixes:
+        - github.com/snyk/code-client-go
+  exclusions:
+    paths:
+      - "licenses"
+      - "pact"
+      - ".bin"
+      - ".github"
+      - ".vscode"
+      - "build"
