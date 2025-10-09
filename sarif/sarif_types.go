@@ -88,7 +88,6 @@ type Fingerprints struct {
 	Num1                       string `json:"1"`
 	Identity                   string `json:"identity"`
 	SnykOrgProjectFindingV1    string `json:"snyk/org/project/finding/v1"`
-	SnykOrgRepositoryFindingV1 string `json:"snyk/org/repository/finding/v1"`
 	SnykAssetFindingV1         string `json:"snyk/asset/finding/v1"`
 }
 
