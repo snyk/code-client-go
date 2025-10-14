@@ -21,6 +21,7 @@ import (
 	"context"
 	_ "embed"
 	"encoding/json"
+	goerrors "errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -29,7 +30,7 @@ import (
 
 	"github.com/google/uuid"
 	openapi_types "github.com/oapi-codegen/runtime/types"
-	"github.com/pkg/errors"
+	errors "github.com/pkg/errors"
 	"github.com/rs/zerolog"
 
 	"github.com/snyk/code-client-go/bundle"
@@ -40,6 +41,7 @@ import (
 	"github.com/snyk/code-client-go/observability"
 	"github.com/snyk/code-client-go/sarif"
 	"github.com/snyk/code-client-go/scan"
+	"github.com/snyk/error-catalog-golang-public/cli"
 )
 
 //go:generate go tool github.com/golang/mock/mockgen -destination=mocks/analysis.go -source=analysis.go -package mocks
@@ -352,12 +354,49 @@ func (a *analysisOrchestrator) retrieveTestURL(ctx context.Context, client *test
 			}
 
 			return components, true, nil
+		case string(testModels.Error):
+			testError := parseTestError(parsedResponse, method)
+			return nil, false, testError
 		default:
 			return nil, false, fmt.Errorf("unexpected test status \"%s\"", stateDiscriminator)
 		}
 	default:
 		return nil, false, fmt.Errorf("unexpected response status \"%d\"", parsedResponse.StatusCode())
 	}
+}
+
+func parseTestError(parsedResponse *testApi.GetTestResultResponse, method string) error {
+	errorResponse, stateErrorStateError := parsedResponse.ApplicationvndApiJSON200.Data.Attributes.AsTestErrorState()
+
+	if stateErrorStateError != nil {
+		return stateErrorStateError
+	}
+
+	if errorResponse.Errors == nil {
+		return fmt.Errorf("%s: test error state has no errors", method)
+	}
+
+	var testError error
+	for _, error := range *errorResponse.Errors {
+		// since the error is only partially defined, we to create an existing generic error and fill it with the available information
+		tmp := cli.NewGeneralCLIFailureError(error.Message)
+		tmp.Level = "error"
+		tmp.ErrorCode = error.ErrorCode
+		tmp.Title = error.Title
+		tmp.StatusCode = parsedResponse.StatusCode()
+		tmp.Classification = error.Classification
+
+		if error.InfoUrl != nil {
+			tmp.Type = *error.InfoUrl
+			tmp.Links = []string{}
+		}
+		testError = goerrors.Join(testError, tmp)
+	}
+
+	if testError == nil {
+		testError = fmt.Errorf("%s: test error state has no errors", method)
+	}
+	return testError
 }
 
 func (a *analysisOrchestrator) retrieveTestComponents(ctx context.Context, client *testApi.Client, org uuid.UUID, testId openapi_types.UUID) (*scan.ResultMetaData, error) {

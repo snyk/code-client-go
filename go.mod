@@ -12,6 +12,7 @@ require (
 	github.com/pkg/errors v0.9.1
 	github.com/puzpuzpuz/xsync v1.5.2
 	github.com/rs/zerolog v1.32.0
+	github.com/snyk/error-catalog-golang-public v0.0.0-20251008132755-b542bb643649
 	github.com/stretchr/testify v1.10.0
 	golang.org/x/net v0.35.0
 )
