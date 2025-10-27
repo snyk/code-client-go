@@ -302,11 +302,12 @@ func (c *codeScanner) analyzeLegacy(
 			return nil, "", err
 		}
 
-		if status.Message == analysis.StatusComplete {
+		switch status.Message {
+		case analysis.StatusComplete:
 			c.logger.Trace().Msg("sending diagnostics...")
 			statusChannel <- scan.NewLegacyScanDoneStatus("Analysis complete")
 			return response, bundleHash, err
-		} else if status.Message == analysis.StatusAnalyzing {
+		case analysis.StatusAnalyzing:
 			c.logger.Trace().Msg("\"Analyzing\" message received")
 		}
 
