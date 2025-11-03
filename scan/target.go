@@ -68,6 +68,10 @@ func NewRepositoryTarget(path string, options ...TargetOptions) (Target, error) 
 		if err != nil {
 			return result, err
 		}
+	}
+
+	if len(result.commitId) == 0 {
+		var err error
 		result.commitId, err = util.GetCommitId(path)
 		if err != nil {
 			return result, err
