@@ -165,7 +165,7 @@ func (a *analysisOrchestrator) RunLegacyTest(ctx context.Context, bundleHash str
 	httpMethod := http.MethodPost
 
 	// Encode the request body
-	bodyBuffer, err := codeClientHTTP.EncodeIfNeeded(http.MethodPost, requestBody)
+	bodyBuffer, err := codeClientHTTP.EncodeIfNeeded(http.MethodPost, requestBody, false)
 	if err != nil {
 		a.logger.Err(err).Str("requestBody", string(requestBody)).Msg("error encoding request body")
 		return nil, scan.LegacyScanStatus{}, err
@@ -176,7 +176,7 @@ func (a *analysisOrchestrator) RunLegacyTest(ctx context.Context, bundleHash str
 		a.logger.Err(err).Str("method", method).Msg("error creating HTTP request")
 		return nil, scan.LegacyScanStatus{}, err
 	}
-	codeClientHTTP.AddDefaultHeaders(req, span.GetTraceId(), a.config.Organization(), httpMethod)
+	codeClientHTTP.AddDefaultHeaders(req, span.GetTraceId(), a.config.Organization(), httpMethod, false)
 
 	// Make HTTP call
 	resp, err := a.httpClient.Do(req)

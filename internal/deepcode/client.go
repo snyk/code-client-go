@@ -215,7 +215,7 @@ func (s *deepcodeClient) Request(
 		return nil, err
 	}
 
-	bodyBuffer, err := codeClientHTTP.EncodeIfNeeded(method, requestBody)
+	bodyBuffer, err := codeClientHTTP.EncodeIfNeeded(method, requestBody, false)
 	if err != nil {
 		return nil, err
 	}
@@ -225,7 +225,7 @@ func (s *deepcodeClient) Request(
 		return nil, err
 	}
 
-	codeClientHTTP.AddDefaultHeaders(req, codeClientHTTP.NoRequestId, s.config.Organization(), method)
+	codeClientHTTP.AddDefaultHeaders(req, codeClientHTTP.NoRequestId, s.config.Organization(), method, false)
 
 	response, err := s.httpClient.Do(req)
 	if err != nil {

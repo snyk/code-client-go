@@ -264,7 +264,30 @@ func testLogger(t *testing.T) *zerolog.Logger {
 func TestAddDefaultHeadersWithExistingHeaders(t *testing.T) {
 	req := &http.Request{Header: http.Header{"Existing-Header": {"existing-value"}}}
 
-	http2.AddDefaultHeaders(req, http2.NoRequestId, "", http.MethodGet)
+	http2.AddDefaultHeaders(req, http2.NoRequestId, "", http.MethodGet, false)
+
+	cacheControl := req.Header.Get("Cache-Control")
+	contentType := req.Header.Get("Content-Type")
+	existingHeader := req.Header.Get("Existing-Header")
+
+	if cacheControl != "private, max-age=0, no-cache" {
+		t.Errorf("Expected Cache-Control header to be 'private, max-age=0, no-cache', got %s", cacheControl)
+	}
+
+	if contentType != "application/json" {
+		t.Errorf("Expected Content-Type header to be 'application/json', got %s", contentType)
+	}
+
+	if existingHeader != "existing-value" {
+		t.Errorf("Expected Existing-Header to be 'existing-value', got %s", existingHeader)
+	}
+}
+
+// Test with existing headers
+func TestAddDefaultHeadersWithSkipEncodingEnabled(t *testing.T) {
+	req := &http.Request{Header: http.Header{"Existing-Header": {"existing-value"}}}
+
+	http2.AddDefaultHeaders(req, http2.NoRequestId, "", http.MethodPost, true)
 
 	cacheControl := req.Header.Get("Cache-Control")
 	contentType := req.Header.Get("Content-Type")
