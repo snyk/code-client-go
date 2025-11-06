@@ -225,7 +225,7 @@ func (s *deepcodeClient) Request(
 		return nil, err
 	}
 
-	codeClientHTTP.AddDefaultHeaders(req, codeClientHTTP.NoRequestId, s.config.Organization(), method, false)
+	codeClientHTTP.AddDefaultHeaders(req, codeClientHTTP.NoRequestId, s.config.Organization(), method, true)
 
 	response, err := s.httpClient.Do(req)
 	if err != nil {

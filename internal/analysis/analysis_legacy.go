@@ -176,7 +176,7 @@ func (a *analysisOrchestrator) RunLegacyTest(ctx context.Context, bundleHash str
 		a.logger.Err(err).Str("method", method).Msg("error creating HTTP request")
 		return nil, scan.LegacyScanStatus{}, err
 	}
-	codeClientHTTP.AddDefaultHeaders(req, span.GetTraceId(), a.config.Organization(), httpMethod, false)
+	codeClientHTTP.AddDefaultHeaders(req, span.GetTraceId(), a.config.Organization(), httpMethod, true)
 
 	// Make HTTP call
 	resp, err := a.httpClient.Do(req)
