@@ -163,7 +163,7 @@ func NewDefaultClientFactory() HTTPClientFactory {
 	return clientFunc
 }
 
-func AddDefaultHeaders(req *http.Request, requestId string, orgId string, method string) {
+func AddDefaultHeaders(req *http.Request, requestId string, orgId string, method string, needsEncoding bool) {
 	// if requestId is empty it will be enriched from the Gateway
 	if len(requestId) > 0 {
 		req.Header.Set("snyk-request-id", requestId)
@@ -175,7 +175,7 @@ func AddDefaultHeaders(req *http.Request, requestId string, orgId string, method
 	// https://www.keycdn.com/blog/http-cache-headers
 	req.Header.Set("Cache-Control", "private, max-age=0, no-cache")
 
-	if mustBeEncoded(method) {
+	if mustBeEncoded(method, needsEncoding) {
 		req.Header.Set("Content-Type", "application/octet-stream")
 		req.Header.Set("Content-Encoding", "gzip")
 	} else {
@@ -185,9 +185,9 @@ func AddDefaultHeaders(req *http.Request, requestId string, orgId string, method
 
 // EncodeIfNeeded returns a byte buffer for the requestBody. Depending on the request method, it may encode the buffer.
 // (See http.mustBeEncoded for the list of methods which require encoding the request body.)
-func EncodeIfNeeded(method string, requestBody []byte) (*bytes.Buffer, error) {
+func EncodeIfNeeded(method string, requestBody []byte, needsEncoding bool) (*bytes.Buffer, error) {
 	b := new(bytes.Buffer)
-	if mustBeEncoded(method) {
+	if mustBeEncoded(method, needsEncoding) {
 		enc := encoding.NewEncoder(b)
 		_, err := enc.Write(requestBody)
 		if err != nil {
@@ -200,6 +200,6 @@ func EncodeIfNeeded(method string, requestBody []byte) (*bytes.Buffer, error) {
 }
 
 // mustBeEncoded returns true if the request method requires the request body to be encoded.
-func mustBeEncoded(method string) bool {
-	return method == http.MethodPost || method == http.MethodPut
+func mustBeEncoded(method string, needsEncoding bool) bool {
+	return needsEncoding && (method == http.MethodPost || method == http.MethodPut)
 }
