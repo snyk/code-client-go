@@ -165,7 +165,7 @@ func (a *analysisOrchestrator) RunLegacyTest(ctx context.Context, bundleHash str
 	httpMethod := http.MethodPost
 
 	// Encode the request body
-	bodyBuffer, err := codeClientHTTP.EncodeIfNeeded(http.MethodPost, requestBody, false)
+	bodyBuffer, err := codeClientHTTP.EncodeIfNeeded(http.MethodPost, requestBody, true)
 	if err != nil {
 		a.logger.Err(err).Str("requestBody", string(requestBody)).Msg("error encoding request body")
 		return nil, scan.LegacyScanStatus{}, err

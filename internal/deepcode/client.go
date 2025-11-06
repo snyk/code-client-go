@@ -215,7 +215,7 @@ func (s *deepcodeClient) Request(
 		return nil, err
 	}
 
-	bodyBuffer, err := codeClientHTTP.EncodeIfNeeded(method, requestBody, false)
+	bodyBuffer, err := codeClientHTTP.EncodeIfNeeded(method, requestBody, true)
 	if err != nil {
 		return nil, err
 	}
