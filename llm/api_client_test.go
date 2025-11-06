@@ -385,12 +385,12 @@ func TestRunExplain_WithHeaderValidation(t *testing.T) {
 			"explanation2": "This is the second explanation",
 		}
 
-		explainResponse := explainResponse{
+		response := explainResponse{
 			Status:      completeStatus,
 			Explanation: expectedResponse,
 		}
 
-		responseBodyBytes, err := json.Marshal(explainResponse)
+		responseBodyBytes, err := json.Marshal(response)
 		require.NoError(t, err)
 
 		// Create a test server that validates headers
@@ -401,8 +401,8 @@ func TestRunExplain_WithHeaderValidation(t *testing.T) {
 			assert.Equal(t, http.MethodPost, r.Method)
 
 			// Verify request body
-			body, err := io.ReadAll(r.Body)
-			require.NoError(t, err)
+			body, readErr := io.ReadAll(r.Body)
+			require.NoError(t, readErr)
 
 			var requestData explainVulnerabilityRequest
 			err = json.Unmarshal(body, &requestData)
@@ -455,12 +455,12 @@ func TestRunExplain_WithHeaderValidation(t *testing.T) {
 			"explanation1": "This explains the fix",
 		}
 
-		explainResponse := explainResponse{
+		response := explainResponse{
 			Status:      completeStatus,
 			Explanation: expectedResponse,
 		}
 
-		responseBodyBytes, err := json.Marshal(explainResponse)
+		responseBodyBytes, err := json.Marshal(response)
 		require.NoError(t, err)
 
 		// Create a test server that validates headers and base64 encoded diffs
@@ -471,8 +471,8 @@ func TestRunExplain_WithHeaderValidation(t *testing.T) {
 			assert.Equal(t, http.MethodPost, r.Method)
 
 			// Verify request body
-			body, err := io.ReadAll(r.Body)
-			require.NoError(t, err)
+			body, readErr := io.ReadAll(r.Body)
+			require.NoError(t, readErr)
 
 			var requestData explainFixRequest
 			err = json.Unmarshal(body, &requestData)
@@ -485,8 +485,8 @@ func TestRunExplain_WithHeaderValidation(t *testing.T) {
 			require.Len(t, requestData.Diffs, 1)
 
 			// Decode the base64 diff to verify it was encoded properly
-			decodedDiff, err := base64.StdEncoding.DecodeString(requestData.Diffs[0])
-			require.NoError(t, err)
+			decodedDiff, decodeErr := base64.StdEncoding.DecodeString(requestData.Diffs[0])
+			require.NoError(t, decodeErr)
 
 			// The prepareDiffs function strips --- and +++ headers and adds a newline
 			expectedDecodedDiff := "@@ -1,1 +1,1 @@\n-old line\n+new line\n\n"
