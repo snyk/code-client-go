@@ -373,3 +373,153 @@ func TestAutofixRequestBody(t *testing.T) {
 
 	assert.Equal(t, expectedBody, body)
 }
+
+func TestRunExplain_WithHeaderValidation(t *testing.T) {
+	t.Run("vulnerability explanation with headers", func(t *testing.T) {
+		ruleKey := "test-rule-key"
+		derivation := "test-derivation"
+		ruleMessage := "test-rule-message"
+
+		expectedResponse := Explanations{
+			"explanation1": "This is the first explanation",
+			"explanation2": "This is the second explanation",
+		}
+
+		explainResponse := explainResponse{
+			Status:      completeStatus,
+			Explanation: expectedResponse,
+		}
+
+		responseBodyBytes, err := json.Marshal(explainResponse)
+		require.NoError(t, err)
+
+		// Create a test server that validates headers
+		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			// Verify headers
+			assert.Equal(t, "private, max-age=0, no-cache", r.Header.Get("Cache-Control"))
+			assert.Equal(t, "application/json", r.Header.Get("Content-Type"))
+			assert.Equal(t, http.MethodPost, r.Method)
+
+			// Verify request body
+			body, err := io.ReadAll(r.Body)
+			require.NoError(t, err)
+
+			var requestData explainVulnerabilityRequest
+			err = json.Unmarshal(body, &requestData)
+			require.NoError(t, err)
+
+			assert.Equal(t, ruleKey, requestData.RuleId)
+			assert.Equal(t, derivation, requestData.Derivation)
+			assert.Equal(t, ruleMessage, requestData.RuleMessage)
+			assert.Equal(t, SHORT, requestData.ExplanationLength)
+
+			// Send response
+			w.WriteHeader(http.StatusOK)
+			_, _ = w.Write(responseBodyBytes)
+		}))
+		defer server.Close()
+
+		// Parse server URL
+		u, err := url.Parse(server.URL)
+		require.NoError(t, err)
+
+		// Create options
+		options := ExplainOptions{
+			RuleKey:     ruleKey,
+			Derivation:  derivation,
+			RuleMessage: ruleMessage,
+			Endpoint:    u,
+		}
+
+		// Create DeepCodeLLMBinding
+		d := NewDeepcodeLLMBinding()
+
+		// Run the test
+		ctx := t.Context()
+		ctx = observability.GetContextWithTraceId(ctx, "test-trace-id")
+
+		result, err := d.runExplain(ctx, options)
+
+		// Verify results
+		require.NoError(t, err)
+		assert.Equal(t, expectedResponse, result)
+	})
+
+	t.Run("fix explanation with base64 encoded diffs and headers", func(t *testing.T) {
+		ruleKey := "test-rule-key"
+		testDiffs := []string{
+			"--- a/file.txt\n+++ b/file.txt\n@@ -1,1 +1,1 @@\n-old line\n+new line\n",
+		}
+
+		expectedResponse := Explanations{
+			"explanation1": "This explains the fix",
+		}
+
+		explainResponse := explainResponse{
+			Status:      completeStatus,
+			Explanation: expectedResponse,
+		}
+
+		responseBodyBytes, err := json.Marshal(explainResponse)
+		require.NoError(t, err)
+
+		// Create a test server that validates headers and base64 encoded diffs
+		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			// Verify headers
+			assert.Equal(t, "private, max-age=0, no-cache", r.Header.Get("Cache-Control"))
+			assert.Equal(t, "application/json", r.Header.Get("Content-Type"))
+			assert.Equal(t, http.MethodPost, r.Method)
+
+			// Verify request body
+			body, err := io.ReadAll(r.Body)
+			require.NoError(t, err)
+
+			var requestData explainFixRequest
+			err = json.Unmarshal(body, &requestData)
+			require.NoError(t, err)
+
+			assert.Equal(t, ruleKey, requestData.RuleId)
+			assert.Equal(t, SHORT, requestData.ExplanationLength)
+
+			// Verify diffs are base64 encoded
+			require.Len(t, requestData.Diffs, 1)
+
+			// Decode the base64 diff to verify it was encoded properly
+			decodedDiff, err := base64.StdEncoding.DecodeString(requestData.Diffs[0])
+			require.NoError(t, err)
+
+			// The prepareDiffs function strips --- and +++ headers and adds a newline
+			expectedDecodedDiff := "@@ -1,1 +1,1 @@\n-old line\n+new line\n\n"
+			assert.Equal(t, expectedDecodedDiff, string(decodedDiff))
+
+			// Send response
+			w.WriteHeader(http.StatusOK)
+			_, _ = w.Write(responseBodyBytes)
+		}))
+		defer server.Close()
+
+		// Parse server URL
+		u, err := url.Parse(server.URL)
+		require.NoError(t, err)
+
+		// Create options
+		options := ExplainOptions{
+			RuleKey:  ruleKey,
+			Diffs:    testDiffs,
+			Endpoint: u,
+		}
+
+		// Create DeepCodeLLMBinding
+		d := NewDeepcodeLLMBinding()
+
+		// Run the test
+		ctx := t.Context()
+		ctx = observability.GetContextWithTraceId(ctx, "test-trace-id")
+
+		result, err := d.runExplain(ctx, options)
+
+		// Verify results
+		require.NoError(t, err)
+		assert.Equal(t, expectedResponse, result)
+	})
+}
