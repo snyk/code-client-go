@@ -10,10 +10,10 @@ import (
 	"testing"
 
 	"github.com/rs/zerolog"
-	http2 "github.com/snyk/code-client-go/http"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	http2 "github.com/snyk/code-client-go/http"
 	"github.com/snyk/code-client-go/observability"
 )
 

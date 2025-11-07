@@ -16,9 +16,11 @@
 package util_test
 
 import (
-	"github.com/snyk/code-client-go/internal/util"
-	"github.com/stretchr/testify/assert"
 	"testing"
+
+	"github.com/stretchr/testify/assert"
+
+	"github.com/snyk/code-client-go/internal/util"
 )
 
 func TestHttp_ToRelativeUnixPath(t *testing.T) {
