@@ -311,10 +311,10 @@ func TestSnykCodeBackendService_ExtendBundle_Failure(t *testing.T) {
 }
 
 func Test_Host(t *testing.T) {
-	t.Run("Changes the URL if FedRAMP", func(t *testing.T) {
+	t.Run("FedRamp URL", func(t *testing.T) {
 		ctrl := gomock.NewController(t)
 		mockConfig := confMocks.NewMockConfig(ctrl)
-		mockConfig.EXPECT().SnykCodeApi().AnyTimes().Return("https://api.snyk.io")
+		mockConfig.EXPECT().SnykCodeApi().AnyTimes().Return("https://api.snykgov.io")
 		mockConfig.EXPECT().Organization().AnyTimes().Return("00000000-0000-0000-0000-000000000023")
 		mockConfig.EXPECT().IsFedramp().Times(1).Return(true)
 		mockHTTPClient := httpmocks.NewMockHTTPClient(ctrl)
@@ -325,7 +325,7 @@ func Test_Host(t *testing.T) {
 
 		actual, err := s.Host()
 		assert.Nil(t, err)
-		assert.Equal(t, "https://api.snyk.io/hidden/orgs/00000000-0000-0000-0000-000000000023/code", actual)
+		assert.Equal(t, "https://api.snykgov.io/hidden/orgs/00000000-0000-0000-0000-000000000023/code", actual)
 	})
 
 	t.Run("Does not change the URL if it's not FedRAMP", func(t *testing.T) {
