@@ -180,7 +180,7 @@ func (s *deepcodeClient) ExtendBundle(
 
 // This is only exported for tests.
 func (s *deepcodeClient) Host() (string, error) {
-	var codeApiRegex = regexp.MustCompile(`^(deeproxy\.)?`)
+	var deeproxyRegex = regexp.MustCompile(`^deeproxy\.`)
 
 	snykCodeApiUrl := s.config.SnykCodeApi()
 	if !s.config.IsFedramp() {
@@ -191,7 +191,8 @@ func (s *deepcodeClient) Host() (string, error) {
 		return "", err
 	}
 
-	u.Host = codeApiRegex.ReplaceAllString(u.Host, "api.")
+	// Replace deeproxy. with api. if present
+	u.Host = deeproxyRegex.ReplaceAllString(u.Host, "api.")
 
 	organization := s.config.Organization()
 	if organization == "" {
