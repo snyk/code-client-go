@@ -18,8 +18,9 @@ package util
 
 import (
 	"fmt"
-	"github.com/go-git/go-git/v5"
 	"net/url"
+
+	"github.com/go-git/go-git/v5"
 )
 
 func GetRepositoryUrl(path string) (string, error) {
@@ -62,6 +63,26 @@ func GetCommitId(path string) (string, error) {
 	}
 
 	return commitId.Hash().String(), nil
+}
+
+func GetBranchName(path string) (string, error) {
+	failureContext := "failed to get branch name"
+	repo, err := git.PlainOpenWithOptions(path, &git.PlainOpenOptions{
+		DetectDotGit: true,
+	})
+	if err != nil {
+		return "", fmt.Errorf("%s: open local repository: %w", failureContext, err)
+	}
+
+	ref, err := repo.Head()
+	if err != nil {
+		return "", fmt.Errorf("%s: get repo head: %w", failureContext, err)
+	}
+
+	if !ref.Name().IsBranch() {
+		return "", fmt.Errorf("%s: current ref is not a branch: %w", failureContext, err)
+	}
+	return ref.Name().Short(), nil
 }
 
 func SanitiseCredentials(rawUrl string) (string, error) {

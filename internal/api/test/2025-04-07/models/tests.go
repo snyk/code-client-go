@@ -20,14 +20,15 @@ const (
 
 // Defines values for OutputConfigInitiator.
 const (
-	ApiTest       OutputConfigInitiator = "api_test"
-	AutoImport    OutputConfigInitiator = "auto_import"
-	CliTest       OutputConfigInitiator = "cli_test"
-	IdeTest       OutputConfigInitiator = "ide_test"
-	Import        OutputConfigInitiator = "import"
-	ManualTest    OutputConfigInitiator = "manual_test"
-	PrCheck       OutputConfigInitiator = "pr_check"
-	RecurringTest OutputConfigInitiator = "recurring_test"
+	ApiTest          OutputConfigInitiator = "api_test"
+	AutoImport       OutputConfigInitiator = "auto_import"
+	CliTest          OutputConfigInitiator = "cli_test"
+	EssentialsImport OutputConfigInitiator = "essentials_import"
+	IdeTest          OutputConfigInitiator = "ide_test"
+	Import           OutputConfigInitiator = "import"
+	ManualTest       OutputConfigInitiator = "manual_test"
+	PrCheck          OutputConfigInitiator = "pr_check"
+	RecurringTest    OutputConfigInitiator = "recurring_test"
 )
 
 // Defines values for ResultType.
@@ -41,6 +42,7 @@ const (
 	LegacyScanners ScanConfigScanners = "legacy_scanners"
 	Sast           ScanConfigScanners = "sast"
 	Sca            ScanConfigScanners = "sca"
+	Secrets        ScanConfigScanners = "secrets"
 )
 
 // Defines values for TestAcceptedStateStatus.
@@ -94,9 +96,19 @@ const (
 	SbomBundle TestInputSBOMBundleType = "sbom_bundle"
 )
 
+// Defines values for TestInputSBOMRevisionType.
+const (
+	SbomRevision TestInputSBOMRevisionType = "sbom_revision"
+)
+
 // Defines values for TestInputSBOMSourceBundlesType.
 const (
 	SbomSastBundles TestInputSBOMSourceBundlesType = "sbom_sast_bundles"
+)
+
+// Defines values for TestInputSBOMSourceRevisionsType.
+const (
+	SbomSourceRevisions TestInputSBOMSourceRevisionsType = "sbom_source_revisions"
 )
 
 // Defines values for TestInputScmTargetType.
@@ -112,6 +124,11 @@ const (
 // Defines values for TestInputTargetType.
 const (
 	Target TestInputTargetType = "target"
+)
+
+// Defines values for TestInputUploadRevisionType.
+const (
+	UploadRevision TestInputUploadRevisionType = "upload_revision"
 )
 
 // Defines values for TestInputWorkspaceType.
@@ -132,8 +149,11 @@ const (
 // CreateTestRequestBody defines model for CreateTestRequestBody.
 type CreateTestRequestBody struct {
 	Data struct {
-		Attributes TestAttributes                `json:"attributes"`
-		Type       CreateTestRequestBodyDataType `json:"type"`
+		Attributes TestAttributes `json:"attributes"`
+
+		// Id Optional identifier for the test
+		Id   *openapi_types.UUID           `json:"id,omitempty"`
+		Type CreateTestRequestBodyDataType `json:"type"`
 	} `json:"data"`
 }
 
@@ -147,6 +167,9 @@ type OutputConfig struct {
 
 	// Label Arbitrary value up to the user
 	Label *string `json:"label,omitempty"`
+
+	// Labels Arbitrary string values up to the user, up to 10 keys
+	Labels *map[string]string `json:"labels,omitempty"`
 
 	// Origin The source control management system or platform origin
 	Origin      *string             `json:"origin,omitempty"`
@@ -335,6 +358,22 @@ type TestInputSBOMBundle struct {
 // TestInputSBOMBundleType defines model for TestInputSBOMBundle.Type.
 type TestInputSBOMBundleType string
 
+// TestInputSBOMRevision defines model for TestInputSBOMRevision.
+type TestInputSBOMRevision struct {
+	// Metadata Metadata of the SBOM revision
+	Metadata struct {
+		// LocalFilePath SBOM file path
+		LocalFilePath string `json:"local_file_path"`
+	} `json:"metadata"`
+
+	// RevisionId Revision id of the SBOM revision
+	RevisionId openapi_types.UUID        `json:"revision_id"`
+	Type       TestInputSBOMRevisionType `json:"type"`
+}
+
+// TestInputSBOMRevisionType defines model for TestInputSBOMRevision.Type.
+type TestInputSBOMRevisionType string
+
 // TestInputSBOMSourceBundles defines model for TestInputSBOMSourceBundles.
 type TestInputSBOMSourceBundles struct {
 	Sbom struct {
@@ -363,6 +402,34 @@ type TestInputSBOMSourceBundles struct {
 // TestInputSBOMSourceBundlesType defines model for TestInputSBOMSourceBundles.Type.
 type TestInputSBOMSourceBundlesType string
 
+// TestInputSBOMSourceRevisions defines model for TestInputSBOMSourceRevisions.
+type TestInputSBOMSourceRevisions struct {
+	Sbom struct {
+		// Metadata Metadata of the SBOM revision
+		Metadata struct {
+			// LocalFilePath SBOM file path
+			LocalFilePath string `json:"local_file_path"`
+		} `json:"metadata"`
+
+		// RevisionId Revision id of the SBOM revision
+		RevisionId openapi_types.UUID `json:"revision_id"`
+	} `json:"sbom"`
+	Source struct {
+		// Metadata Metadata of the source code revision
+		Metadata struct {
+			// LocalFilePath File or directory path for the source code
+			LocalFilePath string `json:"local_file_path"`
+		} `json:"metadata"`
+
+		// RevisionId Revision id of the source code revision
+		RevisionId openapi_types.UUID `json:"revision_id"`
+	} `json:"source"`
+	Type TestInputSBOMSourceRevisionsType `json:"type"`
+}
+
+// TestInputSBOMSourceRevisionsType defines model for TestInputSBOMSourceRevisions.Type.
+type TestInputSBOMSourceRevisionsType string
+
 // TestInputScmTarget defines model for TestInputScmTarget.
 type TestInputScmTarget struct {
 	// TargetId Id of the target to be tested
@@ -383,6 +450,9 @@ type TestInputSourceBundle struct {
 
 	// Metadata Metadata of the input to be tested
 	Metadata struct {
+		// Branch The name of the branch being tested
+		Branch *string `json:"branch,omitempty"`
+
 		// CommitId SHA of the commit being tested
 		CommitId *string `json:"commit_id,omitempty"`
 
@@ -414,6 +484,26 @@ type TestInputTarget struct {
 
 // TestInputTargetType defines model for TestInputTarget.Type.
 type TestInputTargetType string
+
+// TestInputUploadRevision defines model for TestInputUploadRevision.
+type TestInputUploadRevision struct {
+	// Metadata Metadata of the input to be tested
+	Metadata *struct {
+		// LocalFilePath This can be a file path or a folder id for IDE
+		LocalFilePath *string `json:"local_file_path,omitempty"`
+
+		// RepoUrl The repo URL of the input being tested. This is used for correlating the results of the test with the asset.
+		// This will result in stable finding identities for subsequent tests of the same repository.
+		RepoUrl *string `json:"repo_url,omitempty"`
+	} `json:"metadata,omitempty"`
+
+	// RevisionId A Snyk revision id
+	RevisionId string                      `json:"revision_id"`
+	Type       TestInputUploadRevisionType `json:"type"`
+}
+
+// TestInputUploadRevisionType defines model for TestInputUploadRevision.Type.
+type TestInputUploadRevisionType string
 
 // TestInputWorkspace defines model for TestInputWorkspace.
 type TestInputWorkspace struct {
@@ -685,6 +775,84 @@ func (t *TestAttributes_Input) FromTestInputWorkspace(v TestInputWorkspace) erro
 
 // MergeTestInputWorkspace performs a merge with any union data inside the TestAttributes_Input, using the provided TestInputWorkspace
 func (t *TestAttributes_Input) MergeTestInputWorkspace(v TestInputWorkspace) error {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+// AsTestInputUploadRevision returns the union data inside the TestAttributes_Input as a TestInputUploadRevision
+func (t TestAttributes_Input) AsTestInputUploadRevision() (TestInputUploadRevision, error) {
+	var body TestInputUploadRevision
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromTestInputUploadRevision overwrites any union data inside the TestAttributes_Input as the provided TestInputUploadRevision
+func (t *TestAttributes_Input) FromTestInputUploadRevision(v TestInputUploadRevision) error {
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeTestInputUploadRevision performs a merge with any union data inside the TestAttributes_Input, using the provided TestInputUploadRevision
+func (t *TestAttributes_Input) MergeTestInputUploadRevision(v TestInputUploadRevision) error {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+// AsTestInputSBOMRevision returns the union data inside the TestAttributes_Input as a TestInputSBOMRevision
+func (t TestAttributes_Input) AsTestInputSBOMRevision() (TestInputSBOMRevision, error) {
+	var body TestInputSBOMRevision
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromTestInputSBOMRevision overwrites any union data inside the TestAttributes_Input as the provided TestInputSBOMRevision
+func (t *TestAttributes_Input) FromTestInputSBOMRevision(v TestInputSBOMRevision) error {
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeTestInputSBOMRevision performs a merge with any union data inside the TestAttributes_Input, using the provided TestInputSBOMRevision
+func (t *TestAttributes_Input) MergeTestInputSBOMRevision(v TestInputSBOMRevision) error {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+// AsTestInputSBOMSourceRevisions returns the union data inside the TestAttributes_Input as a TestInputSBOMSourceRevisions
+func (t TestAttributes_Input) AsTestInputSBOMSourceRevisions() (TestInputSBOMSourceRevisions, error) {
+	var body TestInputSBOMSourceRevisions
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromTestInputSBOMSourceRevisions overwrites any union data inside the TestAttributes_Input as the provided TestInputSBOMSourceRevisions
+func (t *TestAttributes_Input) FromTestInputSBOMSourceRevisions(v TestInputSBOMSourceRevisions) error {
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeTestInputSBOMSourceRevisions performs a merge with any union data inside the TestAttributes_Input, using the provided TestInputSBOMSourceRevisions
+func (t *TestAttributes_Input) MergeTestInputSBOMSourceRevisions(v TestInputSBOMSourceRevisions) error {
 	b, err := json.Marshal(v)
 	if err != nil {
 		return err

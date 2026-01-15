@@ -235,6 +235,7 @@ func (a *analysisOrchestrator) createTestAndGetResults(ctx context.Context, orgI
 func (a *analysisOrchestrator) RunTest(ctx context.Context, orgId string, b bundle.Bundle, target scan.Target, reportingConfig AnalysisConfig) (*sarif.SarifResponse, *scan.ResultMetaData, error) {
 	var commitId *string = nil
 	var repoUrl *string = nil
+	var branchName *string = nil
 	if repoTarget, ok := target.(*scan.RepositoryTarget); ok {
 		tmpRepoUrl := repoTarget.GetRepositoryUrl()
 		if len(tmpRepoUrl) > 0 {
@@ -244,10 +245,14 @@ func (a *analysisOrchestrator) RunTest(ctx context.Context, orgId string, b bund
 		if len(tmpCommitId) > 0 {
 			commitId = &tmpCommitId
 		}
+		tmpBranchName := repoTarget.GetBranchName()
+		if len(tmpBranchName) > 0 {
+			branchName = &tmpBranchName
+		}
 	}
 
 	body := testApi.NewCreateTestApplicationBody(
-		testApi.WithInputBundle(b.GetBundleHash(), target.GetPath(), repoUrl, b.GetLimitToFiles(), commitId),
+		testApi.WithInputBundle(b.GetBundleHash(), target.GetPath(), repoUrl, b.GetLimitToFiles(), commitId, branchName),
 		testApi.WithScanType(a.testType),
 		testApi.WithProjectName(reportingConfig.ProjectName),
 		testApi.WithTargetName(reportingConfig.TargetName),
