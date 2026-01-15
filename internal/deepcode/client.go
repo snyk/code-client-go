@@ -26,6 +26,7 @@ import (
 	"net/url"
 	"regexp"
 	"strconv"
+	"strings"
 
 	"github.com/rs/zerolog"
 	"github.com/snyk/code-client-go/config"
@@ -193,6 +194,11 @@ func (s *deepcodeClient) Host() (string, error) {
 
 	// Replace deeproxy. with api. if present
 	u.Host = deeproxyRegex.ReplaceAllString(u.Host, "api.")
+	if !strings.HasPrefix(u.Host, "api.") {
+		u.Host = "api." + u.Host
+	}
+	u.RawQuery = ""
+	u.Fragment = ""
 
 	organization := s.config.Organization()
 	if organization == "" {

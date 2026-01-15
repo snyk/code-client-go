@@ -326,6 +326,77 @@ func Test_Host(t *testing.T) {
 		actual, err := s.Host()
 		assert.Nil(t, err)
 		assert.Equal(t, "https://api.snykgov.io/hidden/orgs/00000000-0000-0000-0000-000000000023/code", actual)
+		assert.NotContains(t, actual, "api.api.")
+	})
+
+	t.Run("FedRAMP supports bare snykgov.io by prepending api", func(t *testing.T) {
+		ctrl := gomock.NewController(t)
+		mockConfig := confMocks.NewMockConfig(ctrl)
+		mockConfig.EXPECT().SnykCodeApi().AnyTimes().Return("https://snykgov.io")
+		mockConfig.EXPECT().Organization().AnyTimes().Return("00000000-0000-0000-0000-000000000023")
+		mockConfig.EXPECT().IsFedramp().Times(1).Return(true)
+		mockHTTPClient := httpmocks.NewMockHTTPClient(ctrl)
+		mockInstrumentor := mocks.NewMockInstrumentor(ctrl)
+		mockErrorReporter := mocks.NewMockErrorReporter(ctrl)
+
+		s := deepcode.NewDeepcodeClient(mockConfig, mockHTTPClient, newLogger(t), mockInstrumentor, mockErrorReporter)
+
+		actual, err := s.Host()
+		assert.Nil(t, err)
+		assert.Equal(t, "https://api.snykgov.io/hidden/orgs/00000000-0000-0000-0000-000000000023/code", actual)
+	})
+
+	t.Run("FedRAMP supports non-deeproxy/non-api regional hosts by prepending api", func(t *testing.T) {
+		ctrl := gomock.NewController(t)
+		mockConfig := confMocks.NewMockConfig(ctrl)
+		mockConfig.EXPECT().SnykCodeApi().AnyTimes().Return("https://eu.snykgov.io")
+		mockConfig.EXPECT().Organization().AnyTimes().Return("00000000-0000-0000-0000-000000000023")
+		mockConfig.EXPECT().IsFedramp().Times(1).Return(true)
+		mockHTTPClient := httpmocks.NewMockHTTPClient(ctrl)
+		mockInstrumentor := mocks.NewMockInstrumentor(ctrl)
+		mockErrorReporter := mocks.NewMockErrorReporter(ctrl)
+
+		s := deepcode.NewDeepcodeClient(mockConfig, mockHTTPClient, newLogger(t), mockInstrumentor, mockErrorReporter)
+
+		actual, err := s.Host()
+		assert.Nil(t, err)
+		assert.Equal(t, "https://api.eu.snykgov.io/hidden/orgs/00000000-0000-0000-0000-000000000023/code", actual)
+	})
+
+	t.Run("FedRAMP returns error when configured URL is invalid", func(t *testing.T) {
+		ctrl := gomock.NewController(t)
+		mockConfig := confMocks.NewMockConfig(ctrl)
+		mockConfig.EXPECT().SnykCodeApi().AnyTimes().Return("http://[::1")
+		mockConfig.EXPECT().Organization().AnyTimes().Return("00000000-0000-0000-0000-000000000023")
+		mockConfig.EXPECT().IsFedramp().Times(1).Return(true)
+		mockHTTPClient := httpmocks.NewMockHTTPClient(ctrl)
+		mockInstrumentor := mocks.NewMockInstrumentor(ctrl)
+		mockErrorReporter := mocks.NewMockErrorReporter(ctrl)
+
+		s := deepcode.NewDeepcodeClient(mockConfig, mockHTTPClient, newLogger(t), mockInstrumentor, mockErrorReporter)
+
+		_, err := s.Host()
+		assert.Error(t, err)
+	})
+
+	t.Run("FedRAMP ignores any existing path/query/fragment in configured URL", func(t *testing.T) {
+		ctrl := gomock.NewController(t)
+		mockConfig := confMocks.NewMockConfig(ctrl)
+		mockConfig.EXPECT().SnykCodeApi().AnyTimes().Return("https://deeproxy.snykgov.io:8443/some/path?x=1#frag")
+		mockConfig.EXPECT().Organization().AnyTimes().Return("00000000-0000-0000-0000-000000000023")
+		mockConfig.EXPECT().IsFedramp().Times(1).Return(true)
+		mockHTTPClient := httpmocks.NewMockHTTPClient(ctrl)
+		mockInstrumentor := mocks.NewMockInstrumentor(ctrl)
+		mockErrorReporter := mocks.NewMockErrorReporter(ctrl)
+
+		s := deepcode.NewDeepcodeClient(mockConfig, mockHTTPClient, newLogger(t), mockInstrumentor, mockErrorReporter)
+
+		actual, err := s.Host()
+		assert.Nil(t, err)
+		assert.Equal(t, "https://api.snykgov.io:8443/hidden/orgs/00000000-0000-0000-0000-000000000023/code", actual)
+		assert.NotContains(t, actual, "?")
+		assert.NotContains(t, actual, "#")
+		assert.NotContains(t, actual, "/some/path")
 	})
 
 	t.Run("Does not change the URL if it's not FedRAMP", func(t *testing.T) {
@@ -343,24 +414,6 @@ func Test_Host(t *testing.T) {
 		actual, err := s.Host()
 		assert.Nil(t, err)
 		assert.Equal(t, "https://api.snyk.io", actual)
-	})
-
-	t.Run("FedRAMP does not duplicate api prefix when URL already starts with api", func(t *testing.T) {
-		ctrl := gomock.NewController(t)
-		mockConfig := confMocks.NewMockConfig(ctrl)
-		mockConfig.EXPECT().SnykCodeApi().AnyTimes().Return("https://api.snykgov.io")
-		mockConfig.EXPECT().Organization().AnyTimes().Return("00000000-0000-0000-0000-000000000023")
-		mockConfig.EXPECT().IsFedramp().Times(1).Return(true)
-		mockHTTPClient := httpmocks.NewMockHTTPClient(ctrl)
-		mockInstrumentor := mocks.NewMockInstrumentor(ctrl)
-		mockErrorReporter := mocks.NewMockErrorReporter(ctrl)
-
-		s := deepcode.NewDeepcodeClient(mockConfig, mockHTTPClient, newLogger(t), mockInstrumentor, mockErrorReporter)
-
-		actual, err := s.Host()
-		assert.Nil(t, err)
-		assert.Equal(t, "https://api.snykgov.io/hidden/orgs/00000000-0000-0000-0000-000000000023/code", actual)
-		assert.NotContains(t, actual, "api.api.")
 	})
 
 	t.Run("FedRAMP replaces deeproxy prefix with api for snykgov.io", func(t *testing.T) {
