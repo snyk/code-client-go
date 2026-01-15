@@ -6,6 +6,7 @@ type RepositoryTarget struct {
 	LocalFilePath string
 	repositoryUrl string
 	commitId      string
+	branchName    string
 }
 
 type Target interface {
@@ -18,6 +19,10 @@ func (r RepositoryTarget) GetPath() string {
 
 func (r RepositoryTarget) GetRepositoryUrl() string {
 	return r.repositoryUrl
+}
+
+func (r RepositoryTarget) GetBranchName() string {
+	return r.branchName
 }
 
 func (r RepositoryTarget) GetCommitId() string {
@@ -53,6 +58,13 @@ func WithCommitId(commitId string) TargetOptions {
 	}
 }
 
+func WithBranchName(branchName string) TargetOptions {
+	return func(target *RepositoryTarget) error {
+		target.branchName = branchName
+		return nil
+	}
+}
+
 func NewRepositoryTarget(path string, options ...TargetOptions) (Target, error) {
 	result := &RepositoryTarget{
 		LocalFilePath: path,
@@ -78,5 +90,12 @@ func NewRepositoryTarget(path string, options ...TargetOptions) (Target, error) 
 		}
 	}
 
+	if len(result.branchName) == 0 {
+		var err error
+		result.branchName, err = util.GetBranchName(path)
+		if err != nil {
+			return result, err
+		}
+	}
 	return result, nil
 }

@@ -145,3 +145,41 @@ func Test_GetCommitId_nonexistent_path(t *testing.T) {
 	assert.Empty(t, commitId)
 	assert.Contains(t, err.Error(), "open local repository")
 }
+
+func Test_GetBranchName_valid_repo(t *testing.T) {
+	expectedRepoUrl := "https://github.com/snyk-fixtures/shallow-goof-locked.git"
+	repoDir, err := testutil.SetupCustomTestRepo(t, expectedRepoUrl, "master", "", "shallow-goof-locked")
+	require.NoError(t, err)
+
+	branchName, err := util.GetBranchName(repoDir)
+	assert.NoError(t, err)
+	assert.Equal(t, "master", branchName)
+}
+
+func Test_GetBranchName_repo_subfolder(t *testing.T) {
+	expectedRepoUrl := "https://github.com/snyk-fixtures/mono-repo.git"
+	repoDir, err := testutil.SetupCustomTestRepo(t, expectedRepoUrl, "master", "", "mono-repo")
+	require.NoError(t, err)
+
+	branchName, err := util.GetBranchName(filepath.Join(repoDir, "multi-module"))
+	assert.NoError(t, err)
+	assert.Equal(t, "master", branchName)
+}
+
+func Test_GetBranchName_no_repo(t *testing.T) {
+	repoDir := t.TempDir()
+
+	branchName, err := util.GetBranchName(repoDir)
+	assert.Error(t, err)
+	assert.Empty(t, branchName)
+	assert.Contains(t, err.Error(), "open local repository")
+}
+
+func Test_GetBranchName_nonexistent_path(t *testing.T) {
+	nonexistentPath := "/path/that/does/not/exist"
+
+	branchName, err := util.GetBranchName(nonexistentPath)
+	assert.Error(t, err)
+	assert.Empty(t, branchName)
+	assert.Contains(t, err.Error(), "open local repository")
+}

@@ -16,6 +16,7 @@ components:
             - sast
             - sca
             - legacy_scanners
+            - secrets
         result_type:
           $ref: '#/components/schemas/ResultType'
         limit_test_to_files:
@@ -55,6 +56,13 @@ components:
           type: string
           description: Arbitrary value up to the user
           pattern: ^[:/?#@&+=%a-zA-Z0-9_.~-]+$
+        labels:
+          type: object
+          description: Arbitrary string values up to the user, up to 10 keys
+          maxProperties: 10
+          additionalProperties:
+            type: string
+            pattern: ^[:/?#@&+=%a-zA-Z0-9_.~-]+$
         origin:
           type: string
           description: The source control management system or platform origin
@@ -72,6 +80,7 @@ components:
           - recurring_test
           - import
           - auto_import
+          - essentials_import
           example: api_test
       additionalProperties: false
     TestConfiguration:
@@ -96,6 +105,9 @@ components:
           - $ref: '#/components/schemas/TestInputScmTarget'
           - $ref: '#/components/schemas/TestInputSBOMSourceBundles'
           - $ref: '#/components/schemas/TestInputWorkspace'
+          - $ref: '#/components/schemas/TestInputUploadRevision'
+          - $ref: '#/components/schemas/TestInputSBOMRevision'
+          - $ref: '#/components/schemas/TestInputSBOMSourceRevisions'
         configuration:
           $ref: '#/components/schemas/TestConfiguration'
       additionalProperties: false
@@ -145,6 +157,10 @@ components:
               type: array
               items:
                 type: string
+            branch:
+              type: string
+              maxLength: 1000
+              description: The name of the branch being tested
           required:
           - local_file_path
       required:
@@ -177,6 +193,84 @@ components:
       - type
       - bundle_id
       - metadata
+    TestInputSBOMRevision:
+      type: object
+      properties:
+        type:
+          type: string
+          enum:
+          - sbom_revision
+          example: sbom_revision
+        revision_id:
+          description: Revision id of the SBOM revision
+          type: string
+          format: uuid
+          example: 275af21f-e92b-40aa-8604-ef9b00c9bd8d
+        metadata:
+          description: Metadata of the SBOM revision
+          type: object
+          properties:
+            local_file_path:
+              type: string
+              description: SBOM file path
+          required:
+          - local_file_path
+      required:
+      - type
+      - revision_id
+      - metadata
+    TestInputSBOMSourceRevisions:
+      type: object
+      properties:
+        type:
+          type: string
+          enum:
+          - sbom_source_revisions
+          example: sbom_source_revisions
+        source:
+          type: object
+          properties:
+            revision_id:
+              description: Revision id of the source code revision
+              type: string
+              format: uuid
+              example: 275af21f-e92b-40aa-8604-ef9b00c9bd8d
+            metadata:
+              description: Metadata of the source code revision
+              type: object
+              properties:
+                local_file_path:
+                  type: string
+                  description: File or directory path for the source code
+              required:
+              - local_file_path
+          required:
+          - revision_id
+          - metadata
+        sbom:
+          type: object
+          properties:
+            revision_id:
+              description: Revision id of the SBOM revision
+              type: string
+              format: uuid
+              example: 275af21f-e92b-40aa-8604-ef9b00c9bd8d
+            metadata:
+              description: Metadata of the SBOM revision
+              type: object
+              properties:
+                local_file_path:
+                  type: string
+                  description: SBOM file path
+              required:
+              - local_file_path
+          required:
+          - revision_id
+          - metadata
+      required:
+      - type
+      - sbom
+      - source
     TestInputSBOMSourceBundles:
       type: object
       properties:
@@ -363,6 +457,46 @@ components:
       required:
       - type
       - workspace_id
+    TestInputUploadRevision:
+      type: object
+      properties:
+        type:
+          type: string
+          enum:
+          - upload_revision
+          example: upload_revision
+        revision_id:
+          description: A Snyk revision id
+          type: string
+          maxLength: 100
+          example: 275af21f-e92b-40aa-8604-ef9b00c9bd8d
+        metadata:
+          description: Metadata of the input to be tested
+          type: object
+          properties:
+            local_file_path:
+              type: string
+              description: This can be a file path or a folder id for IDE
+            repo_url:
+              type: string
+              maxLength: 1000
+              description: 'The repo URL of the input being tested. This is used for
+                correlating the results of the test with the asset.
+
+                This will result in stable finding identities for subsequent tests
+                of the same repository.
+
+                '
+              example: 'https://github.com/test-repo/test-goof
+
+                github.com:test-repo/test-repo.git
+
+                git@github.com:test-repo/test-repo.git
+
+                '
+      required:
+      - type
+      - revision_id
     TestResponse:
       type: object
       properties:
@@ -401,6 +535,11 @@ components:
               enum:
               - test
               example: test
+            id:
+              type: string
+              format: uuid
+              description: Optional identifier for the test
+              example: 275af21f-e92b-40aa-8604-ef9b00c9bd8d
             attributes:
               $ref: '#/components/schemas/TestAttributes'
               required:

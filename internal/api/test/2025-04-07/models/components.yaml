@@ -61,7 +61,7 @@ components:
         findings_document_path:
           type: string
           description: URL path for the findings document
-          example: /hidden/orgs/4f557e06-a379-4686-a4fe-852b8c6f80bd/tests/9ef35e3c-4738-42da-8688-25898d04fb84/documents/82c1213f-a10b-431b-b43a-1b19e501e354/blob?version=2025-04-03
+          example: /hidden/orgs/4f557e06-a379-4686-a4fe-852b8c6f80bd/tests/9ef35e3c-4738-42da-8688-25898d04fb84/documents/82c1213f-a10b-431b-b43a-1b19e501e354/blob?version=2025-04-07
         webui:
           $ref: '#/components/schemas/WebUI'
         severity_counts:

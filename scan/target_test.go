@@ -30,11 +30,43 @@ func TestTarget_withRepoUrl(t *testing.T) {
 	expectedRepoUrl := "https://myrepo.com/hello_world"
 	expectedPath := "/hello_world"
 	expectedCommitId := "1234567890"
-	target, err := NewRepositoryTarget(expectedPath, WithRepositoryUrl("https://user:pass@myrepo.com/hello_world"), WithCommitId(expectedCommitId))
+	expectedBranchName := "main"
+	target, err := NewRepositoryTarget(expectedPath, WithRepositoryUrl("https://user:pass@myrepo.com/hello_world"), WithCommitId(expectedCommitId), WithBranchName(expectedBranchName))
 	assert.NoError(t, err)
 	repoTarget, ok := target.(*RepositoryTarget)
 	assert.True(t, ok)
 	assert.Equal(t, expectedRepoUrl, repoTarget.GetRepositoryUrl())
 	assert.Equal(t, expectedPath, repoTarget.GetPath())
 	assert.Equal(t, expectedCommitId, repoTarget.GetCommitId())
+	assert.Equal(t, expectedBranchName, repoTarget.GetBranchName())
+}
+
+func TestTarget_withBranchName(t *testing.T) {
+	expectedRepoUrl := "https://myrepo.com/hello_world"
+	expectedPath := "/hello_world"
+	expectedCommitId := "1234567890"
+	expectedBranchName := "feature/my-branch"
+	target, err := NewRepositoryTarget(
+		expectedPath,
+		WithRepositoryUrl("https://user:pass@myrepo.com/hello_world"),
+		WithCommitId(expectedCommitId),
+		WithBranchName(expectedBranchName),
+	)
+	assert.NoError(t, err)
+	repoTarget, ok := target.(*RepositoryTarget)
+	assert.True(t, ok)
+	assert.Equal(t, expectedRepoUrl, repoTarget.GetRepositoryUrl())
+	assert.Equal(t, expectedPath, repoTarget.GetPath())
+	assert.Equal(t, expectedCommitId, repoTarget.GetCommitId())
+	assert.Equal(t, expectedBranchName, repoTarget.GetBranchName())
+}
+
+func TestTarget_branchNameAutoDetected(t *testing.T) {
+	expectedPath := "./"
+	target, err := NewRepositoryTarget(expectedPath)
+	assert.NoError(t, err)
+	repoTarget, ok := target.(*RepositoryTarget)
+	assert.True(t, ok)
+	// Branch name should be auto-detected from git
+	assert.NotEmpty(t, repoTarget.GetBranchName())
 }

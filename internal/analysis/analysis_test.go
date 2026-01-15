@@ -179,6 +179,43 @@ func validateTestRequestBody(t *testing.T, request io.Reader) {
 	}
 }
 
+func validateTestRequestBodyWithBranch(t *testing.T, request io.Reader, expectedBranch *string) {
+	t.Helper()
+	body, _ := io.ReadAll(request)
+	var testRequestBody v20250407Models.CreateTestRequestBody
+	err := json.Unmarshal(body, &testRequestBody)
+	assert.NoError(t, err)
+	bundle, err := testRequestBody.Data.Attributes.Input.AsTestInputSourceBundle()
+	assert.NoError(t, err)
+
+	if expectedBranch != nil {
+		assert.NotNil(t, bundle.Metadata.Branch)
+		assert.Equal(t, *expectedBranch, *bundle.Metadata.Branch)
+	}
+}
+
+func mockTestCreatedResponseWithBranchValidation(t *testing.T, mockHTTPClient *httpmocks.MockHTTPClient, testId uuid.UUID, orgId string, expectedBranch *string, responseCode int) {
+	t.Helper()
+	response := v20250407.NewTestResponse()
+	response.Data.Id = testId
+	responseBodyBytes, err := json.Marshal(response)
+	assert.NoError(t, err)
+	expectedTestCreatedUrl := fmt.Sprintf("http://localhost/hidden/orgs/%s/tests?version=%s", orgId, v20250407.ApiVersion)
+	mockHTTPClient.EXPECT().Do(mock.MatchedBy(func(i interface{}) bool {
+		req := i.(*http.Request)
+		validateTestRequestBodyWithBranch(t, req.Body, expectedBranch)
+
+		return req.URL.String() == expectedTestCreatedUrl &&
+			req.Method == http.MethodPost
+	})).Times(1).Return(&http.Response{
+		StatusCode: responseCode,
+		Header: http.Header{
+			"Content-Type": []string{"application/json"},
+		},
+		Body: io.NopCloser(bytes.NewReader(responseBodyBytes)),
+	}, mockDeriveErrorFromStatusCode(responseCode))
+}
+
 func setup(t *testing.T, timeout *time.Duration) (*confMocks.MockConfig, *httpmocks.MockHTTPClient, *mocks.MockInstrumentor, *mocks.MockErrorReporter, *trackerMocks.MockTracker, *trackerMocks.MockTrackerFactory, zerolog.Logger) {
 	t.Helper()
 	ctrl := gomock.NewController(t)
@@ -228,6 +265,77 @@ func TestAnalysis_RunTest(t *testing.T) {
 
 	// Test Created Response
 	mockTestCreatedResponse(t, mockHTTPClient, testId, orgId, http.StatusCreated)
+
+	// Test Status Response
+	mockTestStatusResponse(t, mockHTTPClient, orgId, testId, http.StatusOK)
+
+	// Get Test Result Response
+	expectedWebuilink := ""
+	expectedDocumentPath := "/1234"
+	mockResultCompletedResponse(t, mockHTTPClient, expectedWebuilink, projectId, snapshotId, orgId, testId, expectedDocumentPath, http.StatusOK)
+
+	// get document
+	sarifResponse := sarif.SarifDocument{
+		Version: "42.0",
+	}
+
+	mockGetComponentResponse(t, sarifResponse, expectedDocumentPath, mockHTTPClient, http.StatusOK)
+
+	analysisOrchestrator := analysis.NewAnalysisOrchestrator(
+		mockConfig,
+		mockHTTPClient,
+		analysis.WithLogger(&logger),
+		analysis.WithInstrumentor(mockInstrumentor),
+		analysis.WithTrackerFactory(mockTrackerFactory),
+		analysis.WithErrorReporter(mockErrorReporter),
+	)
+
+	// run method under test
+	result, resultMetadata, err := analysisOrchestrator.RunTest(
+		t.Context(),
+		orgId,
+		inputBundle,
+		targetId,
+		analysis.AnalysisConfig{
+			Report: report,
+		},
+	)
+
+	require.NoError(t, err)
+	assert.NotNil(t, result)
+	assert.NotNil(t, resultMetadata)
+	assert.Equal(t, expectedWebuilink, resultMetadata.WebUiUrl)
+	assert.Equal(t, projectId.String(), resultMetadata.ProjectId)
+	assert.Equal(t, snapshotId.String(), resultMetadata.SnapshotId)
+	assert.Equal(t, sarifResponse.Version, result.Sarif.Version)
+}
+
+func TestAnalysis_RunTest_WithBranchName(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	mockConfig, mockHTTPClient, mockInstrumentor, mockErrorReporter, mockTracker, mockTrackerFactory, logger := setup(t, nil)
+	mockTracker.EXPECT().Begin(gomock.Eq("Snyk Code analysis for /mypath/"), gomock.Eq("Retrieving results...")).Return()
+	mockTracker.EXPECT().End(gomock.Eq("Analysis completed.")).Return()
+
+	orgId := "4a72d1db-b465-4764-99e1-ecedad03b06a"
+	projectId := uuid.New()
+	snapshotId := uuid.New()
+	testId := uuid.New()
+	report := true
+	expectedBranch := "feature/my-branch"
+	inputBundle := mocks2.NewMockBundle(ctrl)
+	targetId, err := scan.NewRepositoryTarget(
+		"/mypath/",
+		scan.WithRepositoryUrl("https://github.com/test/repo"),
+		scan.WithCommitId("abc123"),
+		scan.WithBranchName(expectedBranch),
+	)
+	assert.NoError(t, err)
+
+	inputBundle.EXPECT().GetBundleHash().Return("").AnyTimes()
+	inputBundle.EXPECT().GetLimitToFiles().Return([]string{}).AnyTimes()
+
+	// Test Created Response - validate branch is included
+	mockTestCreatedResponseWithBranchValidation(t, mockHTTPClient, testId, orgId, &expectedBranch, http.StatusCreated)
 
 	// Test Status Response
 	mockTestStatusResponse(t, mockHTTPClient, orgId, testId, http.StatusOK)
