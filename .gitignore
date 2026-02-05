@@ -55,3 +55,4 @@ internal/workspace/**/**/*.yaml
 internal/orchestration/**/**/*.yaml
 !internal/orchestration/**/**/*.config.yaml
 .cursor
+.windsurf
