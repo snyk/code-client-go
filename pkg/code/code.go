@@ -24,6 +24,13 @@ const (
 	codeWorkflowName = "code.test"
 )
 
+const (
+	ConfigurationSastEnabled   = "internal_sast_enabled"
+	ConfigurationSastSettings  = "internal_sast_settings"
+	ConfigurarionSlceEnabled   = "internal_snyk_scle_enabled"
+	FfNameNativeImplementation = "snykCodeClientNativeImplementation"
+)
+
 func GetCodeFlagSet() *pflag.FlagSet {
 	flagSet := pflag.NewFlagSet(codeWorkflowName, pflag.ExitOnError)
 
@@ -66,7 +73,7 @@ func getSastResponse(res *http.Response) (*sast_contract.SastResponse, error) {
 }
 
 func getSastSettingsConfig(engine workflow.Engine) configuration.DefaultValueFunction {
-	err := engine.GetConfiguration().AddKeyDependency(code_workflow.ConfigurationSastSettings, configuration.ORGANIZATION)
+	err := engine.GetConfiguration().AddKeyDependency(ConfigurationSastSettings, configuration.ORGANIZATION)
 	if err != nil {
 		engine.GetLogger().Err(err).Msg("Failed to add dependency for SAST settings.")
 	}
@@ -98,7 +105,7 @@ func getSastSettingsConfig(engine workflow.Engine) configuration.DefaultValueFun
 }
 
 func getSastResponseFromConfig(config configuration.Configuration) (*sast_contract.SastResponse, error) {
-	sastResponseGeneric, err := config.GetWithError(code_workflow.ConfigurationSastSettings)
+	sastResponseGeneric, err := config.GetWithError(ConfigurationSastSettings)
 	if err != nil {
 		return nil, err
 	}
@@ -113,7 +120,7 @@ func getSastResponseFromConfig(config configuration.Configuration) (*sast_contra
 }
 
 func getSastEnabled(engine workflow.Engine) configuration.DefaultValueFunction {
-	err := engine.GetConfiguration().AddKeyDependency(code_workflow.ConfigurationSastEnabled, code_workflow.ConfigurationSastSettings)
+	err := engine.GetConfiguration().AddKeyDependency(ConfigurationSastEnabled, ConfigurationSastSettings)
 	if err != nil {
 		engine.GetLogger().Err(err).Msg("Failed to add dependency for SAST settings.")
 	}
@@ -133,7 +140,7 @@ func getSastEnabled(engine workflow.Engine) configuration.DefaultValueFunction {
 }
 
 func getSlceEnabled(engine workflow.Engine) configuration.DefaultValueFunction {
-	err := engine.GetConfiguration().AddKeyDependency(code_workflow.ConfigurarionSlceEnabled, code_workflow.ConfigurationSastSettings)
+	err := engine.GetConfiguration().AddKeyDependency(ConfigurarionSlceEnabled, ConfigurationSastSettings)
 	if err != nil {
 		engine.GetLogger().Err(err).Msg("Failed to add dependency for SAST settings.")
 	}
@@ -156,7 +163,7 @@ func useNativeImplementation(config configuration.Configuration, logger *zerolog
 	useConsistentIgnoresFF := config.GetBool(configuration.FF_CODE_CONSISTENT_IGNORES)
 	useNativeImplementationFF := config.GetBool(configuration.FF_CODE_NATIVE_IMPLEMENTATION)
 	reportEnabled := config.GetBool(code_workflow.ConfigurationReportFlag)
-	scleEnabled := config.GetBool(code_workflow.ConfigurarionSlceEnabled)
+	scleEnabled := config.GetBool(ConfigurarionSlceEnabled)
 
 	nativeImplementationEnabled := (useConsistentIgnoresFF || useNativeImplementationFF) && !scleEnabled
 
@@ -179,12 +186,12 @@ func Init(engine workflow.Engine) error {
 		return err
 	}
 
-	engine.GetConfiguration().AddDefaultValue(code_workflow.ConfigurationSastSettings, getSastSettingsConfig(engine))
-	engine.GetConfiguration().AddDefaultValue(code_workflow.ConfigurationSastEnabled, getSastEnabled(engine))
-	engine.GetConfiguration().AddDefaultValue(code_workflow.ConfigurarionSlceEnabled, getSlceEnabled(engine))
+	engine.GetConfiguration().AddDefaultValue(ConfigurationSastSettings, getSastSettingsConfig(engine))
+	engine.GetConfiguration().AddDefaultValue(ConfigurationSastEnabled, getSastEnabled(engine))
+	engine.GetConfiguration().AddDefaultValue(ConfigurarionSlceEnabled, getSlceEnabled(engine))
 	engine.GetConfiguration().AddDefaultValue(code_workflow.ConfigurationTestFLowName, configuration.StandardDefaultValueFunction("cli_test"))
 	config_utils.AddFeatureFlagToConfig(engine, configuration.FF_CODE_CONSISTENT_IGNORES, "snykCodeConsistentIgnores")
-	config_utils.AddFeatureFlagToConfig(engine, configuration.FF_CODE_NATIVE_IMPLEMENTATION, code_workflow.FfNameNativeImplementation)
+	config_utils.AddFeatureFlagToConfig(engine, configuration.FF_CODE_NATIVE_IMPLEMENTATION, FfNameNativeImplementation)
 
 	return err
 }
@@ -196,7 +203,7 @@ func codeWorkflowEntryPoint(invocationCtx workflow.InvocationContext, _ []workfl
 	config := invocationCtx.GetConfiguration()
 	logger := invocationCtx.GetEnhancedLogger()
 
-	sastEnabled, err := config.GetBoolWithError(code_workflow.ConfigurationSastEnabled)
+	sastEnabled, err := config.GetBoolWithError(ConfigurationSastEnabled)
 	if err != nil {
 		return result, err
 	}
