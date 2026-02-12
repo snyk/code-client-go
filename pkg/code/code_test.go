@@ -127,7 +127,7 @@ func Test_Code_legacyImplementation_happyPath(t *testing.T) {
 	engine := workflow.NewWorkFlowEngine(config)
 
 	config.Set(configuration.FF_CODE_CONSISTENT_IGNORES, false)
-	config.Set(code_workflow.ConfigurationSastEnabled, true)
+	config.Set(ConfigurationSastEnabled, true)
 
 	err := Init(engine)
 	assert.NoError(t, err)
@@ -369,7 +369,7 @@ func Test_Code_FF_CODE_CONSISTENT_IGNORES(t *testing.T) {
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		data, err := json.Marshal(response)
 
-		if strings.Contains(r.URL.Path, code_workflow.FfNameNativeImplementation) {
+		if strings.Contains(r.URL.Path, FfNameNativeImplementation) {
 			data, err = json.Marshal(responseNativeImpl)
 		}
 
@@ -423,7 +423,7 @@ func Test_Code_UseNativeImplementation(t *testing.T) {
 		config := configuration.NewWithOpts()
 		config.Set(configuration.FF_CODE_CONSISTENT_IGNORES, false)
 		config.Set(configuration.FF_CODE_NATIVE_IMPLEMENTATION, false)
-		config.Set(code_workflow.ConfigurarionSlceEnabled, false)
+		config.Set(ConfigurarionSlceEnabled, false)
 		actual := useNativeImplementation(config, &logger, true)
 		assert.Equal(t, expected, actual)
 	})
@@ -433,7 +433,7 @@ func Test_Code_UseNativeImplementation(t *testing.T) {
 		config := configuration.NewWithOpts()
 		config.Set(configuration.FF_CODE_CONSISTENT_IGNORES, false)
 		config.Set(configuration.FF_CODE_NATIVE_IMPLEMENTATION, true)
-		config.Set(code_workflow.ConfigurarionSlceEnabled, false)
+		config.Set(ConfigurarionSlceEnabled, false)
 		actual := useNativeImplementation(config, &logger, true)
 		assert.Equal(t, expected, actual)
 	})
@@ -443,7 +443,7 @@ func Test_Code_UseNativeImplementation(t *testing.T) {
 		config := configuration.NewWithOpts()
 		config.Set(configuration.FF_CODE_CONSISTENT_IGNORES, true)
 		config.Set(configuration.FF_CODE_NATIVE_IMPLEMENTATION, false)
-		config.Set(code_workflow.ConfigurarionSlceEnabled, false)
+		config.Set(ConfigurarionSlceEnabled, false)
 		actual := useNativeImplementation(config, &logger, true)
 		assert.Equal(t, expected, actual)
 	})
@@ -453,7 +453,7 @@ func Test_Code_UseNativeImplementation(t *testing.T) {
 		config := configuration.NewWithOpts()
 		config.Set(configuration.FF_CODE_CONSISTENT_IGNORES, true)
 		config.Set(configuration.FF_CODE_NATIVE_IMPLEMENTATION, true)
-		config.Set(code_workflow.ConfigurarionSlceEnabled, false)
+		config.Set(ConfigurarionSlceEnabled, false)
 		actual := useNativeImplementation(config, &logger, true)
 		assert.Equal(t, expected, actual)
 	})
@@ -463,7 +463,7 @@ func Test_Code_UseNativeImplementation(t *testing.T) {
 		config := configuration.NewWithOpts()
 		config.Set(configuration.FF_CODE_CONSISTENT_IGNORES, true)
 		config.Set(configuration.FF_CODE_NATIVE_IMPLEMENTATION, true)
-		config.Set(code_workflow.ConfigurarionSlceEnabled, true)
+		config.Set(ConfigurarionSlceEnabled, true)
 		actual := useNativeImplementation(config, &logger, true)
 		assert.Equal(t, expected, actual)
 	})
@@ -567,7 +567,7 @@ func Test_getSastSettingsConfig(t *testing.T) {
 	t.Run("adds organization dependency and clears cache on org change", func(t *testing.T) {
 		testutils.CheckCacheRespectOrgDependency(
 			t,
-			code_workflow.ConfigurationSastSettings,
+			ConfigurationSastSettings,
 			func(isFirstCall bool) any {
 				return &sast_contract.SastResponse{
 					SastEnabled:     isFirstCall,
@@ -651,7 +651,7 @@ func Test_getSastSettingsConfig(t *testing.T) {
 		assert.Len(t, requestedAPIs, 0, "Not expecting any requests before the first fetch")
 
 		// Fetch SAST settings from global config
-		result1, err := config.GetWithError(code_workflow.ConfigurationSastSettings)
+		result1, err := config.GetWithError(ConfigurationSastSettings)
 		require.NoError(t, err)
 		sastResponse1, ok := result1.(*sast_contract.SastResponse)
 		require.True(t, ok, "Response should be a SastResponse")
@@ -668,7 +668,7 @@ func Test_getSastSettingsConfig(t *testing.T) {
 		assert.Len(t, requestedAPIs, 1, "Cloning and setting values should not make requests")
 
 		// Fetch SAST settings from cloned config
-		result2, err := clonedConfig.GetWithError(code_workflow.ConfigurationSastSettings)
+		result2, err := clonedConfig.GetWithError(ConfigurationSastSettings)
 		require.NoError(t, err)
 		sastResponse2, ok := result2.(*sast_contract.SastResponse)
 		require.True(t, ok, "Response should be a SastResponse")
@@ -704,7 +704,7 @@ func runBoolConfigTests(t *testing.T, tc boolConfigTestCase) {
 		mockEngine := setupMockEngine(t)
 		config := mockEngine.GetConfiguration()
 
-		config.Set(code_workflow.ConfigurationSastSettings, tc.trueResponse)
+		config.Set(ConfigurationSastSettings, tc.trueResponse)
 
 		result, err := tc.getCallback(mockEngine)(config, nil)
 		assert.NoError(t, err)
@@ -717,7 +717,7 @@ func runBoolConfigTests(t *testing.T, tc boolConfigTestCase) {
 		testutils.CheckConfigCachesDependency(
 			t,
 			tc.configKey,
-			code_workflow.ConfigurationSastSettings,
+			ConfigurationSastSettings,
 			tc.getCallback,
 			tc.trueResponse,
 			tc.falseResponse,
@@ -759,7 +759,7 @@ func runBoolConfigTests(t *testing.T, tc boolConfigTestCase) {
 func Test_getSastEnabled(t *testing.T) {
 	runBoolConfigTests(t, boolConfigTestCase{
 		name:        "getSastEnabled",
-		configKey:   code_workflow.ConfigurationSastEnabled,
+		configKey:   ConfigurationSastEnabled,
 		getCallback: getSastEnabled,
 		trueResponse: &sast_contract.SastResponse{
 			SastEnabled:     true,
@@ -776,7 +776,7 @@ func Test_getSastEnabled(t *testing.T) {
 func Test_getSlceEnabled(t *testing.T) {
 	runBoolConfigTests(t, boolConfigTestCase{
 		name:        "getSlceEnabled",
-		configKey:   code_workflow.ConfigurarionSlceEnabled,
+		configKey:   ConfigurarionSlceEnabled,
 		getCallback: getSlceEnabled,
 		trueResponse: &sast_contract.SastResponse{
 			SastEnabled:     false,
