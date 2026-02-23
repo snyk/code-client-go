@@ -234,6 +234,22 @@ func (s *deepcodeClient) Request(
 
 	codeClientHTTP.AddDefaultHeaders(req, codeClientHTTP.NoRequestId, s.config.Organization(), method, true)
 
+	fullURL := host + path
+	logFields := log.Debug().
+		Str("method", method).
+		Str("url", fullURL).
+		Str("requestBody", string(requestBody))
+
+	headers := make(map[string]string)
+	for key, values := range req.Header {
+		if (strings.ToLower(key) != "authorization") && (strings.ToLower(key) != "session-token") {
+			headers[key] = strings.Join(values, ", ")
+		}
+	}
+	logFields = logFields.Interface("headers", headers)
+
+	logFields.Msg("HTTP request details for bundle operation")
+
 	response, err := s.httpClient.Do(req)
 	if err != nil {
 		return nil, err
