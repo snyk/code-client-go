@@ -10,13 +10,38 @@ $ go get github.com/snyk/code-client-go
 
 ## Usage
 
-### HTTP Client
+### Extension Entry Point
+
+The primary way to integrate Snyk Code scanning into the Snyk CLI and IDE is through the workflows from the [go-application-framework](https://github.com/snyk/go-application-framework/blob/main/CONTRIBUTING.md). The `Init` function registers the `code.test` workflow with the engine, which uses `codeWorkflowEntryPoint` as its entry point.
+
+```go
+import (
+    "github.com/snyk/code-client-go/pkg/code"
+    "github.com/snyk/go-application-framework/pkg/workflow"
+)
+
+// Register the code workflow with the engine
+err := code.Init(engine)
+
+...
+
+// The workflow can then be invoked via WORKFLOWID_CODE
+engine.Invoke(code.WORKFLOWID_CODE)
+```
+
+The `codeWorkflowEntryPoint` function:
+- Checks if SAST is enabled for the organization
+- Determines whether to use the native or legacy implementation based on feature flags
+- Routes to either `EntryPointNative` (for Code Consistent Ignores support) or `EntryPointLegacy`
+- Returns workflow data containing scan results as local findings
+
+### Library Functions
+
+For more granular control and a custom implementation, the following library components can be used directly:
+
+#### HTTP Client
 
 Use the HTTP client to make HTTP requests with configured retriable codes and authorisation headers for Snyk Rest APIs.
-
-You can either configure the client using the functional options pattern provided or by implementing the interfaces.
-
-Provide a `net/http.Client` factory to customize the underlying HTTP protocol behavior (timeouts, etc).
 
 ```go
 import (
@@ -45,7 +70,7 @@ httpClient := codeClientHTTP.NewHTTPClient(
 
 The HTTP client exposes a `Do` function.
 
-### Target
+#### Target
 
 Use the target to record the target of a scan, which can be either a folder enhanced with repository metadata 
 or a repository.
@@ -59,7 +84,8 @@ target, _ := codeClientScan.NewRepositoryTarget(path)
 
 target, _ := codeClientScan.NewRepositoryTarget(path, codeClientScan.WithRepositoryUrl("https://github.com/snyk/code-client-go.git"))
 ```
-### Tracker Factory
+
+#### Tracker Factory
 
 Use the tracker factory to generate a tracker used to update the consumer of the client with frequent progress updates. 
 
@@ -78,16 +104,15 @@ tracker.Begin()
 tracker.End()
 ```
 
-### Configuration
+#### Configuration
 
 Implement the `config.Config` interface to configure the Snyk Code API client from applications.
 
-### Code Scanner
+#### Code Scanner
 
 Use the Code Scanner to trigger a scan for a Snyk Code workspace using the Bundle Manager.
 
-The Code Scanner exposes two scanning functions: `UploadAndAnalyze` (which supports Code Consistent Ignores) and 
-`UploadAndAnalyzeLegacy`. These functions may be used like this:
+The Code Scanner exposes scanning functions including `UploadAndAnalyzeWithOptions` for flexible analysis:
 
 ```go
 import (
@@ -96,23 +121,21 @@ import (
 
 config := newConfigForMyApp()
 codeScanner := codeClient.NewCodeScanner(
-    httpClient,
     config,
-	codeClient.WithTrackerFactory(trackerFactory),
-    codeClientHTTP.WithLogger(logger),
-    codeClientHTTP.WithInstrumentor(instrumentor),
-    codeClientHTTP.WithErrorReporter(errorReporter),
+    httpClient,
+    codeClient.WithTrackerFactory(trackerFactory),
+    codeClient.WithLogger(logger),
+    codeClient.WithFlow("cli_test"),
 )
-if useCodeConsistentIgnores() {
-    codeScanner.UploadAndAnalyze(context.Background(), requestId, target, channelForWalkingFiles, changedFiles)
-} else {
-    codeScanner.UploadAndAnalyzeLegacy(context.Background(), requestId, target, shardKey, files, changedFiles, statusChannel)
-}
 
+// For local code analysis
+result, metadata, err := codeScanner.UploadAndAnalyzeWithOptions(ctx, requestId, target, files, changedFiles)
+
+// For remote code analysis (with project reporting)
+result, metadata, err := codeScanner.AnalyzeRemote(ctx, codeClient.ReportRemoteTest(projectId, commitId))
 ```
 
-
-### Observability
+#### Observability
 
 Under [./observability](./observability) we have defined some observability interfaces which allows consumers of the library to inject their own observability implementations as long as they follow the defined interfaces.
 
