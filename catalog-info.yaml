@@ -4,8 +4,8 @@ metadata:
   name: code-client-go
   annotations:
     github.com/project-slug: snyk/code-client-go
-    github.com/team-slug: snyk/ide
+    github.com/team-slug: snyk/codesec_code-integrations
 spec:
   type: external-library
   lifecycle: "-"
-  owner: cli
+  owner: codesec_code-integrations
