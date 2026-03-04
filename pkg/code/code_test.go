@@ -321,46 +321,90 @@ func Test_Code_nativeImplementation_analysisEmpty(t *testing.T) {
 	networkAccess := networking.NewNetworkAccess(config)
 
 	mockController := gomock.NewController(t)
-	invocationContext := mocks.NewMockInvocationContext(mockController)
-	invocationContext.EXPECT().GetConfiguration().Return(config)
-	invocationContext.EXPECT().GetNetworkAccess().Return(networkAccess).AnyTimes()
-	invocationContext.EXPECT().GetEnhancedLogger().Return(&zerolog.Logger{})
-	invocationContext.EXPECT().GetWorkflowIdentifier().Return(workflow.NewWorkflowIdentifier("code"))
-	invocationContext.EXPECT().GetUserInterface().Return(ui.DefaultUi())
 
-	analysisFunc := func(path string, _ func() *http.Client, _ *zerolog.Logger, _ configuration.Configuration, _ ui.UserInterface) (*sarif.SarifResponse, *scan.ResultMetaData, error) {
-		response := &sarif.SarifResponse{
-			Sarif: sarif.SarifDocument{
-				Runs: []sarif.Run{
-					{
-						Properties: sarif.RunProperties{
-							Coverage: []struct {
-								Files       int    `json:"files"`
-								IsSupported bool   `json:"isSupported"`
-								Lang        string `json:"lang"`
-								Type        string `json:"type"`
-							}{{
-								Files:       0,
-								IsSupported: false,
-								Lang:        "",
-								Type:        "",
-							}},
+	t.Run("returns UnsupportedProjectError when no supported files", func(t *testing.T) {
+		invocationContext := mocks.NewMockInvocationContext(mockController)
+		invocationContext.EXPECT().GetConfiguration().Return(config)
+		invocationContext.EXPECT().GetNetworkAccess().Return(networkAccess).AnyTimes()
+		invocationContext.EXPECT().GetEnhancedLogger().Return(&zerolog.Logger{})
+		invocationContext.EXPECT().GetWorkflowIdentifier().Return(workflow.NewWorkflowIdentifier("code"))
+		invocationContext.EXPECT().GetUserInterface().Return(ui.DefaultUi())
+
+		analysisFunc := func(path string, _ func() *http.Client, _ *zerolog.Logger, _ configuration.Configuration, _ ui.UserInterface) (*sarif.SarifResponse, *scan.ResultMetaData, error) {
+			response := &sarif.SarifResponse{
+				Sarif: sarif.SarifDocument{
+					Runs: []sarif.Run{
+						{
+							Properties: sarif.RunProperties{
+								Coverage: []struct {
+									Files       int    `json:"files"`
+									IsSupported bool   `json:"isSupported"`
+									Lang        string `json:"lang"`
+									Type        string `json:"type"`
+								}{{
+									Files:       0,
+									IsSupported: false,
+									Lang:        "",
+									Type:        "",
+								}},
+							},
 						},
 					},
 				},
-			},
+			}
+			return response, &scan.ResultMetaData{}, nil
 		}
-		return response, &scan.ResultMetaData{}, nil
-	}
 
-	rs, err := code_workflow.EntryPointNative(invocationContext, analysisFunc)
-	assert.NoError(t, err)
-	assert.Equal(t, len(rs), 2)
+		rs, err := code_workflow.EntryPointNative(invocationContext, analysisFunc)
+		assert.NoError(t, err)
+		assert.Equal(t, len(rs), 2)
 
-	summary := findTestSummary(rs)
-	dataErrors := summary.GetErrorList()
-	assert.Equal(t, 1, len(dataErrors))
-	assert.Equal(t, dataErrors[0].ErrorCode, code.NewUnsupportedProjectError("").ErrorCode)
+		summary := findTestSummary(rs)
+		dataErrors := summary.GetErrorList()
+		assert.Equal(t, 1, len(dataErrors))
+		assert.Equal(t, dataErrors[0].ErrorCode, code.NewUnsupportedProjectError("").ErrorCode)
+	})
+
+	t.Run("returns no error when supported files fail to parse", func(t *testing.T) {
+		invocationContext := mocks.NewMockInvocationContext(mockController)
+		invocationContext.EXPECT().GetConfiguration().Return(config)
+		invocationContext.EXPECT().GetNetworkAccess().Return(networkAccess).AnyTimes()
+		invocationContext.EXPECT().GetEnhancedLogger().Return(&zerolog.Logger{})
+		invocationContext.EXPECT().GetWorkflowIdentifier().Return(workflow.NewWorkflowIdentifier("code"))
+		invocationContext.EXPECT().GetUserInterface().Return(ui.DefaultUi())
+
+		analysisFunc := func(path string, _ func() *http.Client, _ *zerolog.Logger, _ configuration.Configuration, _ ui.UserInterface) (*sarif.SarifResponse, *scan.ResultMetaData, error) {
+			response := &sarif.SarifResponse{
+				Sarif: sarif.SarifDocument{
+					Runs: []sarif.Run{
+						{
+							Properties: sarif.RunProperties{
+								Coverage: []struct {
+									Files       int    `json:"files"`
+									IsSupported bool   `json:"isSupported"`
+									Lang        string `json:"lang"`
+									Type        string `json:"type"`
+								}{{
+									Files:       1,
+									IsSupported: false,
+									Lang:        "py",
+									Type:        "FAILED_PARSING",
+								}},
+							},
+						},
+					},
+				},
+			}
+			return response, &scan.ResultMetaData{}, nil
+		}
+		rs, err := code_workflow.EntryPointNative(invocationContext, analysisFunc)
+		assert.NoError(t, err)
+		assert.Equal(t, len(rs), 2)
+
+		summary := findTestSummary(rs)
+		dataErrors := summary.GetErrorList()
+		assert.Equal(t, 0, len(dataErrors))
+	})
 }
 
 func Test_Code_FF_CODE_CONSISTENT_IGNORES(t *testing.T) {

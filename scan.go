@@ -35,6 +35,8 @@ import (
 	"github.com/snyk/code-client-go/observability"
 	"github.com/snyk/code-client-go/sarif"
 	"github.com/snyk/code-client-go/scan"
+	"github.com/snyk/error-catalog-golang-public/code"
+	"github.com/snyk/error-catalog-golang-public/snyk_errors"
 )
 
 type codeScanner struct {
@@ -333,8 +335,11 @@ func (c *codeScanner) UploadAndAnalyzeWithOptions(
 ) (*sarif.SarifResponse, string, *scan.ResultMetaData, error) {
 	uploadedBundle, err := c.Upload(ctx, requestId, target, files, changedFiles)
 
-	if err != nil || uploadedBundle == nil || uploadedBundle.GetBundleHash() == "" {
+	if uploadedBundle == nil || uploadedBundle.GetBundleHash() == "" {
 		c.logger.Debug().Msg("empty bundle, no Snyk Code analysis")
+		if err != nil {
+			err = code.NewUnsupportedProjectError("Snyk was unable to find supported files.", snyk_errors.WithCause(err))
+		}
 		return nil, "", nil, err
 	}
 

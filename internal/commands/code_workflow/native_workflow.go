@@ -144,19 +144,21 @@ func EntryPointNative(invocationCtx workflow.InvocationContext, opts ...Optional
 		return nil, err
 	}
 
-	// Check for empty summary
-	if summary.Artifacts == 0 {
-		errorAsMetaData := code.NewUnsupportedProjectError("Snyk was unable to find supported files.", errorutils.WithWorkingDirectory([]string{path}))
-		errorAsMetaData.StatusCode = 0
-		summaryData.AddError(errorAsMetaData)
-	}
-	output = append(output, summaryData)
-
+	hasFailedParsing := false
 	if resultAvailable {
 		// transform sarif to findings
 		localFindings, lfError := local_models.TransformToLocalFindingModelFromSarif(&result.Sarif, summary)
 		if lfError != nil {
 			return nil, lfError
+		}
+
+		for _, coverage := range localFindings.Summary.Coverage {
+			if !coverage.IsSupported {
+				logger.Warn().Msgf("Warning - unable to process file(s) - format: %s, reason: %s, files: %d", coverage.Lang, coverage.Type, coverage.Files)
+			}
+			if coverage.Type == "FAILED_PARSING" {
+				hasFailedParsing = true
+			}
 		}
 
 		// translate metadata to findings
@@ -180,6 +182,14 @@ func EntryPointNative(invocationCtx workflow.InvocationContext, opts ...Optional
 		}
 		output = append(output, findingsData)
 	}
+
+	// Check for empty summary
+	if summary.Artifacts == 0 && !hasFailedParsing {
+		errorAsMetaData := code.NewUnsupportedProjectError("Snyk was unable to find supported files.", errorutils.WithWorkingDirectory([]string{path}))
+		errorAsMetaData.StatusCode = 0
+		summaryData.AddError(errorAsMetaData)
+	}
+	output = append(output, summaryData)
 
 	return output, err
 }
