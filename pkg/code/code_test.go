@@ -182,7 +182,7 @@ func Test_Code_nativeImplementation_happyPath(t *testing.T) {
 	invocationContext.EXPECT().GetWorkflowIdentifier().Return(workflow.NewWorkflowIdentifier("code"))
 	invocationContext.EXPECT().GetUserInterface().Return(ui.DefaultUi())
 
-	analysisFunc := func(path string, _ func() *http.Client, _ *zerolog.Logger, _ configuration.Configuration, _ ui.UserInterface) (*sarif.SarifResponse, *scan.ResultMetaData, error) {
+	analysisFunc := func(path string, _ func() *http.Client, _ *zerolog.Logger, _ configuration.Configuration, _ ui.UserInterface) (*sarif.SarifResponse, string, *scan.ResultMetaData, error) {
 		assert.Equal(t, expectedPath, path)
 		suppressions := []sarif.Suppression{
 			{
@@ -225,7 +225,7 @@ func Test_Code_nativeImplementation_happyPath(t *testing.T) {
 				},
 			},
 		}
-		return response, &scan.ResultMetaData{}, nil
+		return response, "", &scan.ResultMetaData{}, nil
 	}
 
 	rs, err := code_workflow.EntryPointNative(invocationContext, analysisFunc)
@@ -271,8 +271,8 @@ func Test_Code_nativeImplementation_analysisFails(t *testing.T) {
 	invocationContext.EXPECT().GetWorkflowIdentifier().Return(workflow.NewWorkflowIdentifier("code"))
 	invocationContext.EXPECT().GetUserInterface().Return(ui.DefaultUi())
 
-	analysisFunc := func(string, func() *http.Client, *zerolog.Logger, configuration.Configuration, ui.UserInterface) (*sarif.SarifResponse, *scan.ResultMetaData, error) {
-		return nil, nil, fmt.Errorf("something went wrong")
+	analysisFunc := func(string, func() *http.Client, *zerolog.Logger, configuration.Configuration, ui.UserInterface) (*sarif.SarifResponse, string, *scan.ResultMetaData, error) {
+		return nil, "", nil, fmt.Errorf("something went wrong")
 	}
 
 	rs, err := code_workflow.EntryPointNative(invocationContext, analysisFunc)
@@ -292,8 +292,8 @@ func Test_Code_nativeImplementation_analysisNil(t *testing.T) {
 	invocationContext.EXPECT().GetWorkflowIdentifier().Return(workflow.NewWorkflowIdentifier("code"))
 	invocationContext.EXPECT().GetUserInterface().Return(ui.DefaultUi())
 
-	analysisFunc := func(path string, _ func() *http.Client, _ *zerolog.Logger, _ configuration.Configuration, _ ui.UserInterface) (*sarif.SarifResponse, *scan.ResultMetaData, error) {
-		return nil, nil, nil
+	analysisFunc := func(path string, _ func() *http.Client, _ *zerolog.Logger, _ configuration.Configuration, _ ui.UserInterface) (*sarif.SarifResponse, string, *scan.ResultMetaData, error) {
+		return nil, "", nil, nil
 	}
 
 	rs, err := code_workflow.EntryPointNative(invocationContext, analysisFunc)
@@ -330,7 +330,7 @@ func Test_Code_nativeImplementation_analysisEmpty(t *testing.T) {
 		invocationContext.EXPECT().GetWorkflowIdentifier().Return(workflow.NewWorkflowIdentifier("code"))
 		invocationContext.EXPECT().GetUserInterface().Return(ui.DefaultUi())
 
-		analysisFunc := func(path string, _ func() *http.Client, _ *zerolog.Logger, _ configuration.Configuration, _ ui.UserInterface) (*sarif.SarifResponse, *scan.ResultMetaData, error) {
+		analysisFunc := func(path string, _ func() *http.Client, _ *zerolog.Logger, _ configuration.Configuration, _ ui.UserInterface) (*sarif.SarifResponse, string, *scan.ResultMetaData, error) {
 			response := &sarif.SarifResponse{
 				Sarif: sarif.SarifDocument{
 					Runs: []sarif.Run{
@@ -352,7 +352,7 @@ func Test_Code_nativeImplementation_analysisEmpty(t *testing.T) {
 					},
 				},
 			}
-			return response, &scan.ResultMetaData{}, nil
+			return response, "", &scan.ResultMetaData{}, nil
 		}
 
 		rs, err := code_workflow.EntryPointNative(invocationContext, analysisFunc)
@@ -373,7 +373,7 @@ func Test_Code_nativeImplementation_analysisEmpty(t *testing.T) {
 		invocationContext.EXPECT().GetWorkflowIdentifier().Return(workflow.NewWorkflowIdentifier("code"))
 		invocationContext.EXPECT().GetUserInterface().Return(ui.DefaultUi())
 
-		analysisFunc := func(path string, _ func() *http.Client, _ *zerolog.Logger, _ configuration.Configuration, _ ui.UserInterface) (*sarif.SarifResponse, *scan.ResultMetaData, error) {
+		analysisFunc := func(path string, _ func() *http.Client, _ *zerolog.Logger, _ configuration.Configuration, _ ui.UserInterface) (*sarif.SarifResponse, string, *scan.ResultMetaData, error) {
 			response := &sarif.SarifResponse{
 				Sarif: sarif.SarifDocument{
 					Runs: []sarif.Run{
@@ -395,7 +395,7 @@ func Test_Code_nativeImplementation_analysisEmpty(t *testing.T) {
 					},
 				},
 			}
-			return response, &scan.ResultMetaData{}, nil
+			return response, "bundleHash", &scan.ResultMetaData{}, nil
 		}
 		rs, err := code_workflow.EntryPointNative(invocationContext, analysisFunc)
 		assert.NoError(t, err)
