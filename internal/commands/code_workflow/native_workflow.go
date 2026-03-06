@@ -13,6 +13,7 @@ import (
 	"github.com/hashicorp/go-uuid"
 	"github.com/rs/zerolog"
 	codeclient "github.com/snyk/code-client-go"
+	"github.com/snyk/code-client-go/bundle"
 	codeclienthttp "github.com/snyk/code-client-go/http"
 	"github.com/snyk/code-client-go/sarif"
 	"github.com/snyk/code-client-go/scan"
@@ -20,6 +21,7 @@ import (
 	"github.com/snyk/go-application-framework/pkg/configuration"
 	"github.com/snyk/go-application-framework/pkg/instrumentation"
 	"github.com/snyk/go-application-framework/pkg/local_workflows/content_type"
+	errorutils "github.com/snyk/go-application-framework/pkg/local_workflows/error_utils"
 	"github.com/snyk/go-application-framework/pkg/local_workflows/local_models"
 	"github.com/snyk/go-application-framework/pkg/networking"
 	"github.com/snyk/go-application-framework/pkg/ui"
@@ -118,7 +120,8 @@ func EntryPointNative(invocationCtx workflow.InvocationContext, opts ...Optional
 	}
 
 	result, bundleHash, resultMetaData, err := analyzeFnc(path, invocationCtx.GetNetworkAccess().GetHttpClient, logger, config, invocationCtx.GetUserInterface())
-	if err != nil {
+	isNoFilesErr := bundle.IsNoFilesError(err)
+	if err != nil && !isNoFilesErr {
 		return nil, err
 	}
 
@@ -141,10 +144,9 @@ func EntryPointNative(invocationCtx workflow.InvocationContext, opts ...Optional
 	if err != nil {
 		return nil, err
 	}
-	if bundleHash == "" {
-		summaryData.AddError(code.NewUnsupportedProjectError("Snyk was unable to find supported files."))
+	if bundleHash == "" || isNoFilesErr {
+		summaryData.AddError(code.NewUnsupportedProjectError("Snyk was unable to find supported files.", errorutils.WithWorkingDirectory([]string{path})))
 	}
-
 	output = append(output, summaryData)
 
 	if resultAvailable {
@@ -238,7 +240,8 @@ func defaultAnalyzeFunction(path string, httpClientFunc func() *http.Client, log
 
 		option := codeclient.ReportRemoteTest(projectId, config.GetString(ConfigurationCommitId))
 		result, resultMetaData, err = codeScanner.AnalyzeRemote(ctx, option)
-		return result, "", resultMetaData, err
+		// return report mode as bundleHash value to avoid potential bundleHash error checks
+		return result, string(reportMode), resultMetaData, err
 	}
 
 	// use case: stateful local code testing
