@@ -13,11 +13,11 @@ import (
 	"github.com/hashicorp/go-uuid"
 	"github.com/rs/zerolog"
 	codeclient "github.com/snyk/code-client-go"
+	"github.com/snyk/code-client-go/bundle"
 	codeclienthttp "github.com/snyk/code-client-go/http"
 	"github.com/snyk/code-client-go/sarif"
 	"github.com/snyk/code-client-go/scan"
 	"github.com/snyk/error-catalog-golang-public/code"
-
 	"github.com/snyk/go-application-framework/pkg/configuration"
 	"github.com/snyk/go-application-framework/pkg/instrumentation"
 	"github.com/snyk/go-application-framework/pkg/local_workflows/content_type"
@@ -48,7 +48,7 @@ const (
 	noReport   reportType = "no_report"
 )
 
-type OptionalAnalysisFunctions func(string, func() *http.Client, *zerolog.Logger, configuration.Configuration, ui.UserInterface) (*sarif.SarifResponse, *scan.ResultMetaData, error)
+type OptionalAnalysisFunctions func(string, func() *http.Client, *zerolog.Logger, configuration.Configuration, ui.UserInterface) (*sarif.SarifResponse, string, *scan.ResultMetaData, error)
 
 type ProgressTrackerFactory struct {
 	userInterface ui.UserInterface
@@ -119,8 +119,9 @@ func EntryPointNative(invocationCtx workflow.InvocationContext, opts ...Optional
 		analyzeFnc = opts[0]
 	}
 
-	result, resultMetaData, err := analyzeFnc(path, invocationCtx.GetNetworkAccess().GetHttpClient, logger, config, invocationCtx.GetUserInterface())
-	if err != nil {
+	result, bundleHash, resultMetaData, err := analyzeFnc(path, invocationCtx.GetNetworkAccess().GetHttpClient, logger, config, invocationCtx.GetUserInterface())
+	isNoFilesErr := bundle.IsNoFilesError(err)
+	if err != nil && !isNoFilesErr {
 		return nil, err
 	}
 
@@ -143,12 +144,8 @@ func EntryPointNative(invocationCtx workflow.InvocationContext, opts ...Optional
 	if err != nil {
 		return nil, err
 	}
-
-	// Check for empty summary
-	if summary.Artifacts == 0 {
-		errorAsMetaData := code.NewUnsupportedProjectError("Snyk was unable to find supported files.", errorutils.WithWorkingDirectory([]string{path}))
-		errorAsMetaData.StatusCode = 0
-		summaryData.AddError(errorAsMetaData)
+	if bundleHash == "" || isNoFilesErr {
+		summaryData.AddError(code.NewUnsupportedProjectError("Snyk was unable to find supported files.", errorutils.WithWorkingDirectory([]string{path})))
 	}
 	output = append(output, summaryData)
 
@@ -157,6 +154,11 @@ func EntryPointNative(invocationCtx workflow.InvocationContext, opts ...Optional
 		localFindings, lfError := local_models.TransformToLocalFindingModelFromSarif(&result.Sarif, summary)
 		if lfError != nil {
 			return nil, lfError
+		}
+
+		logger.Debug().Msg("Coverage report for file(s):")
+		for _, coverage := range localFindings.Summary.Coverage {
+			logger.Debug().Msgf("  type: %s, format: %s, files: %d", coverage.Type, coverage.Lang, coverage.Files)
 		}
 
 		// translate metadata to findings
@@ -185,17 +187,17 @@ func EntryPointNative(invocationCtx workflow.InvocationContext, opts ...Optional
 }
 
 // default function that uses the code-client-go library
-func defaultAnalyzeFunction(path string, httpClientFunc func() *http.Client, logger *zerolog.Logger, config configuration.Configuration, userInterface ui.UserInterface) (*sarif.SarifResponse, *scan.ResultMetaData, error) {
+func defaultAnalyzeFunction(path string, httpClientFunc func() *http.Client, logger *zerolog.Logger, config configuration.Configuration, userInterface ui.UserInterface) (*sarif.SarifResponse, string, *scan.ResultMetaData, error) {
 	var result *sarif.SarifResponse
 	var resultMetaData *scan.ResultMetaData
 	requestId, err := uuid.GenerateUUID()
 	if err != nil {
-		return nil, nil, err
+		return nil, "", nil, err
 	}
 
 	reportMode, err := GetReportMode(config)
 	if err != nil {
-		return nil, nil, err
+		return nil, "", nil, err
 	}
 
 	ctx := context.Background()
@@ -233,12 +235,13 @@ func defaultAnalyzeFunction(path string, httpClientFunc func() *http.Client, log
 	if reportMode == remoteCode {
 		projectId, parseErr := gUuid.Parse(config.GetString(ConfigurationProjectId))
 		if parseErr != nil {
-			return nil, nil, errors.Join(errors.New("\"project-id\" must be a valid UUID"), parseErr)
+			return nil, "", nil, errors.Join(errors.New("\"project-id\" must be a valid UUID"), parseErr)
 		}
 
 		option := codeclient.ReportRemoteTest(projectId, config.GetString(ConfigurationCommitId))
 		result, resultMetaData, err = codeScanner.AnalyzeRemote(ctx, option)
-		return result, resultMetaData, err
+		// return report mode as bundleHash value to avoid potential bundleHash error checks
+		return result, string(reportMode), resultMetaData, err
 	}
 
 	// use case: stateful local code testing
@@ -249,16 +252,18 @@ func defaultAnalyzeFunction(path string, httpClientFunc func() *http.Client, log
 
 	target, files, err := determineAnalyzeInput(path, config, logger)
 	if err != nil {
-		return nil, nil, err
+		return nil, "", nil, err
 	}
 
 	logger.Debug().Msgf("Path: %s", path)
 	logger.Debug().Msgf("Target: %s", target)
 
 	changedFiles := make(map[string]bool)
+	var bundleHash string
 
-	result, _, resultMetaData, err = codeScanner.UploadAndAnalyzeWithOptions(ctx, requestId, target, files, changedFiles, analysisOptions...)
-	return result, resultMetaData, err
+	result, bundleHash, resultMetaData, err = codeScanner.UploadAndAnalyzeWithOptions(ctx, requestId, target, files, changedFiles, analysisOptions...)
+
+	return result, bundleHash, resultMetaData, err
 }
 
 func determineAnalyzeInput(path string, config configuration.Configuration, logger *zerolog.Logger) (scan.Target, <-chan string, error) {

@@ -16,11 +16,13 @@
 
 package bundle
 
+import "errors"
+
 type NoFilesError struct{}
 
 func (e NoFilesError) Error() string { return "no files to scan" }
 
 func IsNoFilesError(err error) bool {
-	_, ok := err.(NoFilesError)
-	return ok
+	var target NoFilesError
+	return errors.As(err, &target)
 }
