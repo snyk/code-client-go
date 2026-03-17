@@ -25,18 +25,17 @@ import (
 	"os"
 	"testing"
 
-	"golang.org/x/net/html/charset"
-
 	"github.com/golang/mock/gomock"
 	"github.com/rs/zerolog"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+	"golang.org/x/net/html/charset"
 
 	"github.com/snyk/code-client-go/bundle"
 	"github.com/snyk/code-client-go/internal/deepcode"
 	deepcodeMocks "github.com/snyk/code-client-go/internal/deepcode/mocks"
 	"github.com/snyk/code-client-go/internal/util"
 	"github.com/snyk/code-client-go/observability/mocks"
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
 )
 
 var bundleWithFiles = bundle.NewBatch(map[string]deepcode.BundleFile{"file": {}})

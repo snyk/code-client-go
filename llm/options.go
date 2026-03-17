@@ -2,6 +2,7 @@ package llm
 
 import (
 	"github.com/rs/zerolog"
+
 	"github.com/snyk/code-client-go/http"
 	"github.com/snyk/code-client-go/observability"
 )

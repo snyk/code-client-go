@@ -2,9 +2,10 @@ package testutil
 
 import (
 	"fmt"
-	"github.com/google/uuid"
 	"net/http"
 	"os"
+
+	"github.com/google/uuid"
 )
 
 type TestAuthRoundTripper struct {
