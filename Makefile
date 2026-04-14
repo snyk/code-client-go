@@ -4,7 +4,7 @@ GOARCH = $(shell go env GOARCH)
 
 TOOLS_BIN := $(shell pwd)/.bin
 
-OVERRIDE_GOCI_LINT_V := v1.64.8
+OVERRIDE_GOCI_LINT_V := v2.11.4
 GOCI_LINT_TARGETS := $(TOOLS_BIN)/golangci-lint $(TOOLS_BIN)/.golangci-lint_$(OVERRIDE_GOCI_LINT_V)
 
 PACT_CLI_V := v2.4.4
@@ -45,7 +45,7 @@ format: $(GOCI_LINT_TARGETS)
 lint: $(GOCI_LINT_TARGETS)
     ifdef CI
 		mkdir -p test/results
-		@$(TOOLS_BIN)/golangci-lint run --out-format junit-xml ./... > test/results/lint-tests.xml
+		@$(TOOLS_BIN)/golangci-lint run --output.junit-xml.path=test/results/lint-tests.xml ./...
     else
 		@$(TOOLS_BIN)/golangci-lint run ./...
     endif
