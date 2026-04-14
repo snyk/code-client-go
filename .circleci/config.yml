@@ -7,6 +7,35 @@ executors:
   default:
     docker:
       - image: cimg/go:1.26
+    resource_class: medium
+
+commands:
+  restore-go-cache:
+    steps:
+      - restore_cache:
+          name: Restore Go module cache
+          keys:
+            - go-mod-{{ checksum "go.sum" }}
+  save-go-cache:
+    steps:
+      - save_cache:
+          name: Save Go module cache
+          key: go-mod-{{ checksum "go.sum" }}
+          paths:
+            - /home/circleci/go/pkg/mod
+  restore-tools-cache:
+    steps:
+      - restore_cache:
+          name: Restore tools cache (golangci-lint, pact)
+          keys:
+            - tools-v1-{{ arch }}-{{ checksum "Makefile" }}
+  save-tools-cache:
+    steps:
+      - save_cache:
+          name: Save tools cache (golangci-lint, pact)
+          key: tools-v1-{{ arch }}-{{ checksum "Makefile" }}
+          paths:
+            - .bin
 
 # Define the jobs we want to run for this project
 jobs:
@@ -14,44 +43,61 @@ jobs:
     executor: default
     steps:
       - checkout
+      - restore-go-cache
+      - restore-tools-cache
       - run:
           name: Install tools
           command: make tools
+      - save-tools-cache
       - run: make format
       - run: make generate
       - run:
-          name: Run go mod tidy"
+          name: Run go mod tidy
           command: go mod tidy
+      - save-go-cache
       - run:
           name: Check if there are any changes
           command: |
             git status --porcelain=v1 | tee /dev/stderr | wc -l | grep -qE '^ *0 *$$'
       - run: make lint
-  unit_test:
+  unit-test:
     executor: default
     steps:
       - checkout
+      - restore-go-cache
       - run:
           name: Run unit tests
-          command: make test
-  smoke_test:
+          command: |
+            mkdir -p test/results
+            gotestsum --junitfile test/results/unit-tests.xml -- -cover ./...
+      - save-go-cache
+      - store_test_results:
+          path: test/results
+  smoke-test:
     executor: default
     steps:
       - checkout
+      - restore-go-cache
+      - restore-tools-cache
       - run:
           name: Install tools
           command: make tools
+      - save-tools-cache
+      - save-go-cache
       - run:
           name: Run smoke tests
           command: make smoke-test
-  contract_test:
+  contract-test:
     executor: default
     steps:
-      - setup_remote_docker
       - checkout
+      - restore-go-cache
+      - restore-tools-cache
       - run:
           name: Install tools
           command: make tools
+      - save-tools-cache
+      - save-go-cache
       - run:
           name: Run contract tests
           command: make contract-test
@@ -59,9 +105,11 @@ jobs:
     executor: default
     steps:
       - checkout
+      - restore-go-cache
       - run:
           name: Build
           command: make build
+      - save-go-cache
   security-scans:
     executor: default
     steps:
@@ -72,8 +120,7 @@ jobs:
 
 # Orchestrate our job run sequence
 workflows:
-  version: 2
-  test_and_release:
+  test-and-build:
     jobs:
       - prodsec/secrets-scan:
           name: Scan repository for secrets
@@ -86,26 +133,16 @@ workflows:
       - lint-and-format:
           name: Lint & Format
           context: code-client-go
-      - unit_test:
+      - unit-test:
           name: Unit tests
-          requires:
-            - Lint & Format
-      - smoke_test:
+          context: code-client-go
+      - smoke-test:
           name: Smoke tests
           context:
             - code-client-go-smoke-tests-token # SMOKE_TEST_TOKEN
-          requires:
-            - Unit tests
-      - contract_test:
+      - contract-test:
           name: Contract tests
           context:
             - code-client-go-contract-tests # PACT_BROKER_BASE_URL, PACT_BROKER_TOKEN
-          requires:
-            - Unit tests
       - build:
           name: Build
-          requires:
-            - Smoke tests
-            - Contract tests
-            - Security Scans
-            - Scan repository for secrets
