@@ -49,7 +49,7 @@ func getPathAndUnifiedDiff(zeroLogger *zerolog.Logger, baseDir string, filePath 
 	}
 
 	// Workaround: AI Suggestion API only returns \n new lines. It doesn't consider carriage returns.
-	contentBefore := strings.Replace(string(fileContent), "\r\n", "\n", -1)
+	contentBefore := strings.ReplaceAll(string(fileContent), "\r\n", "\n")
 	edits := myers.ComputeEdits(span.URIFromPath(decodedPath), contentBefore, newText)
 	unifiedDiff = fmt.Sprint(gotextdiff.ToUnified(decodedPath, decodedPath+"fixed", contentBefore, edits))
 
