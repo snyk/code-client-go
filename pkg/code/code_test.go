@@ -51,7 +51,7 @@ func Test_Code_entrypoint(t *testing.T) {
 			sastSettings := &sast_contract.SastResponse{
 				SastEnabled: true,
 				LocalCodeEngine: sast_contract.LocalCodeEngine{
-					Enabled: true, /* ensures that legacycli will be called */
+					Enabled: true,
 				},
 			}
 
@@ -59,7 +59,7 @@ func Test_Code_entrypoint(t *testing.T) {
 			assert.NoError(t, err)
 		} else if strings.Contains(r.URL.String(), "/v1/cli-config/feature-flags/") {
 			featureFlag := OrgFeatureFlagResponse{
-				Ok: true,
+				Ok: false,
 			}
 
 			err := json.NewEncoder(w).Encode(featureFlag)
@@ -502,8 +502,8 @@ func Test_Code_UseNativeImplementation(t *testing.T) {
 		assert.Equal(t, expected, actual)
 	})
 
-	t.Run("cci feature flag enabled, native implementation enabled but scle enabled", func(t *testing.T) {
-		expected := false
+	t.Run("cci feature flag enabled, native implementation enabled with scle enabled", func(t *testing.T) {
+		expected := true
 		config := configuration.NewWithOpts()
 		config.Set(configuration.FF_CODE_CONSISTENT_IGNORES, true)
 		config.Set(configuration.FF_CODE_NATIVE_IMPLEMENTATION, true)
@@ -831,5 +831,47 @@ func Test_getSlceEnabled(t *testing.T) {
 			LocalCodeEngine: sast_contract.LocalCodeEngine{Enabled: false},
 		},
 		precachedMsg: "Should return LocalCodeEngine.Enabled from ConfigurationSastSettings",
+	})
+}
+
+func Test_getSlceUrl(t *testing.T) {
+	t.Run("returns existing value when provided", func(t *testing.T) {
+		mockEngine := setupMockEngine(t)
+		result, err := getSlceUrl(mockEngine)(mockEngine.GetConfiguration(), "https://existing.example.com")
+		assert.NoError(t, err)
+		assert.Equal(t, "https://existing.example.com", result)
+	})
+
+	t.Run("reads URL from SAST settings when existing value is nil", func(t *testing.T) {
+		mockEngine := setupMockEngine(t)
+		config := mockEngine.GetConfiguration()
+
+		config.Set(ConfigurationSastSettings, &sast_contract.SastResponse{
+			SastEnabled: true,
+			LocalCodeEngine: sast_contract.LocalCodeEngine{
+				Enabled: true,
+				Url:     "https://deeproxy.my-lce.example.com",
+			},
+		})
+
+		result, err := getSlceUrl(mockEngine)(config, nil)
+		assert.NoError(t, err)
+		assert.Equal(t, "https://deeproxy.my-lce.example.com", result)
+	})
+
+	t.Run("returns empty string when LCE has no URL", func(t *testing.T) {
+		mockEngine := setupMockEngine(t)
+		config := mockEngine.GetConfiguration()
+
+		config.Set(ConfigurationSastSettings, &sast_contract.SastResponse{
+			SastEnabled: true,
+			LocalCodeEngine: sast_contract.LocalCodeEngine{
+				Enabled: true,
+			},
+		})
+
+		result, err := getSlceUrl(mockEngine)(config, nil)
+		assert.NoError(t, err)
+		assert.Equal(t, "", result)
 	})
 }

@@ -8,6 +8,31 @@ import (
 	"github.com/snyk/go-application-framework/pkg/configuration"
 )
 
+func Test_SnykCodeApi(t *testing.T) {
+	t.Run("returns deeproxy URL when no LCE URL configured", func(t *testing.T) {
+		config := configuration.NewWithOpts()
+		config.Set(configuration.API_URL, "https://api.snyk.io")
+		c := &codeClientConfig{localConfiguration: config}
+		assert.Equal(t, "https://deeproxy.snyk.io", c.SnykCodeApi())
+	})
+
+	t.Run("returns LCE URL when configured", func(t *testing.T) {
+		config := configuration.NewWithOpts()
+		config.Set(configuration.API_URL, "https://api.snyk.io")
+		config.Set("internal_snyk_scle_url", "https://deeproxy.my-lce.example.com")
+		c := &codeClientConfig{localConfiguration: config}
+		assert.Equal(t, "https://deeproxy.my-lce.example.com", c.SnykCodeApi())
+	})
+
+	t.Run("falls back to deeproxy URL when LCE URL is empty", func(t *testing.T) {
+		config := configuration.NewWithOpts()
+		config.Set(configuration.API_URL, "https://api.snyk.io")
+		config.Set("internal_snyk_scle_url", "")
+		c := &codeClientConfig{localConfiguration: config}
+		assert.Equal(t, "https://deeproxy.snyk.io", c.SnykCodeApi())
+	})
+}
+
 func Test_GetReportType(t *testing.T) {
 	t.Run("no repport", func(t *testing.T) {
 		config := configuration.NewWithOpts()

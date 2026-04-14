@@ -23,6 +23,10 @@ func (c *codeClientConfig) IsFedramp() bool {
 }
 
 func (c *codeClientConfig) SnykCodeApi() string {
+	lceUrl := c.localConfiguration.GetString("internal_snyk_scle_url")
+	if lceUrl != "" {
+		return lceUrl
+	}
 	return strings.Replace(c.localConfiguration.GetString(configuration.API_URL), "api", "deeproxy", -1)
 }
 
