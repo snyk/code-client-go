@@ -55,6 +55,11 @@ build:
 	@echo "Building for $(GOOS)_$(GOARCH)..."
 	@GOOS=$(GOOS) GOARCH=$(GOARCH) go build ./...
 
+.PHONY: hooks
+hooks:
+	git config core.hooksPath .githooks
+	@echo "Git hooks installed from .githooks/"
+
 .PHONY: clean
 clean:
 	@echo "Cleaning up..."
@@ -134,6 +139,7 @@ help:
 	@echo "$(LOG_PREFIX) download-apis"
 	@echo "$(LOG_PREFIX) download-workspace-api"
 	@echo "$(LOG_PREFIX) download-orchestration-api"
+	@echo "$(LOG_PREFIX) hooks                       Install git pre-commit/pre-push hooks"
 	@echo "$(LOG_PREFIX) contract-test
 	@echo "$(LOG_PREFIX) smoke-test
 	@echo "$(LOG_PREFIX) publish-contract

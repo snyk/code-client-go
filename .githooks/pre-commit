@@ -1,0 +1,50 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+echo "==> Running pre-commit checks..."
+
+# 1. Format with gofmt
+UNFORMATTED=$(gofmt -l -e . 2>&1 || true)
+if [ -n "$UNFORMATTED" ]; then
+  echo "gofmt: the following files need formatting:"
+  echo "$UNFORMATTED"
+  echo ""
+  echo "Run 'gofmt -w -l -e .' or 'make format' to fix."
+  exit 1
+fi
+
+# 2. Run go vet
+echo "==> go vet..."
+go vet ./...
+
+# 3. Run golangci-lint if available
+TOOLS_BIN="$(pwd)/.bin"
+if [ -x "$TOOLS_BIN/golangci-lint" ]; then
+  echo "==> golangci-lint..."
+  "$TOOLS_BIN/golangci-lint" run ./...
+else
+  echo "==> golangci-lint not installed, skipping (run 'make tools' to install)"
+fi
+
+# 4. Regenerate mocks and check for drift
+echo "==> Checking generated code..."
+go generate -tags MOCK ./...
+GENERATED_DIFF=$(git diff --name-only)
+if [ -n "$GENERATED_DIFF" ]; then
+  echo "Generated code is out of date. The following files changed after 'go generate':"
+  echo "$GENERATED_DIFF"
+  echo ""
+  echo "Run 'make generate' and stage the results."
+  exit 1
+fi
+
+# 5. go mod tidy check
+echo "==> go mod tidy..."
+go mod tidy
+MOD_DIFF=$(git diff --name-only -- go.mod go.sum)
+if [ -n "$MOD_DIFF" ]; then
+  echo "go.mod or go.sum changed after 'go mod tidy'. Please stage the updated files."
+  exit 1
+fi
+
+echo "==> Pre-commit checks passed."
