@@ -28,6 +28,7 @@ const (
 	ConfigurationSastEnabled   = "internal_sast_enabled"
 	ConfigurationSastSettings  = "internal_sast_settings"
 	ConfigurarionSlceEnabled   = "internal_snyk_scle_enabled"
+	ConfigurationSlceUrl       = "internal_snyk_scle_url"
 	FfNameNativeImplementation = "snykCodeClientNativeImplementation"
 )
 
@@ -159,13 +160,33 @@ func getSlceEnabled(engine workflow.Engine) configuration.DefaultValueFunction {
 	return callback
 }
 
+func getSlceUrl(engine workflow.Engine) configuration.DefaultValueFunction {
+	err := engine.GetConfiguration().AddKeyDependency(ConfigurationSlceUrl, ConfigurationSastSettings)
+	if err != nil {
+		engine.GetLogger().Err(err).Msg("Failed to add dependency for SAST settings.")
+	}
+	callback := func(config configuration.Configuration, existingValue any) (any, error) {
+		if existingValue != nil {
+			return existingValue, nil
+		}
+		sastResponse, err := getSastResponseFromConfig(config)
+		if err != nil {
+			engine.GetLogger().Err(err).Msg("Failed to access settings.")
+			return "", err
+		}
+
+		return sastResponse.LocalCodeEngine.Url, nil
+	}
+	return callback
+}
+
 func useNativeImplementation(config configuration.Configuration, logger *zerolog.Logger, sastEnabled bool) bool {
 	useConsistentIgnoresFF := config.GetBool(configuration.FF_CODE_CONSISTENT_IGNORES)
 	useNativeImplementationFF := config.GetBool(configuration.FF_CODE_NATIVE_IMPLEMENTATION)
 	reportEnabled := config.GetBool(code_workflow.ConfigurationReportFlag)
 	scleEnabled := config.GetBool(ConfigurarionSlceEnabled)
 
-	nativeImplementationEnabled := (useConsistentIgnoresFF || useNativeImplementationFF) && !scleEnabled
+	nativeImplementationEnabled := useConsistentIgnoresFF || useNativeImplementationFF
 
 	logger.Debug().Msgf("SAST Enabled:       %v", sastEnabled)
 	logger.Debug().Msgf("Report enabled:     %v", reportEnabled)
@@ -189,6 +210,7 @@ func Init(engine workflow.Engine) error {
 	engine.GetConfiguration().AddDefaultValue(ConfigurationSastSettings, getSastSettingsConfig(engine))
 	engine.GetConfiguration().AddDefaultValue(ConfigurationSastEnabled, getSastEnabled(engine))
 	engine.GetConfiguration().AddDefaultValue(ConfigurarionSlceEnabled, getSlceEnabled(engine))
+	engine.GetConfiguration().AddDefaultValue(ConfigurationSlceUrl, getSlceUrl(engine))
 	engine.GetConfiguration().AddDefaultValue(code_workflow.ConfigurationTestFLowName, configuration.StandardDefaultValueFunction("cli_test"))
 	config_utils.AddFeatureFlagToConfig(engine, configuration.FF_CODE_CONSISTENT_IGNORES, "snykCodeConsistentIgnores")
 	config_utils.AddFeatureFlagToConfig(engine, configuration.FF_CODE_NATIVE_IMPLEMENTATION, FfNameNativeImplementation)
