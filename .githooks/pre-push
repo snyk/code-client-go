@@ -1,0 +1,14 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+echo "==> Running pre-push checks..."
+
+# 1. Build
+echo "==> go build..."
+go build ./...
+
+# 2. Unit tests
+echo "==> go test..."
+go test -cover ./...
+
+echo "==> Pre-push checks passed."
