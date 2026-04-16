@@ -65,6 +65,26 @@ func WithProjectName(name *string) CreateTestOption {
 	}
 }
 
+func WithLabels(labels map[string]string) CreateTestOption {
+	return func(body *CreateTestApplicationVndAPIPlusJSONRequestBody) {
+		if labels == nil {
+			return
+		}
+		out := ensureOutput(body)
+		out.Labels = &labels
+	}
+}
+
+func WithProjectTags(tags *[]string) CreateTestOption {
+	return func(body *CreateTestApplicationVndAPIPlusJSONRequestBody) {
+		if tags == nil {
+			return
+		}
+		out := ensureOutput(body)
+		out.ProjectTags = tags
+	}
+}
+
 func WithProjectId(id openapi_types.UUID) CreateTestOption {
 	return func(body *CreateTestApplicationVndAPIPlusJSONRequestBody) {
 		out := ensureOutput(body)

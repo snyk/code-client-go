@@ -34,6 +34,7 @@ const (
 	ConfigurationTestFLowName    = "internal_code_test_flow_name"
 	ConfigurationReportFlag      = "report"
 	ConfigurationProjectName     = "project-name"
+	ConfigurationProjectTags     = "project-tags"
 	ConfigurationTargetName      = "target-name"
 	ConfigurationTargetReference = "target-reference"
 	ConfigurationProjectId       = "project-id"
@@ -246,8 +247,20 @@ func defaultAnalyzeFunction(path string, httpClientFunc func() *http.Client, log
 
 	// use case: stateful local code testing
 	if reportMode == localCode {
-		option := codeclient.ReportLocalTest(config.GetString(ConfigurationProjectName), config.GetString(ConfigurationTargetName), config.GetString(ConfigurationTargetReference))
-		analysisOptions = append(analysisOptions, option)
+		var labels map[string]string
+		labels, err = GenerateProjectLabels(config)
+		if err != nil {
+			return nil, "", nil, err
+		}
+
+		analysisOptions = append(analysisOptions,
+			codeclient.ReportLocalTest(
+				config.GetString(ConfigurationProjectName),
+				config.GetString(ConfigurationTargetName),
+				config.GetString(ConfigurationTargetReference),
+			),
+			codeclient.WithLabels(labels),
+		)
 	}
 
 	target, files, err := determineAnalyzeInput(path, config, logger)
