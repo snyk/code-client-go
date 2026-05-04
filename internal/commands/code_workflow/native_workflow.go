@@ -48,7 +48,7 @@ const (
 	noReport   reportType = "no_report"
 )
 
-type OptionalAnalysisFunctions func(string, func() *http.Client, *zerolog.Logger, configuration.Configuration, ui.UserInterface) (*sarif.SarifResponse, string, *scan.ResultMetaData, error)
+type OptionalAnalysisFunctions func(context.Context, string, func() *http.Client, *zerolog.Logger, configuration.Configuration, ui.UserInterface) (*sarif.SarifResponse, string, *scan.ResultMetaData, error)
 
 type ProgressTrackerFactory struct {
 	userInterface ui.UserInterface
@@ -119,7 +119,7 @@ func EntryPointNative(invocationCtx workflow.InvocationContext, opts ...Optional
 		analyzeFnc = opts[0]
 	}
 
-	result, bundleHash, resultMetaData, err := analyzeFnc(path, invocationCtx.GetNetworkAccess().GetHttpClient, logger, config, invocationCtx.GetUserInterface())
+	result, bundleHash, resultMetaData, err := analyzeFnc(invocationCtx.Context(), path, invocationCtx.GetNetworkAccess().GetHttpClient, logger, config, invocationCtx.GetUserInterface())
 	isNoFilesErr := bundle.IsNoFilesError(err)
 	if err != nil && !isNoFilesErr {
 		return nil, err
@@ -187,7 +187,7 @@ func EntryPointNative(invocationCtx workflow.InvocationContext, opts ...Optional
 }
 
 // default function that uses the code-client-go library
-func defaultAnalyzeFunction(path string, httpClientFunc func() *http.Client, logger *zerolog.Logger, config configuration.Configuration, userInterface ui.UserInterface) (*sarif.SarifResponse, string, *scan.ResultMetaData, error) {
+func defaultAnalyzeFunction(ctx context.Context, path string, httpClientFunc func() *http.Client, logger *zerolog.Logger, config configuration.Configuration, userInterface ui.UserInterface) (*sarif.SarifResponse, string, *scan.ResultMetaData, error) {
 	var result *sarif.SarifResponse
 	var resultMetaData *scan.ResultMetaData
 	requestId, err := uuid.GenerateUUID()
@@ -200,7 +200,6 @@ func defaultAnalyzeFunction(path string, httpClientFunc func() *http.Client, log
 		return nil, "", nil, err
 	}
 
-	ctx := context.Background()
 	httpClient := codeclienthttp.NewHTTPClient(
 		httpClientFunc,
 		codeclienthttp.WithLogger(logger),

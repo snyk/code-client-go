@@ -292,7 +292,7 @@ func (a *analysisOrchestrator) pollTestForFindings(ctx context.Context, client *
 		case <-timeoutTimer.C:
 			msg := "Snyk Code analysis timed out"
 			logger.Error().Str("scanJobId", testId.String()).Msg(msg)
-			return nil, nil, errors.New(msg)
+			return nil, nil, fmt.Errorf("%s: %w", msg, context.DeadlineExceeded)
 		case <-pollingTicker.C:
 			resultMetaData, complete, err := a.retrieveTestURL(ctx, client, org, testId)
 			if err != nil {
