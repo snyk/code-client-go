@@ -176,6 +176,9 @@ type OutputConfig struct {
 	ProjectId   *openapi_types.UUID `json:"project_id,omitempty"`
 	ProjectName *string             `json:"project_name,omitempty"`
 
+	// ProjectTags Project tags to assign when reporting. Each entry is a key=value string.
+	ProjectTags *[]string `json:"project_tags,omitempty"`
+
 	// Report Determines if the test is stateless (false) or stateful (true)
 	Report     *bool   `json:"report,omitempty"`
 	TargetName *string `json:"target_name,omitempty"`
