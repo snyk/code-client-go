@@ -182,7 +182,7 @@ func Test_Code_nativeImplementation_happyPath(t *testing.T) {
 	invocationContext.EXPECT().GetEnhancedLogger().Return(&zerolog.Logger{})
 	invocationContext.EXPECT().GetWorkflowIdentifier().Return(workflow.NewWorkflowIdentifier("code"))
 	invocationContext.EXPECT().GetUserInterface().Return(ui.DefaultUi())
-	invocationContext.EXPECT().Context().Return(context.Background())
+	invocationContext.EXPECT().Context().Return(context.Background()).AnyTimes()
 
 	analysisFunc := func(_ context.Context, path string, _ func() *http.Client, _ *zerolog.Logger, _ configuration.Configuration, _ ui.UserInterface) (*sarif.SarifResponse, string, *scan.ResultMetaData, error) {
 		assert.Equal(t, expectedPath, path)
@@ -272,7 +272,7 @@ func Test_Code_nativeImplementation_analysisFails(t *testing.T) {
 	invocationContext.EXPECT().GetEnhancedLogger().Return(&zerolog.Logger{})
 	invocationContext.EXPECT().GetWorkflowIdentifier().Return(workflow.NewWorkflowIdentifier("code"))
 	invocationContext.EXPECT().GetUserInterface().Return(ui.DefaultUi())
-	invocationContext.EXPECT().Context().Return(context.Background())
+	invocationContext.EXPECT().Context().Return(context.Background()).AnyTimes()
 
 	analysisFunc := func(context.Context, string, func() *http.Client, *zerolog.Logger, configuration.Configuration, ui.UserInterface) (*sarif.SarifResponse, string, *scan.ResultMetaData, error) {
 		return nil, "", nil, fmt.Errorf("something went wrong")
@@ -294,7 +294,7 @@ func Test_Code_nativeImplementation_analysisNil(t *testing.T) {
 	invocationContext.EXPECT().GetEnhancedLogger().Return(&zerolog.Logger{})
 	invocationContext.EXPECT().GetWorkflowIdentifier().Return(workflow.NewWorkflowIdentifier("code"))
 	invocationContext.EXPECT().GetUserInterface().Return(ui.DefaultUi())
-	invocationContext.EXPECT().Context().Return(context.Background())
+	invocationContext.EXPECT().Context().Return(context.Background()).AnyTimes()
 
 	analysisFunc := func(_ context.Context, path string, _ func() *http.Client, _ *zerolog.Logger, _ configuration.Configuration, _ ui.UserInterface) (*sarif.SarifResponse, string, *scan.ResultMetaData, error) {
 		return nil, "", nil, nil
@@ -333,7 +333,7 @@ func Test_Code_nativeImplementation_analysisEmpty(t *testing.T) {
 		invocationContext.EXPECT().GetEnhancedLogger().Return(&zerolog.Logger{})
 		invocationContext.EXPECT().GetWorkflowIdentifier().Return(workflow.NewWorkflowIdentifier("code"))
 		invocationContext.EXPECT().GetUserInterface().Return(ui.DefaultUi())
-		invocationContext.EXPECT().Context().Return(context.Background())
+		invocationContext.EXPECT().Context().Return(context.Background()).AnyTimes()
 
 		analysisFunc := func(_ context.Context, path string, _ func() *http.Client, _ *zerolog.Logger, _ configuration.Configuration, _ ui.UserInterface) (*sarif.SarifResponse, string, *scan.ResultMetaData, error) {
 			response := &sarif.SarifResponse{
@@ -377,7 +377,7 @@ func Test_Code_nativeImplementation_analysisEmpty(t *testing.T) {
 		invocationContext.EXPECT().GetEnhancedLogger().Return(&zerolog.Logger{})
 		invocationContext.EXPECT().GetWorkflowIdentifier().Return(workflow.NewWorkflowIdentifier("code"))
 		invocationContext.EXPECT().GetUserInterface().Return(ui.DefaultUi())
-		invocationContext.EXPECT().Context().Return(context.Background())
+		invocationContext.EXPECT().Context().Return(context.Background()).AnyTimes()
 
 		analysisFunc := func(_ context.Context, path string, _ func() *http.Client, _ *zerolog.Logger, _ configuration.Configuration, _ ui.UserInterface) (*sarif.SarifResponse, string, *scan.ResultMetaData, error) {
 			response := &sarif.SarifResponse{
