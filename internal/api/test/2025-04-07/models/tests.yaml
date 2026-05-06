@@ -63,6 +63,11 @@ components:
           additionalProperties:
             type: string
             pattern: ^[:/?#@&+=%a-zA-Z0-9_.~-]+$
+        project_tags:
+          type: array
+          description: Project tags to assign when reporting. Each entry is a key=value string.
+          items:
+            type: string
         origin:
           type: string
           description: The source control management system or platform origin

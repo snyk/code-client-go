@@ -55,6 +55,7 @@ type AnalysisOrchestrator interface {
 type AnalysisConfig struct {
 	Report          bool
 	ProjectName     *string
+	ProjectTags     *[]string
 	TargetName      *string
 	TargetReference *string
 	ProjectId       *uuid.UUID
@@ -255,6 +256,7 @@ func (a *analysisOrchestrator) RunTest(ctx context.Context, orgId string, b bund
 		testApi.WithInputBundle(b.GetBundleHash(), target.GetPath(), repoUrl, b.GetLimitToFiles(), commitId, branchName),
 		testApi.WithScanType(a.testType),
 		testApi.WithProjectName(reportingConfig.ProjectName),
+		testApi.WithProjectTags(reportingConfig.ProjectTags),
 		testApi.WithTargetName(reportingConfig.TargetName),
 		testApi.WithTargetReference(reportingConfig.TargetReference),
 		testApi.WithReporting(&reportingConfig.Report),

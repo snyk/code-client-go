@@ -129,6 +129,12 @@ func ReportLocalTest(projectName string, targetName string, targetReference stri
 	}
 }
 
+func WithProjectTags(tags *[]string) AnalysisOption {
+	return func(c *analysis.AnalysisConfig) {
+		c.ProjectTags = tags
+	}
+}
+
 func ReportRemoteTest(projectId uuid.UUID, commitId string) AnalysisOption {
 	return func(c *analysis.AnalysisConfig) {
 		c.Report = true
