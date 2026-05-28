@@ -76,7 +76,7 @@ func (d *DeepCodeLLMBindingImpl) submitRequest(ctx context.Context, url *url.URL
 		return nil, err
 	}
 
-	req, err := http.NewRequestWithContext(ctx, http.MethodPost, url.String(), bodyBuffer)
+	req, err := http.NewRequestWithContext(span.Context(), http.MethodPost, url.String(), bodyBuffer)
 	if err != nil {
 		logger.Err(err).Str("requestBody", string(requestBody)).Msg("error creating request")
 		return nil, err

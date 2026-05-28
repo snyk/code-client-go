@@ -24,6 +24,7 @@ func (s *AutofixResponse) toUnifiedDiffSuggestions(logger *zerolog.Logger, baseD
 		d := AutofixUnifiedDiffSuggestion{
 			FixId:               suggestion.Id,
 			UnifiedDiffsPerFile: map[string]string{},
+			Explanation:         suggestion.Explanation,
 		}
 
 		d.UnifiedDiffsPerFile[decodedPath] = unifiedDiff
