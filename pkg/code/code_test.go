@@ -168,6 +168,7 @@ func Test_Code_nativeImplementation_happyPath(t *testing.T) {
 
 	expectedRepoUrl := "https://hello.world"
 	expectedPath := "/var/lib/something"
+	expectedBundleHash := "abc123bundlehash"
 
 	config := configuration.NewWithOpts(configuration.WithAutomaticEnv())
 	config.Set(configuration.FLAG_REMOTE_REPO_URL, expectedRepoUrl)
@@ -227,7 +228,7 @@ func Test_Code_nativeImplementation_happyPath(t *testing.T) {
 				},
 			},
 		}
-		return response, "", &scan.ResultMetaData{}, nil
+		return response, expectedBundleHash, &scan.ResultMetaData{}, nil
 	}
 
 	rs, err := code_workflow.EntryPointNative(invocationContext, analysisFunc)
@@ -252,6 +253,10 @@ func Test_Code_nativeImplementation_happyPath(t *testing.T) {
 			}
 			assert.Equal(t, len(expectedSummary.Results), count)
 			assert.Equal(t, expectedSummary.Artifacts, actualSummary.Artifacts)
+
+			actualBundleHash, metaErr := v.GetMetaData(code_workflow.MetadataBundleHash)
+			assert.NoError(t, metaErr)
+			assert.Equal(t, expectedBundleHash, actualBundleHash)
 		} else if v.GetContentType() == content_type.LOCAL_FINDING_MODEL {
 			_, ok := v.GetPayload().([]byte)
 			assert.True(t, ok)
