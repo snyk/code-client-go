@@ -39,6 +39,8 @@ const (
 	ConfigurationTargetReference = "target-reference"
 	ConfigurationProjectId       = "project-id"
 	ConfigurationCommitId        = "commit-id"
+
+	MetadataBundleHash = "Snyk-Bundle-Hash"
 )
 
 type reportType string
@@ -148,6 +150,7 @@ func EntryPointNative(invocationCtx workflow.InvocationContext, opts ...Optional
 	if bundleHash == "" || isNoFilesErr {
 		summaryData.AddError(code.NewUnsupportedProjectError("Snyk was unable to find supported files.", errorutils.WithWorkingDirectory([]string{path})))
 	}
+	summaryData.SetMetaData(MetadataBundleHash, bundleHash)
 	output = append(output, summaryData)
 
 	if resultAvailable {
