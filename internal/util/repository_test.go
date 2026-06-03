@@ -105,6 +105,112 @@ func Test_GetRepositoryUrl_repo_submodule(t *testing.T) {
 	assert.Equal(t, "https://github.com/snyk-fixtures/mono-repo.git", actualUrl)
 }
 
+func Test_GetRepositoryUrl_non_origin_remote_not_resolved(t *testing.T) {
+	// Origin-only contract: a repository whose sole remote is not named "origin"
+	// must NOT resolve - we never attribute findings to a non-origin remote.
+	repoUrl := "https://github.com/snyk-fixtures/shallow-goof-locked.git"
+	repoDir, err := testutil.SetupCustomTestRepo(t, repoUrl, "master", "", "shallow-goof-locked")
+	require.NoError(t, err)
+
+	repo, err := git.PlainOpenWithOptions(repoDir, &git.PlainOpenOptions{
+		DetectDotGit: true,
+	})
+	require.NoError(t, err)
+
+	config, err := repo.Config()
+	require.NoError(t, err)
+
+	// rename the only remote from "origin" to "upstream"
+	upstream := config.Remotes["origin"]
+	upstream.Name = "upstream"
+	delete(config.Remotes, "origin")
+	config.Remotes["upstream"] = upstream
+	require.NoError(t, repo.SetConfig(config))
+
+	actualUrl, err := util.GetRepositoryUrl(repoDir)
+	assert.Error(t, err)
+	assert.Empty(t, actualUrl)
+}
+
+func Test_SanitiseCredentials(t *testing.T) {
+	tests := []struct {
+		name      string
+		input     string
+		want      string
+		wantErr   bool
+		forbidden string // substring that must NOT appear in the result
+		required  string // substring that MUST appear in the result
+	}{
+		{
+			name:      "https with user and token strips userinfo",
+			input:     "https://user:token@github.com/org/repo.git",
+			want:      "https://github.com/org/repo.git",
+			forbidden: "token",
+		},
+		{
+			name:  "https without credentials is unchanged",
+			input: "https://github.com/org/repo.git",
+			want:  "https://github.com/org/repo.git",
+		},
+		{
+			name:  "scp-style without password is preserved",
+			input: "git@github.com:org/repo.git",
+			want:  "git@github.com:org/repo.git",
+		},
+		{
+			// In scp syntax "[user@]host:path" the first ":" separates host from
+			// path, so here host is "user" and "secret@github.com:org/repo.git" is
+			// the path - "secret" is not a credential and the URL is unchanged.
+			name:  "scp-style colon before at is path, returned unchanged",
+			input: "user:secret@github.com:org/repo.git",
+			want:  "user:secret@github.com:org/repo.git",
+		},
+		{
+			// Regression: an "@" inside the path (e.g. an email address) must not be
+			// treated as userinfo and corrupt the URL.
+			name:     "at inside path is preserved",
+			input:    "github.com:path/email@domain.com/repo.git",
+			want:     "github.com:path/email@domain.com/repo.git",
+			required: "path/email",
+		},
+		{
+			name:    "unparseable credentialed url fails closed",
+			input:   "https://user:secret@example.com:notaport/repo.git",
+			wantErr: true,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, err := util.SanitiseCredentials(tt.input)
+			if tt.wantErr {
+				assert.Error(t, err)
+				assert.Empty(t, got)
+				return
+			}
+			require.NoError(t, err)
+			assert.Equal(t, tt.want, got)
+			if tt.forbidden != "" {
+				assert.NotContains(t, got, tt.forbidden)
+			}
+			if tt.required != "" {
+				assert.Contains(t, got, tt.required)
+			}
+		})
+	}
+}
+
+func Test_GetRepositoryUrl_repo_without_remote(t *testing.T) {
+	// A git repository with no configured remote is a stable state (e.g. a
+	// local-only checkout); it must return an error rather than a URL.
+	repoDir := t.TempDir()
+	_, err := git.PlainInit(repoDir, false)
+	require.NoError(t, err)
+
+	actualUrl, err := util.GetRepositoryUrl(repoDir)
+	assert.Error(t, err)
+	assert.Empty(t, actualUrl)
+}
+
 func Test_GetCommitId_valid_repo(t *testing.T) {
 	expectedRepoUrl := "https://github.com/snyk-fixtures/shallow-goof-locked.git"
 	repoDir, err := testutil.SetupCustomTestRepo(t, expectedRepoUrl, "master", "", "shallow-goof-locked")
