@@ -292,7 +292,7 @@ func determineAnalyzeInput(path string, config configuration.Configuration, logg
 	if !pathIsDirectory {
 		target, err := scan.NewRepositoryTarget(filepath.Dir(path), scan.WithRepositoryUrl(config.GetString(configuration.FLAG_REMOTE_REPO_URL)), scan.WithCommitId(config.GetString(ConfigurationCommitId)))
 		if err != nil {
-			logger.Warn().Err(err)
+			logger.Warn().Err(err).Msg("could not determine repository URL; consistent-ignores and SCM association may not be applied. Pass --remote-repo-url to set it explicitly")
 		}
 
 		files = func() <-chan string {
@@ -308,7 +308,7 @@ func determineAnalyzeInput(path string, config configuration.Configuration, logg
 
 	target, err := scan.NewRepositoryTarget(path, scan.WithRepositoryUrl(config.GetString(configuration.FLAG_REMOTE_REPO_URL)), scan.WithCommitId(config.GetString(ConfigurationCommitId)))
 	if err != nil {
-		logger.Warn().Err(err)
+		logger.Warn().Err(err).Msg("could not determine repository URL; consistent-ignores and SCM association may not be applied. Pass --remote-repo-url to set it explicitly")
 	}
 
 	files, err = getFilesForPath(path, logger, config.GetInt(configuration.MAX_THREADS))
