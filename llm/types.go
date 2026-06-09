@@ -72,8 +72,9 @@ type AutofixResponse struct {
 	AutofixSuggestions []autofixResponseSingleFix `json:"fixes"`
 }
 type autofixResponseSingleFix struct {
-	Id    string `json:"id"`
-	Value string `json:"value"`
+	Id          string `json:"id"`
+	Value       string `json:"value"`
+	Explanation string `json:"explanation"`
 }
 
 // AutofixUnifiedDiffSuggestion represents the diff between the original and the fixed source code.
