@@ -2,6 +2,8 @@ module github.com/snyk/code-client-go
 
 go 1.26.2
 
+toolchain go1.26.4
+
 require (
 	github.com/go-git/go-git/v5 v5.19.1
 	github.com/golang/mock v1.6.0
