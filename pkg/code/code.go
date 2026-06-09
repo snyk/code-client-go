@@ -20,9 +20,7 @@ import (
 	"github.com/snyk/code-client-go/pkg/code/sast_contract"
 )
 
-const (
-	codeWorkflowName = "code.test"
-)
+const codeWorkflowName = "code.test"
 
 const (
 	ConfigurationSastEnabled   = "internal_sast_enabled"
