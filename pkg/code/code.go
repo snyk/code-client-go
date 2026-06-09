@@ -20,7 +20,10 @@ import (
 	"github.com/snyk/code-client-go/pkg/code/sast_contract"
 )
 
-const codeWorkflowName = "code.test"
+const (
+	codeWorkflowName       = "code.test"
+	codeIssuesWorkflowName = "code.issues"
+)
 
 const (
 	ConfigurationSastEnabled   = "internal_sast_enabled"
@@ -51,8 +54,24 @@ func GetCodeFlagSet() *pflag.FlagSet {
 	return flagSet
 }
 
+func GetCodeIssuesFlagSet() *pflag.FlagSet {
+	flagSet := pflag.NewFlagSet(codeIssuesWorkflowName, pflag.ExitOnError)
+
+	flagSet.Bool("json", false, "Output in json format")
+	flagSet.String(code_workflow.ConfigurationProjectId, "", "The unique identifier of the project whose Code issues should be listed.")
+	flagSet.String(configuration.FLAG_REMOTE_REPO_URL, "", "The URL of the remote repository used to resolve a Snyk project when project-id is not provided.")
+	flagSet.String(code_workflow.ConfigurationTargetReference, "", "The target reference used to resolve a Snyk project when project-id is not provided.")
+	flagSet.String(code_workflow.ConfigurationIgnored, "false", "Filter ignored issues: true, false, or all.")
+	flagSet.String(configuration.FLAG_SEVERITY_THRESHOLD, "", "Minimum severity level to list (low|medium|high|critical)")
+	flagSet.Int(code_workflow.ConfigurationLimit, 100, "Number of results to return per page.")
+	flagSet.Bool(code_workflow.ConfigurationAll, false, "Fetch all pages of results.")
+
+	return flagSet
+}
+
 // WORKFLOWID_CODE defines a new workflow identifier
 var WORKFLOWID_CODE = workflow.NewWorkflowIdentifier(codeWorkflowName)
+var WORKFLOWID_CODE_ISSUES = workflow.NewWorkflowIdentifier(codeIssuesWorkflowName)
 
 func getSastResponse(res *http.Response) (*sast_contract.SastResponse, error) {
 	//goland:noinspection GoUnhandledErrorResult
@@ -185,6 +204,12 @@ func Init(engine workflow.Engine) error {
 		return err
 	}
 
+	issueFlags := GetCodeIssuesFlagSet()
+	_, err = engine.Register(WORKFLOWID_CODE_ISSUES, workflow.ConfigurationOptionsFromFlagset(issueFlags), codeIssuesWorkflowEntryPoint)
+	if err != nil {
+		return err
+	}
+
 	engine.GetConfiguration().AddDefaultValue(ConfigurationSastSettings, getSastSettingsConfig(engine))
 	engine.GetConfiguration().AddDefaultValue(ConfigurationSastEnabled, getSastEnabled(engine))
 	engine.GetConfiguration().AddDefaultValue(ConfigurarionSlceEnabled, getSlceEnabled(engine))
@@ -193,6 +218,10 @@ func Init(engine workflow.Engine) error {
 	config_utils.AddFeatureFlagToConfig(engine, configuration.FF_CODE_NATIVE_IMPLEMENTATION, FfNameNativeImplementation)
 
 	return err
+}
+
+func codeIssuesWorkflowEntryPoint(invocationCtx workflow.InvocationContext, _ []workflow.Data) ([]workflow.Data, error) {
+	return code_workflow.EntryPointIssues(invocationCtx)
 }
 
 // codeWorkflowEntryPoint is the entry point for the code workflow.
