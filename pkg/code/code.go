@@ -26,8 +26,8 @@ const (
 
 const (
 	ConfigurationSastEnabled   = "internal_sast_enabled"
-	ConfigurationSastSettings  = "internal_sast_settings"
-	ConfigurarionSlceEnabled   = "internal_snyk_scle_enabled"
+	ConfigurationSastSettings  = code_workflow.ConfigurationSastSettings
+	ConfigurarionSlceEnabled   = code_workflow.ConfigurationSlceEnabled
 	FfNameNativeImplementation = "snykCodeClientNativeImplementation"
 )
 
@@ -166,7 +166,10 @@ func useNativeImplementation(config configuration.Configuration, logger *zerolog
 	reportEnabled := config.GetBool(code_workflow.ConfigurationReportFlag)
 	scleEnabled := config.GetBool(ConfigurarionSlceEnabled)
 
-	nativeImplementationEnabled := (useConsistentIgnoresFF || useNativeImplementationFF) && !scleEnabled
+	// SCLE no longer forces the legacy path: code-client-go honors the local
+	// engine URL from SAST settings (see codeClientConfig.SnykCodeApi), so the
+	// native implementation supports SCLE flows directly.
+	nativeImplementationEnabled := useConsistentIgnoresFF || useNativeImplementationFF
 
 	logger.Debug().Msgf("SAST Enabled:       %v", sastEnabled)
 	logger.Debug().Msgf("Report enabled:     %v", reportEnabled)
@@ -224,6 +227,7 @@ func codeWorkflowEntryPoint(invocationCtx workflow.InvocationContext, _ []workfl
 	logger.Debug().Msgf("Implementation: %s", implementationName)
 
 	if nativeImplementation {
+		registerLocalEngineAuthURL(config, logger)
 		result, err = code_workflow.EntryPointNative(invocationCtx)
 	} else {
 		result, err = code_workflow.EntryPointLegacy(invocationCtx)
@@ -232,4 +236,37 @@ func codeWorkflowEntryPoint(invocationCtx workflow.InvocationContext, _ []workfl
 	err = errorutils.DecorateTestError(err, config)
 
 	return result, err
+}
+
+// registerLocalEngineAuthURL ensures the Snyk Code Local Engine (SCLE) URL is
+// treated as an authenticated Snyk endpoint. The networking stack only attaches
+// credentials (including OAuth2 tokens) to the configured API host, its
+// "deeproxy" subdomain, or URLs in AUTHENTICATION_ADDITIONAL_URLS. SCLE serves
+// the deeproxy API from a customer-hosted URL that matches none of those, so it
+// must be registered explicitly or requests would be sent unauthenticated.
+func registerLocalEngineAuthURL(config configuration.Configuration, logger *zerolog.Logger) {
+	if !config.GetBool(ConfigurarionSlceEnabled) {
+		return
+	}
+
+	sastResponse, err := getSastResponseFromConfig(config)
+	if err != nil {
+		logger.Debug().Err(err).Msg("Unable to read SAST settings to register the local engine auth URL.")
+		return
+	}
+
+	localEngineURL := sastResponse.LocalCodeEngine.Url
+	if localEngineURL == "" {
+		return
+	}
+
+	existing := config.GetStringSlice(configuration.AUTHENTICATION_ADDITIONAL_URLS)
+	for _, u := range existing {
+		if u == localEngineURL {
+			return
+		}
+	}
+
+	config.Set(configuration.AUTHENTICATION_ADDITIONAL_URLS, append(existing, localEngineURL))
+	logger.Debug().Msgf("Registered Snyk Code Local Engine URL for authentication: %s", localEngineURL)
 }

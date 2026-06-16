@@ -1,6 +1,7 @@
 package code_workflow
 
 import (
+	"context"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -14,6 +15,22 @@ import (
 	"github.com/snyk/go-application-framework/pkg/configuration"
 	"github.com/snyk/go-application-framework/pkg/networking"
 )
+
+func Test_defaultAnalyzeFunction_reportNotSupportedWithSCLE(t *testing.T) {
+	logger := zerolog.Nop()
+
+	t.Run("errors when --report is requested for an SCLE org", func(t *testing.T) {
+		config := configuration.NewWithOpts()
+		config.Set(ConfigurationReportFlag, true)
+		config.Set(ConfigurationProjectName, "my-project") // makes report mode localCode
+		config.Set(ConfigurationSlceEnabled, true)
+
+		_, _, _, err := defaultAnalyzeFunction(context.Background(), t.TempDir(), nil, &logger, config, nil)
+
+		assert.Error(t, err)
+		assert.Contains(t, err.Error(), "Snyk Code Local Engine")
+	})
+}
 
 func writeFile(t *testing.T, filename string) {
 	t.Helper()
