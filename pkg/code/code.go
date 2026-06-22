@@ -49,6 +49,7 @@ func GetCodeFlagSet() *pflag.FlagSet {
 	flagSet.String(code_workflow.ConfigurationTargetName, "", "The name of the target to test.")
 	flagSet.String(code_workflow.ConfigurationTargetReference, "", "The reference that differentiates this project, e.g. a branch name or version.")
 	flagSet.String("target-file", "", "The path to the target file to test.")
+	flagSet.Bool(code_workflow.ConfigurationDiscoverSanitisers, false, "Discover custom-sanitizer candidates instead of reporting vulnerability findings.")
 
 	return flagSet
 }

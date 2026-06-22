@@ -11,6 +11,7 @@ import (
 	gomock "github.com/golang/mock/gomock"
 	bundle "github.com/snyk/code-client-go/bundle"
 	analysis "github.com/snyk/code-client-go/internal/analysis"
+	sanitizers "github.com/snyk/code-client-go/internal/analysis/sanitizers"
 	sarif "github.com/snyk/code-client-go/sarif"
 	scan "github.com/snyk/code-client-go/scan"
 )
@@ -36,6 +37,21 @@ func NewMockAnalysisOrchestrator(ctrl *gomock.Controller) *MockAnalysisOrchestra
 // EXPECT returns an object that allows the caller to indicate expected use.
 func (m *MockAnalysisOrchestrator) EXPECT() *MockAnalysisOrchestratorMockRecorder {
 	return m.recorder
+}
+
+// RunDiscoverTest mocks base method.
+func (m *MockAnalysisOrchestrator) RunDiscoverTest(ctx context.Context, orgId string, b bundle.Bundle, target scan.Target) (*sanitizers.Document, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "RunDiscoverTest", ctx, orgId, b, target)
+	ret0, _ := ret[0].(*sanitizers.Document)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// RunDiscoverTest indicates an expected call of RunDiscoverTest.
+func (mr *MockAnalysisOrchestratorMockRecorder) RunDiscoverTest(ctx, orgId, b, target interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RunDiscoverTest", reflect.TypeOf((*MockAnalysisOrchestrator)(nil).RunDiscoverTest), ctx, orgId, b, target)
 }
 
 // RunLegacyTest mocks base method.

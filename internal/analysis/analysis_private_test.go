@@ -15,7 +15,7 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func TestAnalysis_retrieveTestURL_TestResultError(t *testing.T) {
+func TestAnalysis_isTestComplete_TestResultError(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	config := confMocks.NewMockConfig(ctrl)
 	mockHTTPClient := httpmocks.NewMockHTTPClient(ctrl)
@@ -61,10 +61,9 @@ func TestAnalysis_retrieveTestURL_TestResultError(t *testing.T) {
 }`)),
 	}, nil)
 
-	resultMetaData, completed, err := analysisOrchestrator.retrieveTestURL(t.Context(), apiClient, uuid.New(), uuid.New())
+	completed, err := analysisOrchestrator.isTestComplete(t.Context(), apiClient, uuid.New(), uuid.New())
 	assert.Error(t, err)
 	assert.False(t, completed)
-	assert.Nil(t, resultMetaData)
 
 	expectedError := snyk_errors.Error{}
 	assert.ErrorAs(t, err, &expectedError)

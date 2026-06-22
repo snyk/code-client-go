@@ -10,8 +10,9 @@ import (
 
 // Defines values for ComponentAttributesFindingsDocumentType.
 const (
-	Cyclonedx ComponentAttributesFindingsDocumentType = "cyclonedx"
-	Sarif     ComponentAttributesFindingsDocumentType = "sarif"
+	Cyclonedx                        ComponentAttributesFindingsDocumentType = "cyclonedx"
+	Sarif                            ComponentAttributesFindingsDocumentType = "sarif"
+	CustomSanitizerDiscoveryDocument ComponentAttributesFindingsDocumentType = "custom-sanitizer-discovery"
 )
 
 // Defines values for GetComponentsResponseItemType.

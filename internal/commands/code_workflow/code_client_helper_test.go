@@ -96,3 +96,40 @@ func Test_GetReportType(t *testing.T) {
 		assert.Error(t, err)
 	})
 }
+
+func Test_IsDiscoverSanitisers(t *testing.T) {
+	t.Run("disabled by default", func(t *testing.T) {
+		config := configuration.NewWithOpts()
+		enabled, err := IsDiscoverSanitisers(config)
+		assert.False(t, enabled)
+		assert.NoError(t, err)
+	})
+
+	t.Run("enabled", func(t *testing.T) {
+		config := configuration.NewWithOpts()
+		config.Set(ConfigurationDiscoverSanitisers, true)
+		enabled, err := IsDiscoverSanitisers(config)
+		assert.True(t, enabled)
+		assert.NoError(t, err)
+	})
+
+	t.Run("incompatible with report", func(t *testing.T) {
+		config := configuration.NewWithOpts()
+		config.Set(ConfigurationDiscoverSanitisers, true)
+		config.Set(ConfigurationReportFlag, true)
+		config.Set(ConfigurationProjectName, "hello")
+		enabled, err := IsDiscoverSanitisers(config)
+		assert.False(t, enabled)
+		assert.Error(t, err)
+	})
+
+	t.Run("incompatible with SCLE", func(t *testing.T) {
+		config := configuration.NewWithOpts()
+		config.Set(ConfigurationDiscoverSanitisers, true)
+		config.Set(ConfigurationSlceEnabled, true)
+		enabled, err := IsDiscoverSanitisers(config)
+		assert.False(t, enabled)
+		assert.Error(t, err)
+		assert.Contains(t, err.Error(), "Snyk Code Local Engine")
+	})
+}

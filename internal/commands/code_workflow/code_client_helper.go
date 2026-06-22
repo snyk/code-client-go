@@ -78,3 +78,17 @@ func GetReportMode(config configuration.Configuration) (reportType, error) {
 
 	return localCode, nil
 }
+
+func IsDiscoverSanitisers(config configuration.Configuration) (bool, error) {
+	if !config.GetBool(ConfigurationDiscoverSanitisers) {
+		return false, nil
+	}
+	if config.GetBool(ConfigurationReportFlag) {
+		return false, errors.New("--discover-sanitisers cannot be used with --report")
+	}
+	// Discovery goes through the test service, which Snyk Code Local Engine does not implement.
+	if config.GetBool(ConfigurationSlceEnabled) {
+		return false, errors.New("--discover-sanitisers is not supported with Snyk Code Local Engine")
+	}
+	return true, nil
+}
