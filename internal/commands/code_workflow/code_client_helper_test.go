@@ -6,7 +6,51 @@ import (
 	"github.com/stretchr/testify/assert"
 
 	"github.com/snyk/go-application-framework/pkg/configuration"
+
+	"github.com/snyk/code-client-go/pkg/code/sast_contract"
 )
+
+func Test_SnykCodeApi(t *testing.T) {
+	t.Run("derives deeproxy host from API URL when SCLE is disabled", func(t *testing.T) {
+		config := configuration.NewWithOpts()
+		config.Set(configuration.API_URL, "https://api.snyk.io")
+		c := &codeClientConfig{localConfiguration: config}
+		assert.Equal(t, "https://deeproxy.snyk.io", c.SnykCodeApi())
+	})
+
+	t.Run("returns the local engine URL when SCLE is enabled", func(t *testing.T) {
+		config := configuration.NewWithOpts()
+		config.Set(configuration.API_URL, "https://api.snyk.io")
+		config.Set(ConfigurationSlceEnabled, true)
+		config.Set(ConfigurationSastSettings, &sast_contract.SastResponse{
+			LocalCodeEngine: sast_contract.LocalCodeEngine{
+				Enabled: true,
+				Url:     "https://local-engine.example.com",
+			},
+		})
+		c := &codeClientConfig{localConfiguration: config}
+		assert.Equal(t, "https://local-engine.example.com", c.SnykCodeApi())
+	})
+
+	t.Run("falls back to deeproxy host when SCLE is enabled but the URL is empty", func(t *testing.T) {
+		config := configuration.NewWithOpts()
+		config.Set(configuration.API_URL, "https://api.snyk.io")
+		config.Set(ConfigurationSlceEnabled, true)
+		config.Set(ConfigurationSastSettings, &sast_contract.SastResponse{
+			LocalCodeEngine: sast_contract.LocalCodeEngine{Enabled: true},
+		})
+		c := &codeClientConfig{localConfiguration: config}
+		assert.Equal(t, "https://deeproxy.snyk.io", c.SnykCodeApi())
+	})
+
+	t.Run("falls back to deeproxy host when SCLE is enabled but settings are missing", func(t *testing.T) {
+		config := configuration.NewWithOpts()
+		config.Set(configuration.API_URL, "https://api.snyk.io")
+		config.Set(ConfigurationSlceEnabled, true)
+		c := &codeClientConfig{localConfiguration: config}
+		assert.Equal(t, "https://deeproxy.snyk.io", c.SnykCodeApi())
+	})
+}
 
 func Test_GetReportType(t *testing.T) {
 	t.Run("no repport", func(t *testing.T) {
@@ -50,5 +94,42 @@ func Test_GetReportType(t *testing.T) {
 		actualMode, err := GetReportMode(config)
 		assert.Equal(t, noReport, actualMode)
 		assert.Error(t, err)
+	})
+}
+
+func Test_IsDiscoverSanitisers(t *testing.T) {
+	t.Run("disabled by default", func(t *testing.T) {
+		config := configuration.NewWithOpts()
+		enabled, err := IsDiscoverSanitisers(config)
+		assert.False(t, enabled)
+		assert.NoError(t, err)
+	})
+
+	t.Run("enabled", func(t *testing.T) {
+		config := configuration.NewWithOpts()
+		config.Set(ConfigurationDiscoverSanitisers, true)
+		enabled, err := IsDiscoverSanitisers(config)
+		assert.True(t, enabled)
+		assert.NoError(t, err)
+	})
+
+	t.Run("incompatible with report", func(t *testing.T) {
+		config := configuration.NewWithOpts()
+		config.Set(ConfigurationDiscoverSanitisers, true)
+		config.Set(ConfigurationReportFlag, true)
+		config.Set(ConfigurationProjectName, "hello")
+		enabled, err := IsDiscoverSanitisers(config)
+		assert.False(t, enabled)
+		assert.Error(t, err)
+	})
+
+	t.Run("incompatible with SCLE", func(t *testing.T) {
+		config := configuration.NewWithOpts()
+		config.Set(ConfigurationDiscoverSanitisers, true)
+		config.Set(ConfigurationSlceEnabled, true)
+		enabled, err := IsDiscoverSanitisers(config)
+		assert.False(t, enabled)
+		assert.Error(t, err)
+		assert.Contains(t, err.Error(), "Snyk Code Local Engine")
 	})
 }

@@ -5,6 +5,7 @@ components:
       enum:
       - code_security
       - code_security, code_quality
+      - custom_sanitizer_discovery
     ScanConfig:
       type: object
       properties:
@@ -17,6 +18,7 @@ components:
             - sca
             - legacy_scanners
             - secrets
+            - sanitizer_discovery
         result_type:
           $ref: '#/components/schemas/ResultType'
         limit_test_to_files:

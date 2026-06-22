@@ -15,6 +15,7 @@ import (
 	codeclient "github.com/snyk/code-client-go"
 	"github.com/snyk/code-client-go/bundle"
 	codeclienthttp "github.com/snyk/code-client-go/http"
+	"github.com/snyk/code-client-go/internal/analysis/sanitizers"
 	"github.com/snyk/code-client-go/sarif"
 	"github.com/snyk/code-client-go/scan"
 	"github.com/snyk/error-catalog-golang-public/code"
@@ -39,6 +40,12 @@ const (
 	ConfigurationTargetReference = "target-reference"
 	ConfigurationProjectId       = "project-id"
 	ConfigurationCommitId        = "commit-id"
+	ConfigurationSastSettings    = "internal_sast_settings"
+	ConfigurationSlceEnabled     = "internal_snyk_scle_enabled"
+	// ConfigurationDiscoverSanitisers is the `--discover-sanitisers` flag: when
+	// set, `snyk code test` surfaces custom-sanitizer candidates instead of
+	// vulnerability findings (auto-discovery, epic ML-1952).
+	ConfigurationDiscoverSanitisers = "discover-sanitisers"
 
 	MetadataBundleHash = "Snyk-Bundle-Hash"
 )
@@ -110,6 +117,12 @@ func EntryPointNative(invocationCtx workflow.InvocationContext, opts ...Optional
 	config := invocationCtx.GetConfiguration()
 	logger := invocationCtx.GetEnhancedLogger()
 	id := invocationCtx.GetWorkflowIdentifier()
+
+	// --discover-sanitisers: surface custom-sanitizer candidates instead of a
+	// vulnerability scan (auto-discovery, epic ML-1952).
+	if config.GetBool(ConfigurationDiscoverSanitisers) {
+		return runDiscoverWorkflow(invocationCtx)
+	}
 
 	// track usage based on
 	trackUsage(invocationCtx.GetNetworkAccess(), config)
@@ -204,6 +217,20 @@ func defaultAnalyzeFunction(ctx context.Context, path string, httpClientFunc fun
 		return nil, "", nil, err
 	}
 
+	// Reporting goes through the test service, which Snyk Code Local Engine does
+	// not implement, so --report is not supported for SCLE.
+	if reportMode != noReport && config.GetBool(ConfigurationSlceEnabled) {
+		return nil, "", nil, errors.New("--report is not supported with Snyk Code Local Engine")
+	}
+
+	discover, err := IsDiscoverSanitisers(config)
+	if err != nil {
+		return nil, "", nil, err
+	}
+	if discover {
+		return nil, "", nil, errors.New("--discover-sanitisers requires the discover workflow")
+	}
+
 	httpClient := codeclienthttp.NewHTTPClient(
 		httpClientFunc,
 		codeclienthttp.WithLogger(logger),
@@ -219,16 +246,12 @@ func defaultAnalyzeFunction(ctx context.Context, path string, httpClientFunc fun
 
 	analysisOptions := []codeclient.AnalysisOption{}
 
-	codeScannerOptions := []codeclient.OptionFunc{
-		codeclient.WithLogger(logger),
-		codeclient.WithTrackerFactory(progressFactory),
-		codeclient.WithFlow(config.GetString(ConfigurationTestFLowName)),
-	}
-
 	codeScanner := codeclient.NewCodeScanner(
 		codeScannerConfig,
 		httpClient,
-		codeScannerOptions...,
+		codeclient.WithLogger(logger),
+		codeclient.WithTrackerFactory(progressFactory),
+		codeclient.WithFlow(config.GetString(ConfigurationTestFLowName)),
 	)
 
 	logger.Debug().Msgf("Request ID: %s", requestId)
@@ -276,9 +299,46 @@ func defaultAnalyzeFunction(ctx context.Context, path string, httpClientFunc fun
 	changedFiles := make(map[string]bool)
 	var bundleHash string
 
+	// Snyk Code Local Engine implements the old deeproxy API rather than the new
+	// test service, so SCLE scans must use the legacy ("deeproxy") scanner.
+	if config.GetBool(ConfigurationSlceEnabled) {
+		return analyzeWithLegacyEngine(ctx, codeScanner, requestId, target, files, changedFiles, logger)
+	}
+
 	result, bundleHash, resultMetaData, err = codeScanner.UploadAndAnalyzeWithOptions(ctx, requestId, target, files, changedFiles, analysisOptions...)
 
 	return result, bundleHash, resultMetaData, err
+}
+
+// analyzeWithLegacyEngine runs the deeproxy-based ("legacy") scanner, which is
+// the API surface that Snyk Code Local Engine implements. The legacy scanner
+// streams progress over a status channel, so it is drained concurrently to keep
+// the analysis goroutine from blocking on send.
+//
+// Its return signature mirrors the OptionalAnalysisFunctions contract; the
+// ResultMetaData is always nil because the legacy/deeproxy API returns no
+// test-service metadata (web UI URL, project/snapshot id) — there is none to
+// surface for an SCLE scan.
+func analyzeWithLegacyEngine(
+	ctx context.Context,
+	codeScanner codeclient.CodeScanner,
+	requestId string,
+	target scan.Target,
+	files <-chan string,
+	changedFiles map[string]bool,
+	logger *zerolog.Logger,
+) (*sarif.SarifResponse, string, *scan.ResultMetaData, error) {
+	statusChannel := make(chan scan.LegacyScanStatus)
+	go func() {
+		for status := range statusChannel {
+			logger.Trace().Msgf("Snyk Code Local Engine analysis status: %s", status.Message)
+		}
+	}()
+
+	// shardKey is used by deeproxy only for cache sharding and is optional here.
+	const shardKey = ""
+	result, bundleHash, err := codeScanner.UploadAndAnalyzeLegacy(ctx, requestId, target, shardKey, files, changedFiles, statusChannel)
+	return result, bundleHash, nil, err
 }
 
 func determineAnalyzeInput(path string, config configuration.Configuration, logger *zerolog.Logger) (scan.Target, <-chan string, error) {
@@ -331,7 +391,113 @@ func getFilesForPath(path string, logger *zerolog.Logger, max_threads int) (<-ch
 	return results, nil
 }
 
-// Create new Workflow data out of the given object and content type
+// runDiscoverWorkflow handles `snyk code test --discover-sanitisers`.
+func runDiscoverWorkflow(invocationCtx workflow.InvocationContext) ([]workflow.Data, error) {
+	config := invocationCtx.GetConfiguration()
+	logger := invocationCtx.GetEnhancedLogger()
+	id := invocationCtx.GetWorkflowIdentifier()
+	path := config.GetString(configuration.INPUT_DIRECTORY)
+
+	if _, err := IsDiscoverSanitisers(config); err != nil {
+		return nil, err
+	}
+
+	doc, err := defaultDiscoverFunction(
+		invocationCtx.Context(),
+		path,
+		invocationCtx.GetNetworkAccess().GetHttpClient,
+		logger,
+		config,
+		invocationCtx.GetUserInterface(),
+	)
+	if err != nil {
+		return nil, err
+	}
+
+	typeID := workflow.NewTypeIdentifier(id, "discover-sanitisers")
+	output, err := discoverWorkflowData(typeID, config, doc, path, logger)
+	if err != nil {
+		return nil, err
+	}
+	if len(doc.Candidates) > 0 {
+		return output, &sanitizers.CandidatesFoundError{Count: len(doc.Candidates)}
+	}
+	return output, nil
+}
+
+func defaultDiscoverFunction(ctx context.Context, path string, httpClientFunc func() *http.Client, logger *zerolog.Logger, config configuration.Configuration, userInterface ui.UserInterface) (*sanitizers.Document, error) {
+	requestId, err := uuid.GenerateUUID()
+	if err != nil {
+		return nil, err
+	}
+
+	codeScanner := newNativeCodeScanner(httpClientFunc, logger, config, userInterface)
+
+	target, files, err := determineAnalyzeInput(path, config, logger)
+	if err != nil {
+		return nil, err
+	}
+
+	doc, _, err := codeScanner.UploadAndDiscover(ctx, requestId, target, files, map[string]bool{})
+	isNoFilesErr := bundle.IsNoFilesError(err)
+	if err != nil && !isNoFilesErr {
+		return nil, err
+	}
+	if doc == nil {
+		if isNoFilesErr {
+			return nil, err
+		}
+		return nil, errors.New("empty bundle, no custom-sanitizer discovery")
+	}
+	return doc, nil
+}
+
+func newNativeCodeScanner(httpClientFunc func() *http.Client, logger *zerolog.Logger, config configuration.Configuration, userInterface ui.UserInterface) codeclient.CodeScanner {
+	httpClient := codeclienthttp.NewHTTPClient(
+		httpClientFunc,
+		codeclienthttp.WithLogger(logger),
+	)
+	return codeclient.NewCodeScanner(
+		&codeClientConfig{localConfiguration: config},
+		httpClient,
+		codeclient.WithLogger(logger),
+		codeclient.WithTrackerFactory(ProgressTrackerFactory{
+			userInterface: userInterface,
+			logger:        logger,
+		}),
+		codeclient.WithFlow(config.GetString(ConfigurationTestFLowName)),
+	)
+}
+
+func discoverWorkflowData(
+	id workflow.Identifier,
+	config configuration.Configuration,
+	doc *sanitizers.Document,
+	path string,
+	logger *zerolog.Logger,
+) ([]workflow.Data, error) {
+	useJSON := config.GetBool("json") || config.GetString("json-file-output") != "" ||
+		config.GetBool("sarif") || config.GetString("sarif-file-output") != ""
+
+	if useJSON {
+		data, err := createCodeWorkflowData(id, config, *doc, "application/json", path, logger)
+		if err != nil {
+			return nil, err
+		}
+		return []workflow.Data{data}, nil
+	}
+
+	data := workflow.NewData(
+		id,
+		"text/plain",
+		[]byte(doc.RenderHuman()),
+		workflow.WithConfiguration(config),
+		workflow.WithLogger(logger),
+	)
+	data.SetContentLocation(path)
+	return []workflow.Data{data}, nil
+}
+
 func createCodeWorkflowData(id workflow.Identifier, config configuration.Configuration, obj any, contentType string, path string, logger *zerolog.Logger) (workflow.Data, error) {
 	bytes, err := json.Marshal(obj)
 	if err != nil {

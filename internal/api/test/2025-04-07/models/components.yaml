@@ -57,6 +57,7 @@ components:
           enum:
           - cyclonedx
           - sarif
+          - custom-sanitizer-discovery
           example: cyclonedx
         findings_document_path:
           type: string

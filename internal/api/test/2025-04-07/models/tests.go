@@ -33,16 +33,18 @@ const (
 
 // Defines values for ResultType.
 const (
-	CodeSecurity            ResultType = "code_security"
-	CodeSecurityCodeQuality ResultType = "code_security, code_quality"
+	CodeSecurity               ResultType = "code_security"
+	CodeSecurityCodeQuality    ResultType = "code_security, code_quality"
+	CustomSanitizerDiscovery   ResultType = "custom_sanitizer_discovery"
 )
 
 // Defines values for ScanConfigScanners.
 const (
-	LegacyScanners ScanConfigScanners = "legacy_scanners"
-	Sast           ScanConfigScanners = "sast"
-	Sca            ScanConfigScanners = "sca"
-	Secrets        ScanConfigScanners = "secrets"
+	LegacyScanners      ScanConfigScanners = "legacy_scanners"
+	Sast                ScanConfigScanners = "sast"
+	Sca                 ScanConfigScanners = "sca"
+	Secrets             ScanConfigScanners = "secrets"
+	SanitizerDiscovery  ScanConfigScanners = "sanitizer_discovery"
 )
 
 // Defines values for TestAcceptedStateStatus.

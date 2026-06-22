@@ -36,6 +36,7 @@ import (
 	"github.com/snyk/code-client-go/bundle"
 	"github.com/snyk/code-client-go/config"
 	codeClientHTTP "github.com/snyk/code-client-go/http"
+	"github.com/snyk/code-client-go/internal/analysis/sanitizers"
 	testApi "github.com/snyk/code-client-go/internal/api/test/2025-04-07"
 	testModels "github.com/snyk/code-client-go/internal/api/test/2025-04-07/models"
 	"github.com/snyk/code-client-go/observability"
@@ -49,6 +50,7 @@ import (
 type AnalysisOrchestrator interface {
 	RunTest(ctx context.Context, orgId string, b bundle.Bundle, target scan.Target, reportingOptions AnalysisConfig) (*sarif.SarifResponse, *scan.ResultMetaData, error)
 	RunTestRemote(ctx context.Context, orgId string, reportingOptions AnalysisConfig) (*sarif.SarifResponse, *scan.ResultMetaData, error)
+	RunDiscoverTest(ctx context.Context, orgId string, b bundle.Bundle, target scan.Target) (*sanitizers.Document, error)
 	RunLegacyTest(ctx context.Context, bundleHash string, shardKey string, limitToFiles []string, severity int) (*sarif.SarifResponse, scan.LegacyScanStatus, error)
 }
 
@@ -183,74 +185,75 @@ func (a *analysisOrchestrator) host(isHidden bool) string {
 	return fmt.Sprintf("%s/%s", apiUrl, path)
 }
 
+func repoTargetFields(target scan.Target) (commitId, repoUrl, branchName *string) {
+	if repoTarget, ok := target.(*scan.RepositoryTarget); ok {
+		if u := repoTarget.GetRepositoryUrl(); len(u) > 0 {
+			repoUrl = &u
+		}
+		if c := repoTarget.GetCommitId(); len(c) > 0 {
+			commitId = &c
+		}
+		if b := repoTarget.GetBranchName(); len(b) > 0 {
+			branchName = &b
+		}
+	}
+	return
+}
+
 func (a *analysisOrchestrator) createTestAndGetResults(ctx context.Context, orgId string, body *testApi.CreateTestApplicationVndAPIPlusJSONRequestBody, progressString string) (*sarif.SarifResponse, *scan.ResultMetaData, error) {
 	tracker := a.trackerFactory.GenerateTracker()
 	tracker.Begin(progressString, "Retrieving results...")
 
-	innerFunction := func() (*sarif.SarifResponse, *scan.ResultMetaData, error) {
-		params := testApi.CreateTestParams{Version: testApi.ApiVersion}
-		orgUuid := uuid.MustParse(orgId)
-		host := a.host(true)
-
-		client, err := testApi.NewClient(host, testApi.WithHTTPClient(a.httpClient))
-		if err != nil {
-			return nil, nil, err
-		}
-
-		// create test
-		resp, err := client.CreateTestWithApplicationVndAPIPlusJSONBody(ctx, orgUuid, &params, *body)
-		if err != nil {
-			return nil, nil, err
-		}
-
-		parsedResponse, err := testApi.ParseCreateTestResponse(resp)
-		defer func() {
-			closeErr := resp.Body.Close()
-			if closeErr != nil {
-				a.logger.Err(closeErr).Msg("failed to close response body")
-			}
-		}()
-		if err != nil {
-			a.logger.Debug().Msg(err.Error())
-			return nil, nil, err
-		}
-
-		switch parsedResponse.StatusCode() {
-		case http.StatusCreated:
-			// poll results
-			return a.pollTestForFindings(ctx, client, orgUuid, parsedResponse.ApplicationvndApiJSON201.Data.Id)
-		}
-		return nil, nil, nil
-	}
-
-	result, metadata, err := innerFunction()
+	client, orgUuid, testId, err := a.submitTest(ctx, orgId, body)
 	if err != nil {
 		tracker.End("Analysis failed.")
-	} else {
-		tracker.End("Analysis completed.")
+		return nil, nil, err
 	}
 
-	return result, metadata, err
+	result, metadata, err := a.pollTestForFindings(ctx, client, orgUuid, testId)
+	if err != nil {
+		tracker.End("Analysis failed.")
+		return nil, nil, err
+	}
+
+	tracker.End("Analysis completed.")
+	return result, metadata, nil
+}
+
+func (a *analysisOrchestrator) submitTest(ctx context.Context, orgId string, body *testApi.CreateTestApplicationVndAPIPlusJSONRequestBody) (*testApi.Client, uuid.UUID, openapi_types.UUID, error) {
+	params := testApi.CreateTestParams{Version: testApi.ApiVersion}
+	orgUuid := uuid.MustParse(orgId)
+
+	client, err := testApi.NewClient(a.host(true), testApi.WithHTTPClient(a.httpClient))
+	if err != nil {
+		return nil, uuid.UUID{}, openapi_types.UUID{}, err
+	}
+
+	resp, err := client.CreateTestWithApplicationVndAPIPlusJSONBody(ctx, orgUuid, &params, *body)
+	if err != nil {
+		return nil, uuid.UUID{}, openapi_types.UUID{}, err
+	}
+
+	parsedResponse, err := testApi.ParseCreateTestResponse(resp)
+	defer func() {
+		closeErr := resp.Body.Close()
+		if closeErr != nil {
+			a.logger.Err(closeErr).Msg("failed to close response body")
+		}
+	}()
+	if err != nil {
+		return nil, uuid.UUID{}, openapi_types.UUID{}, err
+	}
+
+	if parsedResponse.StatusCode() != http.StatusCreated {
+		return nil, uuid.UUID{}, openapi_types.UUID{}, fmt.Errorf("create test: unexpected status %d", parsedResponse.StatusCode())
+	}
+
+	return client, orgUuid, parsedResponse.ApplicationvndApiJSON201.Data.Id, nil
 }
 
 func (a *analysisOrchestrator) RunTest(ctx context.Context, orgId string, b bundle.Bundle, target scan.Target, reportingConfig AnalysisConfig) (*sarif.SarifResponse, *scan.ResultMetaData, error) {
-	var commitId *string = nil
-	var repoUrl *string = nil
-	var branchName *string = nil
-	if repoTarget, ok := target.(*scan.RepositoryTarget); ok {
-		tmpRepoUrl := repoTarget.GetRepositoryUrl()
-		if len(tmpRepoUrl) > 0 {
-			repoUrl = &tmpRepoUrl
-		}
-		tmpCommitId := repoTarget.GetCommitId()
-		if len(tmpCommitId) > 0 {
-			commitId = &tmpCommitId
-		}
-		tmpBranchName := repoTarget.GetBranchName()
-		if len(tmpBranchName) > 0 {
-			branchName = &tmpBranchName
-		}
-	}
+	commitId, repoUrl, branchName := repoTargetFields(target)
 
 	body := testApi.NewCreateTestApplicationBody(
 		testApi.WithInputBundle(b.GetBundleHash(), target.GetPath(), repoUrl, b.GetLimitToFiles(), commitId, branchName),
@@ -281,8 +284,35 @@ func (a *analysisOrchestrator) RunTestRemote(ctx context.Context, orgId string, 
 	return a.createTestAndGetResults(ctx, orgId, body, "Snyk Code analysis for remote project")
 }
 
-func (a *analysisOrchestrator) pollTestForFindings(ctx context.Context, client *testApi.Client, org uuid.UUID, testId openapi_types.UUID) (*sarif.SarifResponse, *scan.ResultMetaData, error) {
-	method := "analysis.pollTestForFindings"
+func (a *analysisOrchestrator) RunDiscoverTest(ctx context.Context, orgId string, b bundle.Bundle, target scan.Target) (*sanitizers.Document, error) {
+	commitId, repoUrl, branchName := repoTargetFields(target)
+
+	body := testApi.NewCreateTestApplicationBody(
+		testApi.WithInputBundle(b.GetBundleHash(), target.GetPath(), repoUrl, b.GetLimitToFiles(), commitId, branchName),
+		testApi.WithDiscoverScanConfig(),
+	)
+
+	tracker := a.trackerFactory.GenerateTracker()
+	tracker.Begin("Custom-sanitizer discovery for "+target.GetPath(), "Retrieving results...")
+
+	client, orgUuid, testId, err := a.submitTest(ctx, orgId, body)
+	if err != nil {
+		tracker.End("Discovery failed.")
+		return nil, err
+	}
+
+	doc, err := a.pollTestForDiscovery(ctx, client, orgUuid, testId)
+	if err != nil {
+		tracker.End("Discovery failed.")
+		return nil, err
+	}
+
+	tracker.End("Discovery completed.")
+	return doc, nil
+}
+
+func (a *analysisOrchestrator) pollUntilTestComplete(ctx context.Context, client *testApi.Client, org uuid.UUID, testId openapi_types.UUID, timeoutMsg string) error {
+	method := "analysis.pollUntilTestComplete"
 	logger := a.logger.With().Str("method", method).Logger()
 
 	pollingTicker := time.NewTicker(1 * time.Second)
@@ -291,30 +321,27 @@ func (a *analysisOrchestrator) pollTestForFindings(ctx context.Context, client *
 	defer timeoutTimer.Stop()
 	for {
 		select {
+		case <-ctx.Done():
+			return ctx.Err()
 		case <-timeoutTimer.C:
-			msg := "Snyk Code analysis timed out"
-			logger.Error().Str("scanJobId", testId.String()).Msg(msg)
-			return nil, nil, fmt.Errorf("%s: %w", msg, context.DeadlineExceeded)
+			logger.Error().Str("scanJobId", testId.String()).Msg(timeoutMsg)
+			return fmt.Errorf("%s: %w", timeoutMsg, context.DeadlineExceeded)
 		case <-pollingTicker.C:
-			resultMetaData, complete, err := a.retrieveTestURL(ctx, client, org, testId)
+			completed, err := a.isTestComplete(ctx, client, org, testId)
 			if err != nil {
-				return nil, nil, err
+				return err
 			}
-			if complete {
-				findings, findingsErr := a.retrieveFindings(ctx, testId, resultMetaData.FindingsUrl)
-				if findingsErr != nil {
-					return nil, nil, findingsErr
-				}
-				return findings, resultMetaData, nil
+			if completed {
+				return nil
 			}
 		}
 	}
 }
 
-func (a *analysisOrchestrator) retrieveTestURL(ctx context.Context, client *testApi.Client, org uuid.UUID, testId openapi_types.UUID) (resultMetaData *scan.ResultMetaData, completed bool, err error) {
-	method := "analysis.retrieveTestURL"
+func (a *analysisOrchestrator) isTestComplete(ctx context.Context, client *testApi.Client, org uuid.UUID, testId openapi_types.UUID) (bool, error) {
+	method := "analysis.isTestComplete"
 	logger := a.logger.With().Str("method", method).Logger()
-	logger.Debug().Msg("retrieving Test URL")
+	logger.Debug().Msg("polling test result")
 
 	httpResponse, err := client.GetTestResult(
 		ctx,
@@ -323,8 +350,8 @@ func (a *analysisOrchestrator) retrieveTestURL(ctx context.Context, client *test
 		&testApi.GetTestResultParams{Version: testApi.ApiVersion},
 	)
 	if err != nil {
-		logger.Err(err).Str("testId", testId.String()).Msg("error requesting the ScanJobResult")
-		return nil, false, err
+		logger.Err(err).Str("testId", testId.String()).Msg("error requesting the test result")
+		return false, err
 	}
 	defer func() {
 		closeErr := httpResponse.Body.Close()
@@ -335,41 +362,79 @@ func (a *analysisOrchestrator) retrieveTestURL(ctx context.Context, client *test
 
 	parsedResponse, err := testApi.ParseGetTestResultResponse(httpResponse)
 	if err != nil {
-		return nil, false, err
+		return false, err
 	}
 
-	switch parsedResponse.StatusCode() {
-	case 200:
-		stateDiscriminator, stateError := parsedResponse.ApplicationvndApiJSON200.Data.Attributes.Discriminator()
-		if stateError != nil {
-			return nil, false, stateError
-		}
+	if parsedResponse.StatusCode() != http.StatusOK {
+		return false, fmt.Errorf("unexpected response status \"%d\"", parsedResponse.StatusCode())
+	}
 
-		switch stateDiscriminator {
-		case string(testModels.Accepted):
-			fallthrough
-		case string(testModels.InProgress):
-			return nil, false, nil
-		case string(testModels.Completed):
-			_, stateCompleteError := parsedResponse.ApplicationvndApiJSON200.Data.Attributes.AsTestCompletedState()
-			if stateCompleteError != nil {
-				return nil, false, stateCompleteError
-			}
-			components, err := a.retrieveTestComponents(ctx, client, org, testId)
-			if err != nil {
-				return nil, false, err
-			}
+	stateDiscriminator, err := parsedResponse.ApplicationvndApiJSON200.Data.Attributes.Discriminator()
+	if err != nil {
+		return false, err
+	}
 
-			return components, true, nil
-		case string(testModels.Error):
-			testError := parseTestError(parsedResponse, method)
-			return nil, false, testError
-		default:
-			return nil, false, fmt.Errorf("unexpected test status \"%s\"", stateDiscriminator)
+	switch stateDiscriminator {
+	case string(testModels.Accepted), string(testModels.InProgress):
+		return false, nil
+	case string(testModels.Completed):
+		if _, err := parsedResponse.ApplicationvndApiJSON200.Data.Attributes.AsTestCompletedState(); err != nil {
+			return false, err
 		}
+		return true, nil
+	case string(testModels.Error):
+		return false, parseTestError(parsedResponse, method)
 	default:
-		return nil, false, fmt.Errorf("unexpected response status \"%d\"", parsedResponse.StatusCode())
+		return false, fmt.Errorf("unexpected test status \"%s\"", stateDiscriminator)
 	}
+}
+
+func (a *analysisOrchestrator) pollTestForDiscovery(ctx context.Context, client *testApi.Client, org uuid.UUID, testId openapi_types.UUID) (*sanitizers.Document, error) {
+	if err := a.pollUntilTestComplete(ctx, client, org, testId, "Custom-sanitizer discovery timed out"); err != nil {
+		return nil, err
+	}
+	findingsURL, err := a.discoveryFindingsURL(ctx, client, org, testId)
+	if err != nil {
+		return nil, err
+	}
+	return sanitizers.FetchDiscoveryDocument(ctx, a.httpClient, findingsURL)
+}
+
+func (a *analysisOrchestrator) discoveryFindingsURL(ctx context.Context, client *testApi.Client, org uuid.UUID, testId openapi_types.UUID) (string, error) {
+	components, err := a.getTestComponents(ctx, client, org, testId)
+	if err != nil {
+		return "", err
+	}
+	for _, component := range components {
+		attrs := component.Attributes
+		if attrs.Type != string(testModels.SanitizerDiscovery) || !attrs.Success {
+			continue
+		}
+		if attrs.FindingsDocumentType != nil &&
+			*attrs.FindingsDocumentType == testModels.CustomSanitizerDiscoveryDocument &&
+			attrs.FindingsDocumentPath != nil {
+			return a.host(true) + *attrs.FindingsDocumentPath + "?version=" + testApi.DocumentApiVersion, nil
+		}
+	}
+	return "", errors.New("no custom-sanitizer-discovery component found")
+}
+
+func (a *analysisOrchestrator) pollTestForFindings(ctx context.Context, client *testApi.Client, org uuid.UUID, testId openapi_types.UUID) (*sarif.SarifResponse, *scan.ResultMetaData, error) {
+	if err := a.pollUntilTestComplete(ctx, client, org, testId, "Snyk Code analysis timed out"); err != nil {
+		return nil, nil, err
+	}
+
+	resultMetaData, err := a.retrieveTestComponents(ctx, client, org, testId)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	findings, err := a.retrieveFindings(ctx, testId, resultMetaData.FindingsUrl)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	return findings, resultMetaData, nil
 }
 
 func parseTestError(parsedResponse *testApi.GetTestResultResponse, method string) error {
@@ -406,10 +471,10 @@ func parseTestError(parsedResponse *testApi.GetTestResultResponse, method string
 	return testError
 }
 
-func (a *analysisOrchestrator) retrieveTestComponents(ctx context.Context, client *testApi.Client, org uuid.UUID, testId openapi_types.UUID) (*scan.ResultMetaData, error) {
-	method := "analysis.retrieveTestComponents"
+func (a *analysisOrchestrator) getTestComponents(ctx context.Context, client *testApi.Client, org uuid.UUID, testId openapi_types.UUID) ([]testModels.GetComponentsResponseItem, error) {
+	method := "analysis.getTestComponents"
 	logger := a.logger.With().Str("method", method).Logger()
-	logger.Debug().Msg("retrieving Test Components")
+	logger.Debug().Msg("retrieving test components")
 
 	httpResponse, err := client.GetComponents(
 		ctx,
@@ -417,7 +482,6 @@ func (a *analysisOrchestrator) retrieveTestComponents(ctx context.Context, clien
 		testId,
 		&testApi.GetComponentsParams{Version: testApi.ApiVersion},
 	)
-
 	if err != nil {
 		logger.Err(err).Str("testId", testId.String()).Msg("error requesting the test components")
 		return nil, err
@@ -438,7 +502,17 @@ func (a *analysisOrchestrator) retrieveTestComponents(ctx context.Context, clien
 	if parsedResponse.ApplicationvndApiJSON200 == nil {
 		return nil, fmt.Errorf("%s: unexpected response status \"%d\"", method, parsedResponse.StatusCode())
 	}
-	data := parsedResponse.ApplicationvndApiJSON200.Data
+
+	return parsedResponse.ApplicationvndApiJSON200.Data, nil
+}
+
+func (a *analysisOrchestrator) retrieveTestComponents(ctx context.Context, client *testApi.Client, org uuid.UUID, testId openapi_types.UUID) (*scan.ResultMetaData, error) {
+	method := "analysis.retrieveTestComponents"
+	data, err := a.getTestComponents(ctx, client, org, testId)
+	if err != nil {
+		return nil, err
+	}
+
 	var sastComponent *testModels.GetComponentsResponseItem
 	for _, component := range data {
 		if component.Attributes.Type == "sast" {

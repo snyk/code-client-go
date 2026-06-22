@@ -52,15 +52,17 @@ func Test_Code_entrypoint(t *testing.T) {
 			sastSettings := &sast_contract.SastResponse{
 				SastEnabled: true,
 				LocalCodeEngine: sast_contract.LocalCodeEngine{
-					Enabled: true, /* ensures that legacycli will be called */
+					Enabled: true,
 				},
 			}
 
 			err := json.NewEncoder(w).Encode(sastSettings)
 			assert.NoError(t, err)
 		} else if strings.Contains(r.URL.String(), "/v1/cli-config/feature-flags/") {
+			// Disable the native-implementation feature flags so the workflow
+			// dispatches to legacycli (the path exercised by this test).
 			featureFlag := OrgFeatureFlagResponse{
-				Ok: true,
+				Ok: false,
 			}
 
 			err := json.NewEncoder(w).Encode(featureFlag)
@@ -513,14 +515,69 @@ func Test_Code_UseNativeImplementation(t *testing.T) {
 		assert.Equal(t, expected, actual)
 	})
 
-	t.Run("cci feature flag enabled, native implementation enabled but scle enabled", func(t *testing.T) {
-		expected := false
+	t.Run("scle enabled no longer forces the legacy implementation", func(t *testing.T) {
+		expected := true
 		config := configuration.NewWithOpts()
 		config.Set(configuration.FF_CODE_CONSISTENT_IGNORES, true)
 		config.Set(configuration.FF_CODE_NATIVE_IMPLEMENTATION, true)
 		config.Set(ConfigurarionSlceEnabled, true)
 		actual := useNativeImplementation(config, &logger, true)
 		assert.Equal(t, expected, actual)
+	})
+
+	t.Run("scle enabled with no native feature flags stays on legacy", func(t *testing.T) {
+		expected := false
+		config := configuration.NewWithOpts()
+		config.Set(configuration.FF_CODE_CONSISTENT_IGNORES, false)
+		config.Set(configuration.FF_CODE_NATIVE_IMPLEMENTATION, false)
+		config.Set(ConfigurarionSlceEnabled, true)
+		actual := useNativeImplementation(config, &logger, true)
+		assert.Equal(t, expected, actual)
+	})
+}
+
+func Test_registerLocalEngineAuthURL(t *testing.T) {
+	logger := zerolog.Nop()
+
+	withSettings := func(slceEnabled bool, url string) configuration.Configuration {
+		config := configuration.NewWithOpts()
+		config.Set(ConfigurarionSlceEnabled, slceEnabled)
+		config.Set(ConfigurationSastSettings, &sast_contract.SastResponse{
+			LocalCodeEngine: sast_contract.LocalCodeEngine{Enabled: slceEnabled, Url: url},
+		})
+		return config
+	}
+
+	t.Run("registers the local engine URL when SCLE is enabled", func(t *testing.T) {
+		config := withSettings(true, "https://scle.example.internal")
+		registerLocalEngineAuthURL(config, &logger)
+		assert.Equal(t, []string{"https://scle.example.internal"}, config.GetStringSlice(configuration.AUTHENTICATION_ADDITIONAL_URLS))
+	})
+
+	t.Run("does nothing when SCLE is disabled", func(t *testing.T) {
+		config := withSettings(false, "https://scle.example.internal")
+		registerLocalEngineAuthURL(config, &logger)
+		assert.Empty(t, config.GetStringSlice(configuration.AUTHENTICATION_ADDITIONAL_URLS))
+	})
+
+	t.Run("does nothing when the local engine URL is empty", func(t *testing.T) {
+		config := withSettings(true, "")
+		registerLocalEngineAuthURL(config, &logger)
+		assert.Empty(t, config.GetStringSlice(configuration.AUTHENTICATION_ADDITIONAL_URLS))
+	})
+
+	t.Run("does not duplicate an already-registered URL", func(t *testing.T) {
+		config := withSettings(true, "https://scle.example.internal")
+		config.Set(configuration.AUTHENTICATION_ADDITIONAL_URLS, []string{"https://scle.example.internal"})
+		registerLocalEngineAuthURL(config, &logger)
+		assert.Equal(t, []string{"https://scle.example.internal"}, config.GetStringSlice(configuration.AUTHENTICATION_ADDITIONAL_URLS))
+	})
+
+	t.Run("preserves existing additional auth URLs", func(t *testing.T) {
+		config := withSettings(true, "https://scle.example.internal")
+		config.Set(configuration.AUTHENTICATION_ADDITIONAL_URLS, []string{"https://other.example.internal"})
+		registerLocalEngineAuthURL(config, &logger)
+		assert.Equal(t, []string{"https://other.example.internal", "https://scle.example.internal"}, config.GetStringSlice(configuration.AUTHENTICATION_ADDITIONAL_URLS))
 	})
 }
 

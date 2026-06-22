@@ -30,6 +30,7 @@ import (
 	"github.com/snyk/code-client-go/config"
 	codeClientHTTP "github.com/snyk/code-client-go/http"
 	"github.com/snyk/code-client-go/internal/analysis"
+	"github.com/snyk/code-client-go/internal/analysis/sanitizers"
 	testModels "github.com/snyk/code-client-go/internal/api/test/2025-04-07/models"
 	"github.com/snyk/code-client-go/internal/deepcode"
 	"github.com/snyk/code-client-go/observability"
@@ -77,6 +78,14 @@ type CodeScanner interface {
 		changedFiles map[string]bool,
 		statusChannel chan<- scan.LegacyScanStatus,
 	) (*sarif.SarifResponse, string, error)
+
+	UploadAndDiscover(
+		ctx context.Context,
+		requestId string,
+		target scan.Target,
+		files <-chan string,
+		changedFiles map[string]bool,
+	) (*sanitizers.Document, string, error)
 }
 
 var _ CodeScanner = (*codeScanner)(nil)
@@ -357,6 +366,28 @@ func (c *codeScanner) UploadAndAnalyzeWithOptions(
 	}
 
 	return response, uploadedBundle.GetBundleHash(), metadata, err
+}
+
+func (c *codeScanner) UploadAndDiscover(
+	ctx context.Context,
+	requestId string,
+	target scan.Target,
+	files <-chan string,
+	changedFiles map[string]bool,
+) (*sanitizers.Document, string, error) {
+	uploadedBundle, err := c.Upload(ctx, requestId, target, files, changedFiles)
+	if err != nil || uploadedBundle == nil || uploadedBundle.GetBundleHash() == "" {
+		c.logger.Debug().Msg("empty bundle, no custom-sanitizer discovery")
+		return nil, "", err
+	}
+
+	doc, err := c.analysisOrchestrator.RunDiscoverTest(ctx, c.config.Organization(), uploadedBundle, target)
+	err = c.checkCancellationOrLogError(ctx, target.GetPath(), err, "error running custom-sanitizer discovery...")
+	if err != nil {
+		return nil, "", err
+	}
+
+	return doc, uploadedBundle.GetBundleHash(), nil
 }
 
 func (c *codeScanner) AnalyzeRemote(ctx context.Context, options ...AnalysisOption) (*sarif.SarifResponse, *scan.ResultMetaData, error) {

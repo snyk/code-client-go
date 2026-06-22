@@ -48,6 +48,18 @@ func WithScanType(t v20250407.ResultType) CreateTestOption {
 	}
 }
 
+// WithDiscoverScanConfig sets scanners and result_type for custom-sanitizer discovery.
+func WithDiscoverScanConfig() CreateTestOption {
+	return func(body *CreateTestApplicationVndAPIPlusJSONRequestBody) {
+		scanners := []v20250407.ScanConfigScanners{v20250407.SanitizerDiscovery}
+		resultType := v20250407.CustomSanitizerDiscovery
+		body.Data.Attributes.Configuration.Scan = &v20250407.ScanConfig{
+			Scanners:   &scanners,
+			ResultType: &resultType,
+		}
+	}
+}
+
 func ensureOutput(body *CreateTestApplicationVndAPIPlusJSONRequestBody) *v20250407.OutputConfig {
 	if body.Data.Attributes.Configuration.Output == nil {
 		body.Data.Attributes.Configuration.Output = &v20250407.OutputConfig{}

@@ -6,6 +6,8 @@ import (
 	"time"
 
 	"github.com/snyk/go-application-framework/pkg/configuration"
+
+	"github.com/snyk/code-client-go/pkg/code/sast_contract"
 )
 
 var defaultSnykCodeTimeout = 12 * time.Hour
@@ -23,7 +25,25 @@ func (c *codeClientConfig) IsFedramp() bool {
 }
 
 func (c *codeClientConfig) SnykCodeApi() string {
+	// When Snyk Code Local Engine (SCLE) is enabled, requests must go to the
+	// local engine endpoint advertised in the SAST settings rather than the
+	// cloud deeproxy host derived from the API URL.
+	if c.localConfiguration.GetBool(ConfigurationSlceEnabled) {
+		if localEngineURL := c.localCodeEngineURL(); localEngineURL != "" {
+			return localEngineURL
+		}
+	}
 	return strings.ReplaceAll(c.localConfiguration.GetString(configuration.API_URL), "api", "deeproxy")
+}
+
+// localCodeEngineURL returns the Snyk Code Local Engine URL from the cached SAST
+// settings, or an empty string if the settings are unavailable or unset.
+func (c *codeClientConfig) localCodeEngineURL() string {
+	settings, ok := c.localConfiguration.Get(ConfigurationSastSettings).(*sast_contract.SastResponse)
+	if !ok || settings == nil {
+		return ""
+	}
+	return settings.LocalCodeEngine.Url
 }
 
 func (c *codeClientConfig) SnykApi() string {
@@ -57,4 +77,18 @@ func GetReportMode(config configuration.Configuration) (reportType, error) {
 	}
 
 	return localCode, nil
+}
+
+func IsDiscoverSanitisers(config configuration.Configuration) (bool, error) {
+	if !config.GetBool(ConfigurationDiscoverSanitisers) {
+		return false, nil
+	}
+	if config.GetBool(ConfigurationReportFlag) {
+		return false, errors.New("--discover-sanitisers cannot be used with --report")
+	}
+	// Discovery goes through the test service, which Snyk Code Local Engine does not implement.
+	if config.GetBool(ConfigurationSlceEnabled) {
+		return false, errors.New("--discover-sanitisers is not supported with Snyk Code Local Engine")
+	}
+	return true, nil
 }
