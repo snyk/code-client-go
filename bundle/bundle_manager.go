@@ -214,15 +214,40 @@ func (b *bundleManager) Upload(
 			return bundle, nil
 		}
 
-		for _, batch := range batches {
+		for batchIndex, batch := range batches {
 			if err := ctx.Err(); err != nil {
 				return bundle, err
 			}
+
+			// Log batch information before enrichment and upload
+			b.logger.Debug().
+				Str("requestId", requestId).
+				Str("rootPath", bundle.GetRootPath()).
+				Str("bundleHash", bundle.GetBundleHash()).
+				Int("batchIndex", batchIndex+1).
+				Int("totalBatches", len(batches)).
+				Int("batchFileCount", len(batch.documents)).
+				Int("batchEstimatedSize", batch.getSize()).
+				Msg("Starting partial bundle upload batch")
+
 			b.enrichBatchWithFileContent(batch, bundle.GetRootPath())
 			err := bundle.UploadBatch(s.Context(), requestId, batch)
 			if err != nil {
+				b.logger.Error().
+					Err(err).
+					Str("requestId", requestId).
+					Int("batchIndex", batchIndex+1).
+					Int("totalBatches", len(batches)).
+					Msg("Failed to upload partial bundle batch")
 				return bundle, err
 			}
+
+			b.logger.Debug().
+				Str("requestId", requestId).
+				Int("batchIndex", batchIndex+1).
+				Int("totalBatches", len(batches)).
+				Msg("Completed partial bundle upload batch")
+
 			batch.documents = make(map[string]deepcode.BundleFile)
 		}
 	}
@@ -239,10 +264,49 @@ func (b *bundleManager) enrichBatchWithFileContent(batch *Batch, rootPath string
 			b.logger.Error().Err(err).Str("file", filePath).Msg("Failed to decode Path")
 			continue
 		}
+
+		// Store original hash and metadata before reading file
+		originalHash := bundleFile.Hash
+		originalContentSize := bundleFile.ContentSize
+
+		// Log metadata before reading file content
+		b.logger.Debug().
+			Str("filePath", filePath).
+			Str("absolutePath", absPath).
+			Str("originalHash", originalHash).
+			Int("originalContentSize", originalContentSize).
+			Msg("Preparing to read file for partial bundle upload")
+
 		content, err := os.ReadFile(absPath)
 		if err != nil {
 			b.logger.Error().Err(err).Str("file", filePath).Msg("Failed to read bundle file")
 			continue
+		}
+
+		// Compute hash from freshly read content to detect modifications
+		newHash, hashErr := util.Hash(content)
+		if hashErr != nil {
+			b.logger.Warn().Err(hashErr).Str("file", filePath).Msg("Failed to compute hash for freshly read content")
+		} else {
+			// Check if file was modified in flight
+			fileModified := originalHash != newHash
+			if fileModified {
+				b.logger.Warn().
+					Str("filePath", filePath).
+					Str("absolutePath", absPath).
+					Str("originalHash", originalHash).
+					Str("newHash", newHash).
+					Int("originalContentSize", originalContentSize).
+					Int("newContentSize", len(content)).
+					Msg("File modification detected during partial bundle upload - file content changed between bundle creation and upload")
+			} else {
+				b.logger.Debug().
+					Str("filePath", filePath).
+					Str("absolutePath", absPath).
+					Str("hash", newHash).
+					Int("contentSize", len(content)).
+					Msg("File content verified - no modifications detected")
+			}
 		}
 
 		utf8Content, err := util.ConvertToUTF8(content)
