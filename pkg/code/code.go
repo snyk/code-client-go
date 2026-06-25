@@ -9,16 +9,13 @@ import (
 	"slices"
 
 	"github.com/rs/zerolog"
-	"github.com/snyk/error-catalog-golang-public/code"
-	"github.com/spf13/pflag"
-
 	"github.com/snyk/code-client-go/internal/commands/code_workflow"
+	"github.com/snyk/code-client-go/pkg/code/sast_contract"
+	"github.com/snyk/error-catalog-golang-public/code"
 	"github.com/snyk/go-application-framework/pkg/configuration"
-	"github.com/snyk/go-application-framework/pkg/local_workflows/config_utils"
 	errorutils "github.com/snyk/go-application-framework/pkg/local_workflows/error_utils"
 	"github.com/snyk/go-application-framework/pkg/workflow"
-
-	"github.com/snyk/code-client-go/pkg/code/sast_contract"
+	"github.com/spf13/pflag"
 )
 
 const (
@@ -26,10 +23,9 @@ const (
 )
 
 const (
-	ConfigurationSastEnabled   = "internal_sast_enabled"
-	ConfigurationSastSettings  = code_workflow.ConfigurationSastSettings
-	ConfigurationSlceEnabled   = code_workflow.ConfigurationSlceEnabled
-	FfNameNativeImplementation = "snykCodeClientNativeImplementation"
+	ConfigurationSastEnabled  = "internal_sast_enabled"
+	ConfigurationSastSettings = code_workflow.ConfigurationSastSettings
+	ConfigurationSlceEnabled  = code_workflow.ConfigurationSlceEnabled
 )
 
 // ConfigurarionSlceEnabled is kept for backward compatibility.
@@ -166,26 +162,6 @@ func getSlceEnabled(engine workflow.Engine) configuration.DefaultValueFunction {
 	return callback
 }
 
-func useNativeImplementation(config configuration.Configuration, logger *zerolog.Logger, sastEnabled bool) bool {
-	useConsistentIgnoresFF := config.GetBool(configuration.FF_CODE_CONSISTENT_IGNORES)
-	useNativeImplementationFF := config.GetBool(configuration.FF_CODE_NATIVE_IMPLEMENTATION)
-	reportEnabled := config.GetBool(code_workflow.ConfigurationReportFlag)
-	scleEnabled := config.GetBool(ConfigurationSlceEnabled)
-
-	// SCLE no longer forces the legacy path: code-client-go honors the local
-	// engine URL from SAST settings (see codeClientConfig.SnykCodeApi), so the
-	// native implementation supports SCLE flows directly.
-	nativeImplementationEnabled := useConsistentIgnoresFF || useNativeImplementationFF
-
-	logger.Debug().Msgf("SAST Enabled:       %v", sastEnabled)
-	logger.Debug().Msgf("Report enabled:     %v", reportEnabled)
-	logger.Debug().Msgf("SLCE enabled:       %v", scleEnabled)
-	logger.Debug().Msgf("FF consistent ignores: %v", useConsistentIgnoresFF)
-	logger.Debug().Msgf("FF native implementation: %v", useNativeImplementationFF)
-
-	return nativeImplementationEnabled
-}
-
 // Init initializes the code workflow before registering it with the engine.
 func Init(engine workflow.Engine) error {
 	// register workflow with engine
@@ -200,14 +176,12 @@ func Init(engine workflow.Engine) error {
 	engine.GetConfiguration().AddDefaultValue(ConfigurationSastEnabled, getSastEnabled(engine))
 	engine.GetConfiguration().AddDefaultValue(ConfigurationSlceEnabled, getSlceEnabled(engine))
 	engine.GetConfiguration().AddDefaultValue(code_workflow.ConfigurationTestFLowName, configuration.StandardDefaultValueFunction("cli_test"))
-	config_utils.AddFeatureFlagToConfig(engine, configuration.FF_CODE_CONSISTENT_IGNORES, "snykCodeConsistentIgnores")
-	config_utils.AddFeatureFlagToConfig(engine, configuration.FF_CODE_NATIVE_IMPLEMENTATION, FfNameNativeImplementation)
 
 	return err
 }
 
 // codeWorkflowEntryPoint is the entry point for the code workflow.
-// it provides a wrapper for the legacycli workflow
+// It always runs the native code-client-go workflow.
 func codeWorkflowEntryPoint(invocationCtx workflow.InvocationContext, _ []workflow.Data) (result []workflow.Data, err error) {
 	// get necessary objects from invocation context
 	config := invocationCtx.GetConfiguration()
@@ -218,26 +192,15 @@ func codeWorkflowEntryPoint(invocationCtx workflow.InvocationContext, _ []workfl
 		return result, err
 	}
 
-	nativeImplementation := useNativeImplementation(config, logger, sastEnabled)
-
 	if !sastEnabled {
 		return result, code.NewFeatureIsNotEnabledError(fmt.Sprintf("Snyk Code is not supported for your current organization: `%s`.", config.GetString(configuration.ORGANIZATION_SLUG)))
 	}
 
-	implementationName := "legacy"
-	if nativeImplementation {
-		implementationName = "native"
-	}
+	invocationCtx.GetAnalytics().AddExtensionStringValue("implementation", "native")
+	logger.Debug().Msg("Implementation: native")
 
-	invocationCtx.GetAnalytics().AddExtensionStringValue("implementation", implementationName)
-	logger.Debug().Msgf("Implementation: %s", implementationName)
-
-	if nativeImplementation {
-		registerLocalEngineAuthURL(config, logger)
-		result, err = code_workflow.EntryPointNative(invocationCtx)
-	} else {
-		result, err = code_workflow.EntryPointLegacy(invocationCtx)
-	}
+	registerLocalEngineAuthURL(config, logger)
+	result, err = code_workflow.EntryPointNative(invocationCtx)
 
 	err = errorutils.DecorateTestError(err, config)
 
