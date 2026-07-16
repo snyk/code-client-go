@@ -322,13 +322,10 @@ func determineAnalyzeInput(path string, config configuration.Configuration, logg
 // Return a channel that notifies each file in the path that doesn't match the filter rules
 func getFilesForPath(path string, logger *zerolog.Logger, max_threads int) (<-chan string, error) {
 	filter := utils.NewFileFilter(path, logger, utils.WithThreadNumber(max_threads))
-	rules, err := filter.GetRules([]string{".gitignore", ".dcignore", ".snyk"})
-	if err != nil {
-		return nil, err
-	}
-
-	results := filter.GetFilteredFiles(filter.GetAllFiles(), rules)
-	return results, nil
+	// Single-walk variant: traverses the tree once and prunes ignored directories
+	// (e.g. node_modules, .git) instead of walking twice and glob-matching every
+	// file underneath them. That traversal was the dominant cost on real projects.
+	return filter.GetFilteredFilesSingleWalk([]string{".gitignore", ".dcignore", ".snyk"}), nil
 }
 
 // Create new Workflow data out of the given object and content type
