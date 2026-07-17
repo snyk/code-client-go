@@ -203,6 +203,8 @@ type SuppressionProperties struct {
 	Expiration *string   `json:"expiration"`
 	IgnoredOn  string    `json:"ignoredOn"` // https://docs.oasis-open.org/sarif/sarif/v2.1.0/errata01/os/sarif-v2.1.0-errata01-os-complete.html#_Toc141790703
 	IgnoredBy  IgnoredBy `json:"ignoredBy"`
+	ReviewedOn *string   `json:"reviewedOn,omitempty"`
+	ReviewedBy *Reviewer `json:"reviewedBy,omitempty"`
 }
 
 type Category string
@@ -218,6 +220,11 @@ const (
 )
 
 type IgnoredBy struct {
+	Name  string  `json:"name"`
+	Email *string `json:"email"`
+}
+
+type Reviewer struct {
 	Name  string  `json:"name"`
 	Email *string `json:"email"`
 }
