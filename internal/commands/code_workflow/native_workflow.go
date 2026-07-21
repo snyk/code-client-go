@@ -39,6 +39,8 @@ const (
 	ConfigurationTargetReference = "target-reference"
 	ConfigurationProjectId       = "project-id"
 	ConfigurationCommitId        = "commit-id"
+	ConfigurationSastSettings    = "internal_sast_settings"
+	ConfigurationSlceEnabled     = "internal_snyk_scle_enabled"
 
 	MetadataBundleHash = "Snyk-Bundle-Hash"
 )
@@ -204,12 +206,21 @@ func defaultAnalyzeFunction(ctx context.Context, path string, httpClientFunc fun
 		return nil, "", nil, err
 	}
 
+	// Reporting goes through the test service, which Snyk Code Local Engine does
+	// not implement, so --report is not supported for SCLE.
+	if reportMode != noReport && config.GetBool(ConfigurationSlceEnabled) {
+		return nil, "", nil, errors.New("--report is not supported with Snyk Code Local Engine")
+	}
+
 	httpClient := codeclienthttp.NewHTTPClient(
 		httpClientFunc,
 		codeclienthttp.WithLogger(logger),
 	)
 	codeScannerConfig := &codeClientConfig{
 		localConfiguration: config,
+	}
+	if config.GetBool(ConfigurationSlceEnabled) && codeScannerConfig.tryGetLocalCodeEngineURL() == "" {
+		return nil, "", nil, errors.New("Snyk Code Local Engine is enabled but no local engine URL is configured")
 	}
 
 	progressFactory := ProgressTrackerFactory{
@@ -276,9 +287,46 @@ func defaultAnalyzeFunction(ctx context.Context, path string, httpClientFunc fun
 	changedFiles := make(map[string]bool)
 	var bundleHash string
 
+	// Snyk Code Local Engine implements the old deeproxy API rather than the new
+	// test service, so SCLE scans must use the legacy ("deeproxy") scanner.
+	if config.GetBool(ConfigurationSlceEnabled) {
+		return analyzeWithLegacyEngine(ctx, codeScanner, requestId, target, files, changedFiles, logger)
+	}
+
 	result, bundleHash, resultMetaData, err = codeScanner.UploadAndAnalyzeWithOptions(ctx, requestId, target, files, changedFiles, analysisOptions...)
 
 	return result, bundleHash, resultMetaData, err
+}
+
+// analyzeWithLegacyEngine runs the deeproxy-based ("legacy") scanner, which is
+// the API surface that Snyk Code Local Engine implements. The legacy scanner
+// streams progress over a status channel, so it is drained concurrently to keep
+// the analysis goroutine from blocking on send.
+//
+// Its return signature mirrors the OptionalAnalysisFunctions contract; the
+// ResultMetaData is always nil because the legacy/deeproxy API returns no
+// test-service metadata (web UI URL, project/snapshot id) — there is none to
+// surface for an SCLE scan.
+func analyzeWithLegacyEngine(
+	ctx context.Context,
+	codeScanner codeclient.CodeScanner,
+	requestId string,
+	target scan.Target,
+	files <-chan string,
+	changedFiles map[string]bool,
+	logger *zerolog.Logger,
+) (*sarif.SarifResponse, string, *scan.ResultMetaData, error) {
+	statusChannel := make(chan scan.LegacyScanStatus)
+	go func() {
+		for status := range statusChannel {
+			logger.Trace().Msgf("Snyk Code Local Engine analysis status: %s", status.Message)
+		}
+	}()
+
+	// shardKey is used by deeproxy only for cache sharding and is optional here.
+	const shardKey = ""
+	result, bundleHash, err := codeScanner.UploadAndAnalyzeLegacy(ctx, requestId, target, shardKey, files, changedFiles, statusChannel)
+	return result, bundleHash, nil, err
 }
 
 func determineAnalyzeInput(path string, config configuration.Configuration, logger *zerolog.Logger) (scan.Target, <-chan string, error) {

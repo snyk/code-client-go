@@ -6,6 +6,7 @@ import (
 	"io"
 	"net/http"
 	"net/url"
+	"slices"
 
 	"github.com/rs/zerolog"
 	"github.com/snyk/error-catalog-golang-public/code"
@@ -26,10 +27,15 @@ const (
 
 const (
 	ConfigurationSastEnabled   = "internal_sast_enabled"
-	ConfigurationSastSettings  = "internal_sast_settings"
-	ConfigurarionSlceEnabled   = "internal_snyk_scle_enabled"
+	ConfigurationSastSettings  = code_workflow.ConfigurationSastSettings
+	ConfigurationSlceEnabled   = code_workflow.ConfigurationSlceEnabled
 	FfNameNativeImplementation = "snykCodeClientNativeImplementation"
 )
+
+// ConfigurarionSlceEnabled is kept for backward compatibility.
+//
+// Deprecated: use ConfigurationSlceEnabled.
+const ConfigurarionSlceEnabled = ConfigurationSlceEnabled
 
 func GetCodeFlagSet() *pflag.FlagSet {
 	flagSet := pflag.NewFlagSet(codeWorkflowName, pflag.ExitOnError)
@@ -141,7 +147,7 @@ func getSastEnabled(engine workflow.Engine) configuration.DefaultValueFunction {
 }
 
 func getSlceEnabled(engine workflow.Engine) configuration.DefaultValueFunction {
-	err := engine.GetConfiguration().AddKeyDependency(ConfigurarionSlceEnabled, ConfigurationSastSettings)
+	err := engine.GetConfiguration().AddKeyDependency(ConfigurationSlceEnabled, ConfigurationSastSettings)
 	if err != nil {
 		engine.GetLogger().Err(err).Msg("Failed to add dependency for SAST settings.")
 	}
@@ -164,9 +170,12 @@ func useNativeImplementation(config configuration.Configuration, logger *zerolog
 	useConsistentIgnoresFF := config.GetBool(configuration.FF_CODE_CONSISTENT_IGNORES)
 	useNativeImplementationFF := config.GetBool(configuration.FF_CODE_NATIVE_IMPLEMENTATION)
 	reportEnabled := config.GetBool(code_workflow.ConfigurationReportFlag)
-	scleEnabled := config.GetBool(ConfigurarionSlceEnabled)
+	scleEnabled := config.GetBool(ConfigurationSlceEnabled)
 
-	nativeImplementationEnabled := (useConsistentIgnoresFF || useNativeImplementationFF) && !scleEnabled
+	// SCLE no longer forces the legacy path: code-client-go honors the local
+	// engine URL from SAST settings (see codeClientConfig.SnykCodeApi), so the
+	// native implementation supports SCLE flows directly.
+	nativeImplementationEnabled := useConsistentIgnoresFF || useNativeImplementationFF
 
 	logger.Debug().Msgf("SAST Enabled:       %v", sastEnabled)
 	logger.Debug().Msgf("Report enabled:     %v", reportEnabled)
@@ -189,7 +198,7 @@ func Init(engine workflow.Engine) error {
 
 	engine.GetConfiguration().AddDefaultValue(ConfigurationSastSettings, getSastSettingsConfig(engine))
 	engine.GetConfiguration().AddDefaultValue(ConfigurationSastEnabled, getSastEnabled(engine))
-	engine.GetConfiguration().AddDefaultValue(ConfigurarionSlceEnabled, getSlceEnabled(engine))
+	engine.GetConfiguration().AddDefaultValue(ConfigurationSlceEnabled, getSlceEnabled(engine))
 	engine.GetConfiguration().AddDefaultValue(code_workflow.ConfigurationTestFLowName, configuration.StandardDefaultValueFunction("cli_test"))
 	config_utils.AddFeatureFlagToConfig(engine, configuration.FF_CODE_CONSISTENT_IGNORES, "snykCodeConsistentIgnores")
 	config_utils.AddFeatureFlagToConfig(engine, configuration.FF_CODE_NATIVE_IMPLEMENTATION, FfNameNativeImplementation)
@@ -224,6 +233,7 @@ func codeWorkflowEntryPoint(invocationCtx workflow.InvocationContext, _ []workfl
 	logger.Debug().Msgf("Implementation: %s", implementationName)
 
 	if nativeImplementation {
+		registerLocalEngineAuthURL(config, logger)
 		result, err = code_workflow.EntryPointNative(invocationCtx)
 	} else {
 		result, err = code_workflow.EntryPointLegacy(invocationCtx)
@@ -232,4 +242,35 @@ func codeWorkflowEntryPoint(invocationCtx workflow.InvocationContext, _ []workfl
 	err = errorutils.DecorateTestError(err, config)
 
 	return result, err
+}
+
+// registerLocalEngineAuthURL ensures the Snyk Code Local Engine (SCLE) URL is
+// treated as an authenticated Snyk endpoint. The networking stack only attaches
+// credentials (including OAuth2 tokens) to the configured API host, its
+// "deeproxy" subdomain, or URLs in AUTHENTICATION_ADDITIONAL_URLS. SCLE serves
+// the deeproxy API from a customer-hosted URL that matches none of those, so it
+// must be registered explicitly or requests would be sent unauthenticated.
+func registerLocalEngineAuthURL(config configuration.Configuration, logger *zerolog.Logger) {
+	if !config.GetBool(ConfigurationSlceEnabled) {
+		return
+	}
+
+	sastResponse, err := getSastResponseFromConfig(config)
+	if err != nil {
+		logger.Debug().Err(err).Msg("Unable to read SAST settings to register the local engine auth URL.")
+		return
+	}
+
+	localEngineURL := sastResponse.LocalCodeEngine.Url
+	if localEngineURL == "" {
+		return
+	}
+
+	existingAdditionalURLs := config.GetStringSlice(configuration.AUTHENTICATION_ADDITIONAL_URLS)
+	if slices.Contains(existingAdditionalURLs, localEngineURL) {
+		return
+	}
+
+	config.Set(configuration.AUTHENTICATION_ADDITIONAL_URLS, append(existingAdditionalURLs, localEngineURL))
+	logger.Debug().Msgf("Registered Snyk Code Local Engine URL for authentication: %s", localEngineURL)
 }
