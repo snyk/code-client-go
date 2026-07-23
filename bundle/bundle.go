@@ -112,7 +112,43 @@ func (b *deepCodeBundle) UploadBatch(ctx context.Context, requestId string, batc
 func (b *deepCodeBundle) extendBundle(ctx context.Context, requestId string, uploadBatch *Batch) error {
 	var err error
 	if uploadBatch.hasContent() {
+		// Log batch metadata before upload to track what's being sent
+		filePaths := make([]string, 0, len(uploadBatch.documents))
+		fileHashes := make(map[string]string)
+		totalContentSize := 0
+		for filePath, bundleFile := range uploadBatch.documents {
+			filePaths = append(filePaths, filePath)
+			fileHashes[filePath] = bundleFile.Hash
+			totalContentSize += bundleFile.ContentSize
+		}
+
+		b.logger.Debug().
+			Str("requestId", requestId).
+			Str("bundleHash", b.bundleHash).
+			Int("batchFileCount", len(uploadBatch.documents)).
+			Int("batchTotalSize", totalContentSize).
+			Int("batchEstimatedSize", uploadBatch.getSize()).
+			Strs("filePaths", filePaths).
+			Interface("fileHashes", fileHashes).
+			Msg("Uploading partial bundle batch - metadata and content details")
+
 		b.bundleHash, b.missingFiles, err = b.SnykCode.ExtendBundle(ctx, b.bundleHash, uploadBatch.documents, []string{})
+
+		if err != nil {
+			b.logger.Error().
+				Err(err).
+				Str("requestId", requestId).
+				Str("bundleHash", b.bundleHash).
+				Int("batchFileCount", len(uploadBatch.documents)).
+				Msg("Failed to extend bundle on backend")
+		} else {
+			b.logger.Debug().
+				Str("requestId", requestId).
+				Str("newBundleHash", b.bundleHash).
+				Int("missingFilesCount", len(b.missingFiles)).
+				Interface("missingFiles", b.missingFiles).
+				Msg("Successfully extended bundle on backend")
+		}
 		b.logger.Debug().Str("requestId", requestId).Interface("MissingFiles", b.missingFiles).Msg("extended deepCodeBundle on backend")
 	}
 
