@@ -88,7 +88,72 @@ func (d *DeepCodeLLMBindingImpl) GetAutofixDiffs(ctx context.Context, _ string, 
 	if err != nil {
 		return nil, status, err
 	}
-	return autofixResponse.toUnifiedDiffSuggestions(d.logger, options.BaseDir, options.FilePath), status, err
+
+	unifiedDiffSuggestions = autofixResponse.toUnifiedDiffSuggestions(d.logger, options.BaseDir, options.FilePath)
+	d.enrichWithExplain(span.Context(), options, unifiedDiffSuggestions)
+
+	return unifiedDiffSuggestions, status, err
+}
+
+// enrichWithExplain fills in the Explanation for suggestions whose Autofix response did not
+// already include one, falling back to the deprecated AI Explain service. Suggestions that
+// already carry an explanation are left untouched, and the call is skipped entirely once none
+// are missing or no ExplainEndpoint was configured.
+func (d *DeepCodeLLMBindingImpl) enrichWithExplain(ctx context.Context, options AutofixOptions, suggestions []AutofixUnifiedDiffSuggestion) {
+	method := "code.EnrichWithExplain"
+	logger := d.logger.With().Str("method", method).Logger()
+
+	missingIndices := make([]int, 0, len(suggestions))
+	for i := range suggestions {
+		if suggestions[i].Explanation == "" {
+			missingIndices = append(missingIndices, i)
+		}
+	}
+	if len(missingIndices) == 0 {
+		return
+	}
+
+	if options.ExplainEndpoint == nil {
+		logger.Debug().Msg("No ExplainEndpoint configured, skipping AI Explain fallback")
+		return
+	}
+
+	span := d.instrumentor.StartSpan(ctx, method)
+	defer d.instrumentor.Finish(span)
+
+	diffs := make([]string, 0, len(missingIndices))
+	for _, idx := range missingIndices {
+		diffs = append(diffs, concatDiffs(suggestions[idx]))
+	}
+
+	response, err := d.runExplain(span.Context(), ExplainOptions{
+		RuleKey:  options.RuleID,
+		Diffs:    diffs,
+		Endpoint: options.ExplainEndpoint,
+	})
+	if err != nil {
+		logger.Err(err).Msg("Failed to obtain fallback explanations from AI Explain")
+		return
+	}
+
+	explanations := getOrderedResponse(response)
+	for i, idx := range missingIndices {
+		if i >= len(explanations) {
+			logger.Debug().Msgf("Failed to get fallback explanation for suggestion index %v", idx)
+			break
+		}
+		suggestions[idx].Explanation = explanations[i]
+	}
+}
+
+// concatDiffs concatenates the diffs of a suggestion across all its files, as the (deprecated)
+// AI Explain service expects a single diff string per suggestion.
+func concatDiffs(suggestion AutofixUnifiedDiffSuggestion) string {
+	diff := ""
+	for _, v := range suggestion.UnifiedDiffsPerFile {
+		diff += v
+	}
+	return diff
 }
 
 func (d *DeepCodeLLMBindingImpl) ExplainWithOptions(ctx context.Context, options ExplainOptions) (ExplainResult, error) {

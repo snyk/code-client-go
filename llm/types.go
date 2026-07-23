@@ -72,8 +72,9 @@ type AutofixResponse struct {
 	AutofixSuggestions []autofixResponseSingleFix `json:"fixes"`
 }
 type autofixResponseSingleFix struct {
-	Id    string `json:"id"`
-	Value string `json:"value"`
+	Id          string `json:"id"`
+	Value       string `json:"value"`
+	Explanation string `json:"explanation"`
 }
 
 // AutofixUnifiedDiffSuggestion represents the diff between the original and the fixed source code.
@@ -136,6 +137,12 @@ type AutofixOptions struct {
 	Host                string
 	CodeRequestContext  CodeRequestContext
 	IdeExtensionDetails AutofixIdeExtensionDetails
+
+	// ExplainEndpoint is the (deprecated) AI Explain endpoint. It is only used as a fallback to
+	// obtain explanations for autofix suggestions whose response did not already include one, e.g.
+	// when served by an older Autofix backend. If nil, no fallback call is made and suggestions
+	// without an explanation are returned as-is.
+	ExplainEndpoint *url.URL
 }
 
 type AutofixFeedbackOptions struct {
