@@ -9,7 +9,6 @@ import (
 	"math/rand"
 	"net/http"
 	"net/http/httptest"
-	"os"
 	"strings"
 	"testing"
 
@@ -18,7 +17,6 @@ import (
 	"github.com/snyk/code-client-go/sarif"
 	"github.com/snyk/code-client-go/scan"
 	"github.com/snyk/error-catalog-golang-public/code"
-	"github.com/spf13/pflag"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
@@ -33,129 +31,6 @@ import (
 	"github.com/snyk/go-application-framework/pkg/ui"
 	"github.com/snyk/go-application-framework/pkg/workflow"
 )
-
-type OrgFeatureFlagResponse struct {
-	Ok          bool   `json:"ok,omitempty"`
-	UserMessage string `json:"userMessage,omitempty"`
-	Code        int    `json:"code,omitempty,string"`
-	Error       string `json:"error,omitempty"`
-}
-
-func Test_Code_entrypoint(t *testing.T) {
-	org := "1234"
-	sastSettingsCalled := 0
-
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		fmt.Println(r.URL)
-		if strings.HasSuffix(r.URL.String(), "/v1/cli-config/settings/sast?org="+org) {
-			sastSettingsCalled++
-			sastSettings := &sast_contract.SastResponse{
-				SastEnabled: true,
-				LocalCodeEngine: sast_contract.LocalCodeEngine{
-					Enabled: true,
-				},
-			}
-
-			err := json.NewEncoder(w).Encode(sastSettings)
-			assert.NoError(t, err)
-		} else if strings.Contains(r.URL.String(), "/v1/cli-config/feature-flags/") {
-			// Disable the native-implementation feature flags so the workflow
-			// dispatches to legacycli (the path exercised by this test).
-			featureFlag := OrgFeatureFlagResponse{
-				Ok: false,
-			}
-
-			err := json.NewEncoder(w).Encode(featureFlag)
-			assert.NoError(t, err)
-		}
-
-		w.WriteHeader(http.StatusOK)
-	}))
-	defer server.Close()
-
-	expectedData := "Hello World"
-	flagString := "--user-=bla"
-	callback1 := func(invocation workflow.InvocationContext, input []workflow.Data) ([]workflow.Data, error) {
-		typeId := workflow.NewTypeIdentifier(invocation.GetWorkflowIdentifier(), "wfl1data")
-		d := workflow.NewData(typeId, "text/plain", expectedData)
-		assert.Equal(t, []string{flagString}, invocation.GetConfiguration().Get(configuration.RAW_CMD_ARGS))
-		return []workflow.Data{d}, nil
-	}
-
-	// set
-	config := configuration.NewWithOpts()
-	config.Set(configuration.API_URL, server.URL)
-	config.Set(configuration.ORGANIZATION, org)
-
-	engine := workflow.NewWorkFlowEngine(config)
-
-	err := Init(engine)
-	assert.NoError(t, err)
-
-	// Create legacycli workflow
-	mockLegacyCliWorkflowId := workflow.NewWorkflowIdentifier("legacycli")
-	entry1, err := engine.Register(mockLegacyCliWorkflowId, workflow.ConfigurationOptionsFromFlagset(pflag.NewFlagSet("1", pflag.ExitOnError)), callback1)
-	assert.Nil(t, err)
-	assert.NotNil(t, entry1)
-
-	err = engine.Init()
-	assert.NoError(t, err)
-
-	// Method under test
-	wrkflw, ok := engine.GetWorkflow(WORKFLOWID_CODE)
-	assert.True(t, ok)
-	assert.NotNil(t, wrkflw)
-
-	os.Args = []string{"cmd", flagString}
-
-	rs, err := engine.InvokeWithConfig(WORKFLOWID_CODE, config)
-	assert.NoError(t, err)
-	assert.NotNil(t, rs)
-	assert.Equal(t, expectedData, rs[0].GetPayload().(string))
-	assert.Equal(t, 2, sastSettingsCalled)
-}
-
-func Test_Code_legacyImplementation_happyPath(t *testing.T) {
-	expectedData := "Hello World"
-	flagString := "--user-=bla"
-	callback1 := func(invocation workflow.InvocationContext, input []workflow.Data) ([]workflow.Data, error) {
-		typeId := workflow.NewTypeIdentifier(invocation.GetWorkflowIdentifier(), "wfl1data")
-		d := workflow.NewData(typeId, "text/plain", expectedData)
-		assert.Equal(t, []string{flagString}, invocation.GetConfiguration().Get(configuration.RAW_CMD_ARGS))
-		return []workflow.Data{d}, nil
-	}
-
-	// set
-	config := configuration.New()
-	engine := workflow.NewWorkFlowEngine(config)
-
-	config.Set(configuration.FF_CODE_CONSISTENT_IGNORES, false)
-	config.Set(ConfigurationSastEnabled, true)
-
-	err := Init(engine)
-	assert.NoError(t, err)
-
-	// Create legacycli workflow
-	mockLegacyCliWorkflowId := workflow.NewWorkflowIdentifier("legacycli")
-	entry1, err := engine.Register(mockLegacyCliWorkflowId, workflow.ConfigurationOptionsFromFlagset(pflag.NewFlagSet("1", pflag.ExitOnError)), callback1)
-	assert.Nil(t, err)
-	assert.NotNil(t, entry1)
-
-	err = engine.Init()
-	assert.NoError(t, err)
-
-	// Method under test
-	wrkflw, ok := engine.GetWorkflow(WORKFLOWID_CODE)
-	assert.True(t, ok)
-	assert.NotNil(t, wrkflw)
-
-	os.Args = []string{"cmd", flagString}
-
-	rs, err := engine.InvokeWithConfig(WORKFLOWID_CODE, config)
-	assert.NoError(t, err)
-	assert.NotNil(t, rs)
-	assert.Equal(t, expectedData, rs[0].GetPayload().(string))
-}
 
 func Test_Code_nativeImplementation_happyPath(t *testing.T) {
 	numberOfArtifacts := rand.Int()
@@ -420,120 +295,16 @@ func Test_Code_nativeImplementation_analysisEmpty(t *testing.T) {
 	})
 }
 
-func Test_Code_FF_CODE_CONSISTENT_IGNORES(t *testing.T) {
-	response := OrgFeatureFlagResponse{}
-	responseNativeImpl := OrgFeatureFlagResponse{}
-	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		data, err := json.Marshal(response)
-
-		if strings.Contains(r.URL.Path, FfNameNativeImplementation) {
-			data, err = json.Marshal(responseNativeImpl)
-		}
-
-		assert.NoError(t, err)
-		fmt.Fprintln(w, string(data))
-	}))
-	defer ts.Close()
-
-	orgId := "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee"
-	config := configuration.NewWithOpts(configuration.WithAutomaticEnv())
-	config.Set(configuration.API_URL, ts.URL)
-
+func Test_Code_InitDoesNotRegisterNativeFeatureFlagGate(t *testing.T) {
+	config := configuration.NewWithOpts()
 	engine := workflow.NewWorkFlowEngine(config)
+
 	err := Init(engine)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 
-	t.Run("Feature Flag set", func(t *testing.T) {
-		config.Set(configuration.ORGANIZATION, orgId)
-		response = OrgFeatureFlagResponse{Code: http.StatusOK, Ok: true}
-		consistentIgnores := config.GetBool(configuration.FF_CODE_CONSISTENT_IGNORES)
-		assert.True(t, consistentIgnores)
-	})
-
-	t.Run("Feature Flag NOT set", func(t *testing.T) {
-		config.Set(configuration.ORGANIZATION, orgId)
-		response = OrgFeatureFlagResponse{Code: http.StatusForbidden}
-		consistentIgnores := config.GetBool(configuration.FF_CODE_CONSISTENT_IGNORES)
-		assert.False(t, consistentIgnores)
-	})
-
-	t.Run("Feature Flag not available due to error", func(t *testing.T) {
-		config.Unset(configuration.ORGANIZATION)
-		consistentIgnores := config.GetBool(configuration.FF_CODE_CONSISTENT_IGNORES)
-		assert.False(t, consistentIgnores)
-	})
-
-	t.Run("Local Native Implementation Feature Flag set", func(t *testing.T) {
-		config.Set(configuration.ORGANIZATION, orgId)
-		responseNativeImpl = OrgFeatureFlagResponse{Code: http.StatusOK, Ok: true}
-		consistentIgnores := config.GetBool(configuration.FF_CODE_NATIVE_IMPLEMENTATION)
-		assert.True(t, consistentIgnores)
-	})
-}
-
-func Test_Code_UseNativeImplementation(t *testing.T) {
-	logger := zerolog.Nop()
-
-	// cciFeatureFlagEnabled bool, nativeImplementationFeatureFlag bool, ignoresFeatureFlag bool
-	t.Run("cci feature flag disabled, native implementation disabled", func(t *testing.T) {
-		expected := false
-		config := configuration.NewWithOpts()
-		config.Set(configuration.FF_CODE_CONSISTENT_IGNORES, false)
-		config.Set(configuration.FF_CODE_NATIVE_IMPLEMENTATION, false)
-		config.Set(ConfigurationSlceEnabled, false)
-		actual := useNativeImplementation(config, &logger, true)
-		assert.Equal(t, expected, actual)
-	})
-
-	t.Run("cci feature flag disabled, native implementation enabled", func(t *testing.T) {
-		expected := true
-		config := configuration.NewWithOpts()
-		config.Set(configuration.FF_CODE_CONSISTENT_IGNORES, false)
-		config.Set(configuration.FF_CODE_NATIVE_IMPLEMENTATION, true)
-		config.Set(ConfigurationSlceEnabled, false)
-		actual := useNativeImplementation(config, &logger, true)
-		assert.Equal(t, expected, actual)
-	})
-
-	t.Run("cci feature flag enabled, native implementation disabled", func(t *testing.T) {
-		expected := true
-		config := configuration.NewWithOpts()
-		config.Set(configuration.FF_CODE_CONSISTENT_IGNORES, true)
-		config.Set(configuration.FF_CODE_NATIVE_IMPLEMENTATION, false)
-		config.Set(ConfigurationSlceEnabled, false)
-		actual := useNativeImplementation(config, &logger, true)
-		assert.Equal(t, expected, actual)
-	})
-
-	t.Run("cci feature flag enabled, native implementation enabled", func(t *testing.T) {
-		expected := true
-		config := configuration.NewWithOpts()
-		config.Set(configuration.FF_CODE_CONSISTENT_IGNORES, true)
-		config.Set(configuration.FF_CODE_NATIVE_IMPLEMENTATION, true)
-		config.Set(ConfigurationSlceEnabled, false)
-		actual := useNativeImplementation(config, &logger, true)
-		assert.Equal(t, expected, actual)
-	})
-
-	t.Run("scle enabled no longer forces the legacy implementation", func(t *testing.T) {
-		expected := true
-		config := configuration.NewWithOpts()
-		config.Set(configuration.FF_CODE_CONSISTENT_IGNORES, true)
-		config.Set(configuration.FF_CODE_NATIVE_IMPLEMENTATION, true)
-		config.Set(ConfigurationSlceEnabled, true)
-		actual := useNativeImplementation(config, &logger, true)
-		assert.Equal(t, expected, actual)
-	})
-
-	t.Run("scle enabled with no native feature flags stays on legacy", func(t *testing.T) {
-		expected := false
-		config := configuration.NewWithOpts()
-		config.Set(configuration.FF_CODE_CONSISTENT_IGNORES, false)
-		config.Set(configuration.FF_CODE_NATIVE_IMPLEMENTATION, false)
-		config.Set(ConfigurationSlceEnabled, true)
-		actual := useNativeImplementation(config, &logger, true)
-		assert.Equal(t, expected, actual)
-	})
+	keys := config.AllKeys()
+	assert.NotContains(t, keys, configuration.FF_CODE_CONSISTENT_IGNORES)
+	assert.NotContains(t, keys, configuration.FF_CODE_NATIVE_IMPLEMENTATION)
 }
 
 func Test_registerLocalEngineAuthURL(t *testing.T) {
