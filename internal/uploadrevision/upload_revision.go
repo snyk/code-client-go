@@ -17,8 +17,11 @@
 package uploadrevision
 
 import (
+	"bytes"
 	"context"
 	"errors"
+	"io"
+	"io/fs"
 	"net/http"
 
 	"github.com/rs/zerolog"
