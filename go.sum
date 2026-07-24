@@ -246,8 +246,8 @@ github.com/skeema/knownhosts v1.3.1 h1:X2osQ+RAjK76shCbvhHHHVl3ZlgDm8apHEHFqRjnB
 github.com/skeema/knownhosts v1.3.1/go.mod h1:r7KTdC8l4uxWRyK2TpQZ/1o5HaSzh06ePQNxPwTcfiY=
 github.com/snyk/error-catalog-golang-public v0.0.0-20260205094614-116c03822905 h1:pUe6iOWHEOFY0t4u4ssXeTqpMmZBu1xq06VBFI9zUik=
 github.com/snyk/error-catalog-golang-public v0.0.0-20260205094614-116c03822905/go.mod h1:Ytttq7Pw4vOCu9NtRQaOeDU2dhBYUyNBe6kX4+nIIQ4=
-github.com/snyk/go-application-framework v0.0.0-20260504124159-e299fb4a44a1 h1:yiG0VOwT292qxs+g6HTnr6O8is/sKEI+9XTUGf2tFDU=
-github.com/snyk/go-application-framework v0.0.0-20260504124159-e299fb4a44a1/go.mod h1:yTGCJKf6RmqdwrNs5B9zmukL9x1D8EhfSK8mzaPB1Rk=
+github.com/snyk/go-application-framework v0.3.3-0.20260724104007-e9c34a41545f h1:6fvjVATu8rjFRKVvrLc17FJsSWW8y4Bi+hPQxtd8yiM=
+github.com/snyk/go-application-framework v0.3.3-0.20260724104007-e9c34a41545f/go.mod h1:fMJZ6RJN6CyjBt/6KaP0jG/WvPSZFtFnmmDb/NjdF7Y=
 github.com/snyk/go-httpauth v0.0.0-20231117135515-eb445fea7530 h1:s9PHNkL6ueYRiAKNfd8OVxlUOqU3qY0VDbgCD1f6WQY=
 github.com/snyk/go-httpauth v0.0.0-20231117135515-eb445fea7530/go.mod h1:88KbbvGYlmLgee4OcQ19yr0bNpXpOr2kciOthaSzCAg=
 github.com/sourcegraph/conc v0.3.0 h1:OQTbbt6P72L20UqAkXXuLOj79LfEanQ+YQFNpLA9ySo=
