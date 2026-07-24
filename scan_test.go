@@ -137,6 +137,7 @@ func Test_UploadAndAnalyze(t *testing.T) {
 				gomock.Any(),
 				testOrgId,
 				gomock.Any(),
+				gomock.Nil(),
 				gomock.Any(),
 				gomock.Any(),
 			).Return(&sarif.SarifResponse{Status: "COMPLETE"}, &scan.ResultMetaData{}, nil)
@@ -174,6 +175,7 @@ func Test_UploadAndAnalyze(t *testing.T) {
 				gomock.Any(),
 				testOrgId,
 				gomock.Any(),
+				gomock.Nil(),
 				gomock.Any(),
 				gomock.Any(),
 			).Return(&sarif.SarifResponse{Status: "COMPLETE"}, &scan.ResultMetaData{}, nil)
@@ -201,7 +203,8 @@ func TestAnalyzeRemote(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 	mockConfig := confMocks.NewMockConfig(ctrl)
-	mockConfig.EXPECT().Organization().AnyTimes().Return("mockOrgId")
+	mockConfig.EXPECT().Organization().AnyTimes().Return("4a72d1db-b465-4764-99e1-ecedad03b06a")
+	mockConfig.EXPECT().SnykApi().AnyTimes().Return("")
 
 	mockHTTPClient := httpmocks.NewMockHTTPClient(ctrl)
 	mockInstrumentor := mocks.NewMockInstrumentor(ctrl)
@@ -226,7 +229,7 @@ func TestAnalyzeRemote(t *testing.T) {
 	t.Run("returns valid response", func(t *testing.T) {
 		mockAnalysisOrchestrator.EXPECT().RunTestRemote(
 			gomock.Any(),
-			"mockOrgId",
+			"4a72d1db-b465-4764-99e1-ecedad03b06a",
 			gomock.Any(),
 		).Return(&sarif.SarifResponse{Status: "COMPLETE"}, &scan.ResultMetaData{}, nil)
 

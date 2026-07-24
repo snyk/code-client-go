@@ -338,6 +338,7 @@ func TestAnalysis_RunTest(t *testing.T) {
 		t.Context(),
 		orgId,
 		inputBundle,
+		nil,
 		targetId,
 		analysis.AnalysisConfig{
 			Report: report,
@@ -409,6 +410,7 @@ func TestAnalysis_RunTest_WithBranchName(t *testing.T) {
 		t.Context(),
 		orgId,
 		inputBundle,
+		nil,
 		targetId,
 		analysis.AnalysisConfig{
 			Report: report,
@@ -468,6 +470,7 @@ func TestAnalysis_RunTest_WithProjectTags(t *testing.T) {
 		t.Context(),
 		orgId,
 		inputBundle,
+		nil,
 		targetId,
 		analysis.AnalysisConfig{
 			Report:      report,
@@ -482,6 +485,100 @@ func TestAnalysis_RunTest_WithProjectTags(t *testing.T) {
 	assert.Equal(t, projectId.String(), resultMetadata.ProjectId)
 	assert.Equal(t, snapshotId.String(), resultMetadata.SnapshotId)
 	assert.Equal(t, sarifResponse.Version, result.Sarif.Version)
+}
+
+func mockTestCreatedResponseWithRevisionValidation(t *testing.T, mockHTTPClient *httpmocks.MockHTTPClient, testId uuid.UUID, orgId string, expectedRevisionId string, responseCode int) {
+	t.Helper()
+	response := v20250407.NewTestResponse()
+	response.Data.Id = testId
+	responseBodyBytes, err := json.Marshal(response)
+	assert.NoError(t, err)
+	expectedTestCreatedUrl := fmt.Sprintf("http://localhost/hidden/orgs/%s/tests?version=%s", orgId, v20250407.ApiVersion)
+	mockHTTPClient.EXPECT().Do(mock.MatchedBy(func(i interface{}) bool {
+		req := i.(*http.Request)
+		body, _ := io.ReadAll(req.Body)
+		var testRequestBody v20250407Models.CreateTestRequestBody
+		err := json.Unmarshal(body, &testRequestBody)
+		assert.NoError(t, err)
+		revision, err := testRequestBody.Data.Attributes.Input.AsTestInputUploadRevision()
+		assert.NoError(t, err)
+		assert.Equal(t, expectedRevisionId, revision.RevisionId)
+
+		return req.URL.String() == expectedTestCreatedUrl && req.Method == http.MethodPost
+	})).Times(1).Return(&http.Response{
+		StatusCode: responseCode,
+		Header: http.Header{
+			"Content-Type": []string{"application/json"},
+		},
+		Body: io.NopCloser(bytes.NewReader(responseBodyBytes)),
+	}, mockDeriveErrorFromStatusCode(responseCode))
+}
+
+func TestAnalysis_RunTest_WithUploadRevision(t *testing.T) {
+	mockConfig, mockHTTPClient, mockInstrumentor, mockErrorReporter, mockTracker, mockTrackerFactory, logger := setup(t, nil)
+	mockTracker.EXPECT().Begin(gomock.Eq("Snyk Code analysis for ../mypath/"), gomock.Eq("Retrieving results...")).Return()
+	mockTracker.EXPECT().End(gomock.Eq("Analysis completed.")).Return()
+
+	orgId := "4a72d1db-b465-4764-99e1-ecedad03b06a"
+	projectId := uuid.New()
+	snapshotId := uuid.New()
+	testId := uuid.New()
+	revisionId := uuid.NewString()
+	targetId, err := scan.NewRepositoryTarget("../mypath/")
+	assert.NoError(t, err)
+
+	mockTestCreatedResponseWithRevisionValidation(t, mockHTTPClient, testId, orgId, revisionId, http.StatusCreated)
+	mockTestStatusResponse(t, mockHTTPClient, orgId, testId, http.StatusOK)
+
+	expectedWebuilink := ""
+	expectedDocumentPath := "/1234"
+	mockResultCompletedResponse(t, mockHTTPClient, expectedWebuilink, projectId, snapshotId, orgId, testId, expectedDocumentPath, http.StatusOK)
+
+	sarifResponse := sarif.SarifDocument{Version: "42.0"}
+	mockGetComponentResponse(t, sarifResponse, expectedDocumentPath, mockHTTPClient, http.StatusOK)
+
+	analysisOrchestrator := analysis.NewAnalysisOrchestrator(
+		mockConfig,
+		mockHTTPClient,
+		analysis.WithLogger(&logger),
+		analysis.WithInstrumentor(mockInstrumentor),
+		analysis.WithTrackerFactory(mockTrackerFactory),
+		analysis.WithErrorReporter(mockErrorReporter),
+	)
+
+	result, resultMetadata, err := analysisOrchestrator.RunTest(
+		t.Context(),
+		orgId,
+		nil,
+		&revisionId,
+		targetId,
+		analysis.AnalysisConfig{},
+	)
+
+	require.NoError(t, err)
+	assert.NotNil(t, result)
+	assert.NotNil(t, resultMetadata)
+	assert.Equal(t, sarifResponse.Version, result.Sarif.Version)
+}
+
+func TestAnalysis_RunTest_NoInput(t *testing.T) {
+	mockConfig, mockHTTPClient, mockInstrumentor, mockErrorReporter, _, mockTrackerFactory, logger := setup(t, nil)
+
+	targetId, err := scan.NewRepositoryTarget("../mypath/")
+	assert.NoError(t, err)
+
+	analysisOrchestrator := analysis.NewAnalysisOrchestrator(
+		mockConfig,
+		mockHTTPClient,
+		analysis.WithLogger(&logger),
+		analysis.WithInstrumentor(mockInstrumentor),
+		analysis.WithTrackerFactory(mockTrackerFactory),
+		analysis.WithErrorReporter(mockErrorReporter),
+	)
+
+	_, _, err = analysisOrchestrator.RunTest(t.Context(), "org", nil, nil, targetId, analysis.AnalysisConfig{})
+
+	assert.ErrorIs(t, err, analysis.ErrMissingTestInput)
 }
 
 func TestAnalysis_RunTestRemote(t *testing.T) {

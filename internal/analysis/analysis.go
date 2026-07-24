@@ -47,19 +47,22 @@ import (
 //go:generate go tool github.com/golang/mock/mockgen -destination=mocks/analysis.go -source=analysis.go -package mocks
 
 type AnalysisOrchestrator interface {
-	RunTest(ctx context.Context, orgId string, b bundle.Bundle, target scan.Target, reportingOptions AnalysisConfig) (*sarif.SarifResponse, *scan.ResultMetaData, error)
+	RunTest(ctx context.Context, orgId string, b bundle.Bundle, revisionId *string, target scan.Target, reportingOptions AnalysisConfig) (*sarif.SarifResponse, *scan.ResultMetaData, error)
 	RunTestRemote(ctx context.Context, orgId string, reportingOptions AnalysisConfig) (*sarif.SarifResponse, *scan.ResultMetaData, error)
 	RunLegacyTest(ctx context.Context, bundleHash string, shardKey string, limitToFiles []string, severity int) (*sarif.SarifResponse, scan.LegacyScanStatus, error)
 }
 
+var ErrMissingTestInput = errors.New("either a bundle or an upload revision id is required")
+
 type AnalysisConfig struct {
-	Report          bool
-	ProjectName     *string
-	ProjectTags     *[]string
-	TargetName      *string
-	TargetReference *string
-	ProjectId       *uuid.UUID
-	CommitId        *string
+	Report                           bool
+	ProjectName                      *string
+	ProjectTags                      *[]string
+	TargetName                       *string
+	TargetReference                  *string
+	ProjectId                        *uuid.UUID
+	CommitId                         *string
+	UploadFileContentToFileUploadApi bool
 }
 
 type analysisOrchestrator struct {
@@ -233,7 +236,7 @@ func (a *analysisOrchestrator) createTestAndGetResults(ctx context.Context, orgI
 	return result, metadata, err
 }
 
-func (a *analysisOrchestrator) RunTest(ctx context.Context, orgId string, b bundle.Bundle, target scan.Target, reportingConfig AnalysisConfig) (*sarif.SarifResponse, *scan.ResultMetaData, error) {
+func (a *analysisOrchestrator) RunTest(ctx context.Context, orgId string, b bundle.Bundle, revisionId *string, target scan.Target, reportingConfig AnalysisConfig) (*sarif.SarifResponse, *scan.ResultMetaData, error) {
 	var commitId *string = nil
 	var repoUrl *string = nil
 	var branchName *string = nil
@@ -252,8 +255,18 @@ func (a *analysisOrchestrator) RunTest(ctx context.Context, orgId string, b bund
 		}
 	}
 
+	var input testApi.CreateTestOption
+	switch {
+	case b != nil:
+		input = testApi.WithInputBundle(b.GetBundleHash(), target.GetPath(), repoUrl, b.GetLimitToFiles(), commitId, branchName)
+	case revisionId != nil:
+		input = testApi.WithInputUploadRevision(*revisionId, target.GetPath(), repoUrl)
+	default:
+		return nil, nil, ErrMissingTestInput
+	}
+
 	body := testApi.NewCreateTestApplicationBody(
-		testApi.WithInputBundle(b.GetBundleHash(), target.GetPath(), repoUrl, b.GetLimitToFiles(), commitId, branchName),
+		input,
 		testApi.WithScanType(a.testType),
 		testApi.WithProjectName(reportingConfig.ProjectName),
 		testApi.WithProjectTags(reportingConfig.ProjectTags),
