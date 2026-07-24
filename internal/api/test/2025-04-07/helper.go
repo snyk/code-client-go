@@ -34,6 +34,21 @@ func WithInputBundle(id string, localFilePath string, repoUrl *string, limitTest
 	}
 }
 
+func WithInputUploadRevision(id string, localFilePath string, repoUrl *string) CreateTestOption {
+	return func(body *CreateTestApplicationVndAPIPlusJSONRequestBody) {
+		revisionInput := v20250407.TestInputUploadRevision{
+			RevisionId: id,
+			Type:       v20250407.UploadRevision,
+			Metadata: &struct {
+				LocalFilePath *string `json:"local_file_path,omitempty"`
+				RepoUrl       *string `json:"repo_url,omitempty"`
+			}{LocalFilePath: &localFilePath, RepoUrl: repoUrl},
+		}
+
+		body.Data.Attributes.Input.FromTestInputUploadRevision(revisionInput)
+	}
+}
+
 func WithInputLegacyScmProject(project v20250407.TestInputLegacyScmProject) CreateTestOption {
 	return func(body *CreateTestApplicationVndAPIPlusJSONRequestBody) {
 		body.Data.Attributes.Input.FromTestInputLegacyScmProject(project)
