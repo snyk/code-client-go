@@ -30,9 +30,15 @@ func Hash(content []byte) (string, error) {
 	if err != nil {
 		utf8content = content
 	}
+	return HashContent(utf8content), err
+}
+
+// HashContent returns the SHA-256 hex digest of already-decoded content. Callers
+// that have already converted their bytes to UTF-8 should use this to avoid the
+// redundant conversion that Hash performs internally.
+func HashContent(utf8content []byte) string {
 	b := sha256.Sum256(utf8content)
-	sum256 := hex.EncodeToString(b[:])
-	return sum256, err
+	return hex.EncodeToString(b[:])
 }
 
 func ConvertToUTF8(content []byte) ([]byte, error) {

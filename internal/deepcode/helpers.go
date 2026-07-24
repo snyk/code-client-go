@@ -26,20 +26,22 @@ type BundleFile struct {
 }
 
 func BundleFileFrom(content []byte, includeContent bool) (BundleFile, error) {
-	hash, err := util.Hash(content)
+	// Convert to UTF-8 once and reuse the result for both the hash and the
+	// content. The previous implementation converted twice (once inside
+	// util.Hash and once here), doubling the conversion cost for every file.
+	utf8Content, err := util.ConvertToUTF8(content)
+	if err != nil {
+		utf8Content = content
+	}
+
+	hash := util.HashContent(utf8Content)
 
 	// We can either create the bundleFile empty and enrich it with content later, or include the content now.
 	// Creating empty avoids keeping the file contents in memory, so improves performance if we don't need access to the
 	// contents right away.
 	bundleFileContent := ""
 	if includeContent {
-		utf8Content, convertErr := util.ConvertToUTF8(content)
-		if convertErr == nil {
-			bundleFileContent = string(utf8Content)
-		} else {
-			bundleFileContent = string(content)
-			err = convertErr
-		}
+		bundleFileContent = string(utf8Content)
 	}
 
 	file := BundleFile{

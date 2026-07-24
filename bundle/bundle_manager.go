@@ -17,9 +17,13 @@
 package bundle
 
 import (
+	"bytes"
 	"context"
 	"os"
 	"path/filepath"
+	"runtime"
+	"sync"
+	"sync/atomic"
 
 	"github.com/puzpuzpuz/xsync"
 	"github.com/rs/zerolog"
@@ -40,6 +44,23 @@ type bundleManager struct {
 	trackerFactory       scan.TrackerFactory
 	supportedExtensions  *xsync.MapOf[string, bool]
 	supportedConfigFiles *xsync.MapOf[string, bool]
+	filtersMu            sync.Mutex
+}
+
+// createWorkerCount returns the number of goroutines used to process files when
+// creating a bundle. The work is dominated by per-file I/O (stat + read) and
+// hashing, which are independent across files, so we oversubscribe the CPUs to
+// keep the disk busy while syscalls block — this matters most on Windows, where
+// per-file syscalls are comparatively expensive.
+func createWorkerCount() int {
+	n := runtime.GOMAXPROCS(0) * 4
+	if n < 4 {
+		n = 4
+	}
+	if n > 32 {
+		n = 32
+	}
+	return n
 }
 
 type BundleManager interface {
@@ -119,57 +140,74 @@ func (b *bundleManager) create(
 	var limitToFiles []string
 	fileHashes := make(map[string]string)
 	bundleFiles := make(map[string]deepcode.BundleFile)
-	noFiles := true
-	for absoluteFilePath := range filePaths {
-		noFiles = false
-		if ctx.Err() != nil {
-			return bundle, err // The cancellation error should be handled by the calling function
-		}
-		var supported bool
-		supported, err = b.IsSupported(span.Context(), absoluteFilePath)
-		if err != nil {
-			return bundle, err
-		}
-		if !supported {
-			continue
-		}
 
-		fileInfo, fileErr := os.Stat(absoluteFilePath)
-		if fileErr != nil {
-			b.logger.Error().Err(err).Str("filePath", absoluteFilePath).Msg("Failed to read file info")
-			continue
-		}
+	// Files are processed by a pool of workers because the per-file work (stat,
+	// read, hash) is I/O-bound and independent across files. Results are merged
+	// under a mutex; the merge is cheap relative to the I/O, so contention is
+	// negligible. The first hard error (e.g. fetching filters) aborts the run.
+	processCtx, cancel := context.WithCancel(ctx)
+	defer cancel()
 
-		if fileInfo.Size() == 0 || fileInfo.Size() > maxFileSize {
-			continue
+	var (
+		mu       sync.Mutex
+		firstErr error
+		sawFile  atomic.Bool
+		wg       sync.WaitGroup
+	)
+	setErr := func(e error) {
+		mu.Lock()
+		if firstErr == nil {
+			firstErr = e
 		}
-
-		fileContent, fileErr := os.ReadFile(absoluteFilePath)
-		if fileErr != nil {
-			b.logger.Error().Err(err).Str("filePath", absoluteFilePath).Msg("Failed to load content of file")
-			continue
-		}
-
-		relativePath, fileErr := util.ToRelativeUnixPath(rootPath, absoluteFilePath)
-		if fileErr != nil {
-			b.errorReporter.CaptureError(err, observability.ErrorReporterOptions{ErrorDiagnosticPath: rootPath})
-		}
-		relativePath = util.EncodePath(relativePath)
-
-		bundleFile, fileErr := deepcode.BundleFileFrom(fileContent, includeFileContents)
-		if fileErr != nil {
-			b.logger.Error().Err(err).Str("filePath", absoluteFilePath).Msg("Error creating bundle file")
-		}
-		bundleFiles[relativePath] = bundleFile
-		fileHashes[relativePath] = bundleFile.Hash
-		b.logger.Trace().Str("method", "BundleFileFrom").Str("hash", bundleFile.Hash).Str("filePath", absoluteFilePath).Msg("")
-
-		if changedFiles[absoluteFilePath] {
-			limitToFiles = append(limitToFiles, relativePath)
-		}
+		mu.Unlock()
+		cancel()
 	}
 
-	if noFiles {
+	for i := 0; i < createWorkerCount(); i++ {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			for absoluteFilePath := range filePaths {
+				sawFile.Store(true)
+				if processCtx.Err() != nil {
+					return
+				}
+
+				supported, supErr := b.IsSupported(processCtx, absoluteFilePath)
+				if supErr != nil {
+					setErr(supErr)
+					return
+				}
+				if !supported {
+					continue
+				}
+
+				bundleFile, relativePath, ok := b.bundleFileFromPath(rootPath, absoluteFilePath, includeFileContents)
+				if !ok {
+					continue
+				}
+
+				mu.Lock()
+				bundleFiles[relativePath] = bundleFile
+				fileHashes[relativePath] = bundleFile.Hash
+				if changedFiles[absoluteFilePath] {
+					limitToFiles = append(limitToFiles, relativePath)
+				}
+				mu.Unlock()
+			}
+		}()
+	}
+	wg.Wait()
+
+	// Preserve the original behavior: a canceled context returns without an
+	// error so the caller can decide how to handle the cancellation.
+	if ctx.Err() != nil {
+		return bundle, nil
+	}
+	if firstErr != nil {
+		return bundle, firstErr
+	}
+	if !sawFile.Load() {
 		return bundle, NoFilesError{}
 	}
 
@@ -191,6 +229,52 @@ func (b *bundleManager) create(
 		missingFiles,
 	)
 	return bundle, err
+}
+
+// bundleFileFromPath reads a single file and builds its BundleFile and encoded
+// relative path. It returns ok=false for files that should be skipped (unreadable,
+// empty, or larger than maxFileSize). The file is opened once and stat'd via the
+// open handle to avoid a second filesystem lookup, which is noticeably cheaper on
+// Windows than separate os.Stat + os.ReadFile calls.
+func (b *bundleManager) bundleFileFromPath(rootPath, absoluteFilePath string, includeFileContents bool) (deepcode.BundleFile, string, bool) {
+	f, openErr := os.Open(absoluteFilePath)
+	if openErr != nil {
+		b.logger.Error().Err(openErr).Str("filePath", absoluteFilePath).Msg("Failed to open file")
+		return deepcode.BundleFile{}, "", false
+	}
+	defer func() { _ = f.Close() }()
+
+	fileInfo, statErr := f.Stat()
+	if statErr != nil {
+		b.logger.Error().Err(statErr).Str("filePath", absoluteFilePath).Msg("Failed to read file info")
+		return deepcode.BundleFile{}, "", false
+	}
+
+	size := fileInfo.Size()
+	if size == 0 || size > maxFileSize {
+		return deepcode.BundleFile{}, "", false
+	}
+
+	buf := bytes.NewBuffer(make([]byte, 0, size))
+	if _, readErr := buf.ReadFrom(f); readErr != nil {
+		b.logger.Error().Err(readErr).Str("filePath", absoluteFilePath).Msg("Failed to load content of file")
+		return deepcode.BundleFile{}, "", false
+	}
+	fileContent := buf.Bytes()
+
+	relativePath, relErr := util.ToRelativeUnixPath(rootPath, absoluteFilePath)
+	if relErr != nil {
+		b.errorReporter.CaptureError(relErr, observability.ErrorReporterOptions{ErrorDiagnosticPath: rootPath})
+	}
+	relativePath = util.EncodePath(relativePath)
+
+	bundleFile, bundleErr := deepcode.BundleFileFrom(fileContent, includeFileContents)
+	if bundleErr != nil {
+		b.logger.Error().Err(bundleErr).Str("filePath", absoluteFilePath).Msg("Error creating bundle file")
+	}
+	b.logger.Trace().Str("method", "BundleFileFrom").Str("hash", bundleFile.Hash).Str("filePath", absoluteFilePath).Msg("")
+
+	return bundleFile, relativePath, true
 }
 
 func (b *bundleManager) Upload(
@@ -292,23 +376,12 @@ func (b *bundleManager) groupInBatches(
 }
 
 func (b *bundleManager) IsSupported(ctx context.Context, file string) (bool, error) {
+	// Guard the lazy filter load so concurrent callers (the file worker pool)
+	// fetch filters exactly once. The lock is only contended on the first calls;
+	// once the maps are populated the fast path below skips it entirely.
 	if b.supportedExtensions.Size() == 0 && b.supportedConfigFiles.Size() == 0 {
-		filters, err := b.deepcodeClient.GetFilters(ctx)
-		if err != nil {
-			b.logger.Error().Err(err).Msg("could not get filters")
+		if err := b.loadFilters(ctx); err != nil {
 			return false, err
-		}
-
-		for _, ext := range filters.Extensions {
-			b.supportedExtensions.Store(ext, true)
-		}
-		for _, configFile := range filters.ConfigFiles {
-			// .gitignore and .dcignore should not be uploaded
-			// (https://github.com/snyk/code-client/blob/d6f6a2ce4c14cb4b05aa03fb9f03533d8cf6ca4a/src/files.ts#L138)
-			if configFile == ".gitignore" || configFile == ".dcignore" {
-				continue
-			}
-			b.supportedConfigFiles.Store(configFile, true)
 		}
 	}
 
@@ -318,4 +391,34 @@ func (b *bundleManager) IsSupported(ctx context.Context, file string) (bool, err
 	_, isSupportedConfigFile := b.supportedConfigFiles.Load(fileName)
 
 	return isSupportedExtension || isSupportedConfigFile, nil
+}
+
+func (b *bundleManager) loadFilters(ctx context.Context) error {
+	b.filtersMu.Lock()
+	defer b.filtersMu.Unlock()
+
+	// Re-check under the lock: another goroutine may have populated the filters
+	// while we were waiting, in which case there is nothing left to do.
+	if b.supportedExtensions.Size() != 0 || b.supportedConfigFiles.Size() != 0 {
+		return nil
+	}
+
+	filters, err := b.deepcodeClient.GetFilters(ctx)
+	if err != nil {
+		b.logger.Error().Err(err).Msg("could not get filters")
+		return err
+	}
+
+	for _, ext := range filters.Extensions {
+		b.supportedExtensions.Store(ext, true)
+	}
+	for _, configFile := range filters.ConfigFiles {
+		// .gitignore and .dcignore should not be uploaded
+		// (https://github.com/snyk/code-client/blob/d6f6a2ce4c14cb4b05aa03fb9f03533d8cf6ca4a/src/files.ts#L138)
+		if configFile == ".gitignore" || configFile == ".dcignore" {
+			continue
+		}
+		b.supportedConfigFiles.Store(configFile, true)
+	}
+	return nil
 }

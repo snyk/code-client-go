@@ -121,4 +121,5 @@ tool (
 	github.com/pact-foundation/pact-go/v2
 )
 
-// replace github.com/snyk/go-application-framework => ../../go-application-framework
+// replace github.com/snyk/go-application-framework => /Users/ianzink/git/gaf-v0.3.2-local
+
