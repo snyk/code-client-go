@@ -42,6 +42,8 @@ const (
 	ConfigurationSastSettings    = "internal_sast_settings"
 	ConfigurationSlceEnabled     = "internal_snyk_scle_enabled"
 
+	ConfigurationUploadToFileUploadApi = "internal_upload_to_fua"
+
 	MetadataBundleHash = "Snyk-Bundle-Hash"
 )
 
@@ -291,6 +293,10 @@ func defaultAnalyzeFunction(ctx context.Context, path string, httpClientFunc fun
 	// test service, so SCLE scans must use the legacy ("deeproxy") scanner.
 	if config.GetBool(ConfigurationSlceEnabled) {
 		return analyzeWithLegacyEngine(ctx, codeScanner, requestId, target, files, changedFiles, logger)
+	}
+
+	if config.GetBool(ConfigurationUploadToFileUploadApi) {
+		analysisOptions = append(analysisOptions, codeclient.WithUploadToFileUploadApi())
 	}
 
 	result, bundleHash, resultMetaData, err = codeScanner.UploadAndAnalyzeWithOptions(ctx, requestId, target, files, changedFiles, analysisOptions...)

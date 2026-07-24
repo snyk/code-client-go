@@ -202,6 +202,9 @@ func Init(engine workflow.Engine) error {
 	engine.GetConfiguration().AddDefaultValue(code_workflow.ConfigurationTestFLowName, configuration.StandardDefaultValueFunction("cli_test"))
 	config_utils.AddFeatureFlagToConfig(engine, configuration.FF_CODE_CONSISTENT_IGNORES, "snykCodeConsistentIgnores")
 	config_utils.AddFeatureFlagToConfig(engine, configuration.FF_CODE_NATIVE_IMPLEMENTATION, FfNameNativeImplementation)
+	config_utils.AddFeatureFlagsToConfig(engine, map[string]string{
+		code_workflow.ConfigurationUploadToFileUploadApi: "code-cli-upload-file-content-to-fua",
+	})
 
 	return err
 }
