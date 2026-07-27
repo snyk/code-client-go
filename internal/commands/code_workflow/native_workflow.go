@@ -48,9 +48,6 @@ const (
 	MetadataBundleHash = "Snyk-Bundle-Hash"
 
 	AnalyticsFileUploadBackend = "file_upload_backend"
-
-	backendFilesBundleStore = "files-bundle-store"
-	backendFileUploadApi    = "file-upload-api"
 )
 
 type reportType string
@@ -242,6 +239,7 @@ func defaultAnalyzeFunction(ctx context.Context, path string, httpClientFunc fun
 		codeclient.WithLogger(logger),
 		codeclient.WithTrackerFactory(progressFactory),
 		codeclient.WithFlow(config.GetString(ConfigurationTestFLowName)),
+		codeclient.WithAnalytics(analyticsClient),
 	}
 
 	codeScanner := codeclient.NewCodeScanner(
@@ -301,10 +299,10 @@ func defaultAnalyzeFunction(ctx context.Context, path string, httpClientFunc fun
 		return analyzeWithLegacyEngine(ctx, codeScanner, requestId, target, files, changedFiles, logger)
 	}
 
-	fileUploadBackend := backendFilesBundleStore
+	fileUploadBackend := codeclient.BackendFilesBundleStore
 	if config.GetBool(ConfigurationUploadToFileUploadApi) {
 		analysisOptions = append(analysisOptions, codeclient.WithUploadToFileUploadApi())
-		fileUploadBackend = backendFileUploadApi
+		fileUploadBackend = codeclient.BackendFileUploadApi
 	}
 
 	analyticsClient.AddExtensionStringValue(AnalyticsFileUploadBackend, fileUploadBackend)

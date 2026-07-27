@@ -16,6 +16,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	codeclient "github.com/snyk/code-client-go"
 	"github.com/snyk/code-client-go/bundle"
 	"github.com/snyk/code-client-go/pkg/code/sast_contract"
 	"github.com/snyk/code-client-go/sarif"
@@ -42,26 +43,18 @@ func Test_defaultAnalyzeFunction_reportNotSupportedWithSCLE(t *testing.T) {
 	})
 }
 
-// recordedFileUploadBackend returns the value the analysis recorded under
-// AnalyticsFileUploadBackend, and whether it recorded one at all.
-func recordedFileUploadBackend(t *testing.T, a analytics.Analytics) (string, bool) {
+// recordedExtensions returns the analytics extension values the analysis recorded. Integers
+// come back as float64 because the collector round-trips the extension map through JSON.
+func recordedExtensions(t *testing.T, a analytics.Analytics) map[string]interface{} {
 	t.Helper()
 
 	body, err := analytics.GetV2InstrumentationObject(a.GetInstrumentation())
 	require.NoError(t, err)
 
-	extension := body.Data.Attributes.Interaction.Extension
-	if extension == nil {
-		return "", false
+	if body.Data.Attributes.Interaction.Extension == nil {
+		return map[string]interface{}{}
 	}
-
-	value, ok := (*extension)[AnalyticsFileUploadBackend]
-	if !ok {
-		return "", false
-	}
-
-	backend, ok := value.(string)
-	return backend, ok
+	return *body.Data.Attributes.Interaction.Extension
 }
 
 func Test_defaultAnalyzeFunction_usesLocalEngineLegacyEndpoints(t *testing.T) {
@@ -142,8 +135,7 @@ func Test_defaultAnalyzeFunction_usesLocalEngineLegacyEndpoints(t *testing.T) {
 	assert.Nil(t, resultMetaData)
 
 	// SCLE returns before the file upload backend is chosen, so nothing is recorded.
-	_, recorded := recordedFileUploadBackend(t, analyticsClient)
-	assert.False(t, recorded)
+	assert.NotContains(t, recordedExtensions(t, analyticsClient), AnalyticsFileUploadBackend)
 
 	mu.Lock()
 	defer mu.Unlock()
@@ -217,9 +209,10 @@ func Test_defaultAnalyzeFunction_usesFileUploadApi(t *testing.T) {
 	require.NoError(t, err)
 	assert.Nil(t, result)
 
-	backend, recorded := recordedFileUploadBackend(t, analyticsClient)
-	assert.True(t, recorded)
-	assert.Equal(t, backendFileUploadApi, backend)
+	extensions := recordedExtensions(t, analyticsClient)
+	assert.Equal(t, codeclient.BackendFileUploadApi, extensions[AnalyticsFileUploadBackend])
+	assert.Equal(t, true, extensions["upload_success"])
+	assert.Contains(t, extensions, "upload_duration_ms")
 
 	mu.Lock()
 	defer mu.Unlock()
@@ -228,6 +221,70 @@ func Test_defaultAnalyzeFunction_usesFileUploadApi(t *testing.T) {
 	assert.True(t, uploadHit)
 	assert.True(t, sealHit)
 	assert.True(t, testHit)
+}
+
+func Test_defaultAnalyzeFunction_recordsFailedFileUploadApiUpload(t *testing.T) {
+	logger := zerolog.Nop()
+
+	var (
+		mu                 sync.Mutex
+		createHit, testHit bool
+	)
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		mu.Lock()
+		defer mu.Unlock()
+		switch {
+		case r.Method == http.MethodGet && r.URL.Path == "/filters":
+			_, _ = w.Write([]byte(`{"configFiles":[],"extensions":[".js"]}`))
+		case r.Method == http.MethodPost && strings.HasSuffix(r.URL.Path, "/upload_revisions"):
+			// Creating the revision fails, so nothing is ever uploaded or sealed.
+			// 403 rather than 500 because the http client retries 5xx (see retryErrorCodes).
+			createHit = true
+			w.WriteHeader(http.StatusForbidden)
+		case r.Method == http.MethodPost && strings.HasSuffix(r.URL.Path, "/tests"):
+			testHit = true
+			w.WriteHeader(http.StatusBadRequest)
+		default:
+			http.NotFound(w, r)
+		}
+	}))
+	defer server.Close()
+
+	path := t.TempDir()
+	writeFile(t, filepath.Join(path, "app.js"))
+
+	config := configuration.NewWithOpts()
+	config.Set(configuration.API_URL, server.URL)
+	config.Set(configuration.ORGANIZATION, uuid.NewString())
+	config.Set(configuration.MAX_THREADS, 1)
+	config.Set(configuration.FLAG_REMOTE_REPO_URL, "https://github.com/snyk/nodejs-goof")
+	config.Set(ConfigurationUploadToFileUploadApi, true)
+
+	analyticsClient := analytics.New()
+
+	result, _, _, err := defaultAnalyzeFunction(
+		context.Background(),
+		path,
+		func() *http.Client { return server.Client() },
+		&logger,
+		config,
+		ui.DefaultUi(),
+		analyticsClient,
+	)
+
+	require.Error(t, err)
+	assert.Nil(t, result)
+
+	extensions := recordedExtensions(t, analyticsClient)
+	assert.Equal(t, codeclient.BackendFileUploadApi, extensions[AnalyticsFileUploadBackend])
+	assert.Equal(t, false, extensions["upload_success"])
+	assert.Contains(t, extensions, "upload_duration_ms")
+
+	mu.Lock()
+	defer mu.Unlock()
+	assert.True(t, createHit)
+	assert.False(t, testHit, "the analysis must not run when the upload failed")
 }
 
 type fakeLegacyCodeScanner struct {
