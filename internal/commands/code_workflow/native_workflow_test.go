@@ -20,6 +20,7 @@ import (
 	"github.com/snyk/code-client-go/pkg/code/sast_contract"
 	"github.com/snyk/code-client-go/sarif"
 	"github.com/snyk/code-client-go/scan"
+	"github.com/snyk/go-application-framework/pkg/analytics"
 	"github.com/snyk/go-application-framework/pkg/configuration"
 	"github.com/snyk/go-application-framework/pkg/networking"
 	"github.com/snyk/go-application-framework/pkg/ui"
@@ -34,11 +35,33 @@ func Test_defaultAnalyzeFunction_reportNotSupportedWithSCLE(t *testing.T) {
 		config.Set(ConfigurationProjectName, "my-project") // makes report mode localCode
 		config.Set(ConfigurationSlceEnabled, true)
 
-		_, _, _, err := defaultAnalyzeFunction(context.Background(), t.TempDir(), nil, &logger, config, nil)
+		_, _, _, err := defaultAnalyzeFunction(context.Background(), t.TempDir(), nil, &logger, config, nil, analytics.New())
 
 		assert.Error(t, err)
 		assert.Contains(t, err.Error(), "Snyk Code Local Engine")
 	})
+}
+
+// recordedFileUploadBackend returns the value the analysis recorded under
+// AnalyticsFileUploadBackend, and whether it recorded one at all.
+func recordedFileUploadBackend(t *testing.T, a analytics.Analytics) (string, bool) {
+	t.Helper()
+
+	body, err := analytics.GetV2InstrumentationObject(a.GetInstrumentation())
+	require.NoError(t, err)
+
+	extension := body.Data.Attributes.Interaction.Extension
+	if extension == nil {
+		return "", false
+	}
+
+	value, ok := (*extension)[AnalyticsFileUploadBackend]
+	if !ok {
+		return "", false
+	}
+
+	backend, ok := value.(string)
+	return backend, ok
 }
 
 func Test_defaultAnalyzeFunction_usesLocalEngineLegacyEndpoints(t *testing.T) {
@@ -100,6 +123,8 @@ func Test_defaultAnalyzeFunction_usesLocalEngineLegacyEndpoints(t *testing.T) {
 		},
 	})
 
+	analyticsClient := analytics.New()
+
 	result, actualBundleHash, resultMetaData, err := defaultAnalyzeFunction(
 		context.Background(),
 		path,
@@ -107,6 +132,7 @@ func Test_defaultAnalyzeFunction_usesLocalEngineLegacyEndpoints(t *testing.T) {
 		&logger,
 		config,
 		ui.DefaultUi(),
+		analyticsClient,
 	)
 
 	require.NoError(t, err)
@@ -114,6 +140,10 @@ func Test_defaultAnalyzeFunction_usesLocalEngineLegacyEndpoints(t *testing.T) {
 	assert.Equal(t, "COMPLETE", result.Status)
 	assert.Equal(t, bundleHash, actualBundleHash)
 	assert.Nil(t, resultMetaData)
+
+	// SCLE returns before the file upload backend is chosen, so nothing is recorded.
+	_, recorded := recordedFileUploadBackend(t, analyticsClient)
+	assert.False(t, recorded)
 
 	mu.Lock()
 	defer mu.Unlock()
@@ -172,6 +202,8 @@ func Test_defaultAnalyzeFunction_usesFileUploadApi(t *testing.T) {
 	config.Set(configuration.FLAG_REMOTE_REPO_URL, "https://github.com/snyk/nodejs-goof")
 	config.Set(ConfigurationUploadToFileUploadApi, true)
 
+	analyticsClient := analytics.New()
+
 	result, _, _, err := defaultAnalyzeFunction(
 		context.Background(),
 		path,
@@ -179,10 +211,15 @@ func Test_defaultAnalyzeFunction_usesFileUploadApi(t *testing.T) {
 		&logger,
 		config,
 		ui.DefaultUi(),
+		analyticsClient,
 	)
 
 	require.NoError(t, err)
 	assert.Nil(t, result)
+
+	backend, recorded := recordedFileUploadBackend(t, analyticsClient)
+	assert.True(t, recorded)
+	assert.Equal(t, backendFileUploadApi, backend)
 
 	mu.Lock()
 	defer mu.Unlock()

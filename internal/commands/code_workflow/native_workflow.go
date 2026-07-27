@@ -18,6 +18,7 @@ import (
 	"github.com/snyk/code-client-go/sarif"
 	"github.com/snyk/code-client-go/scan"
 	"github.com/snyk/error-catalog-golang-public/code"
+	"github.com/snyk/go-application-framework/pkg/analytics"
 	"github.com/snyk/go-application-framework/pkg/configuration"
 	"github.com/snyk/go-application-framework/pkg/instrumentation"
 	"github.com/snyk/go-application-framework/pkg/local_workflows/content_type"
@@ -45,6 +46,11 @@ const (
 	ConfigurationUploadToFileUploadApi = "internal_upload_to_fua"
 
 	MetadataBundleHash = "Snyk-Bundle-Hash"
+
+	AnalyticsFileUploadBackend = "file_upload_backend"
+
+	backendFilesBundleStore = "files-bundle-store"
+	backendFileUploadApi    = "file-upload-api"
 )
 
 type reportType string
@@ -55,7 +61,7 @@ const (
 	noReport   reportType = "no_report"
 )
 
-type OptionalAnalysisFunctions func(context.Context, string, func() *http.Client, *zerolog.Logger, configuration.Configuration, ui.UserInterface) (*sarif.SarifResponse, string, *scan.ResultMetaData, error)
+type OptionalAnalysisFunctions func(context.Context, string, func() *http.Client, *zerolog.Logger, configuration.Configuration, ui.UserInterface, analytics.Analytics) (*sarif.SarifResponse, string, *scan.ResultMetaData, error)
 
 type ProgressTrackerFactory struct {
 	userInterface ui.UserInterface
@@ -126,7 +132,7 @@ func EntryPointNative(invocationCtx workflow.InvocationContext, opts ...Optional
 		analyzeFnc = opts[0]
 	}
 
-	result, bundleHash, resultMetaData, err := analyzeFnc(invocationCtx.Context(), path, invocationCtx.GetNetworkAccess().GetHttpClient, logger, config, invocationCtx.GetUserInterface())
+	result, bundleHash, resultMetaData, err := analyzeFnc(invocationCtx.Context(), path, invocationCtx.GetNetworkAccess().GetHttpClient, logger, config, invocationCtx.GetUserInterface(), invocationCtx.GetAnalytics())
 	isNoFilesErr := bundle.IsNoFilesError(err)
 	if err != nil && !isNoFilesErr {
 		return nil, err
@@ -195,7 +201,7 @@ func EntryPointNative(invocationCtx workflow.InvocationContext, opts ...Optional
 }
 
 // default function that uses the code-client-go library
-func defaultAnalyzeFunction(ctx context.Context, path string, httpClientFunc func() *http.Client, logger *zerolog.Logger, config configuration.Configuration, userInterface ui.UserInterface) (*sarif.SarifResponse, string, *scan.ResultMetaData, error) {
+func defaultAnalyzeFunction(ctx context.Context, path string, httpClientFunc func() *http.Client, logger *zerolog.Logger, config configuration.Configuration, userInterface ui.UserInterface, analyticsClient analytics.Analytics) (*sarif.SarifResponse, string, *scan.ResultMetaData, error) {
 	var result *sarif.SarifResponse
 	var resultMetaData *scan.ResultMetaData
 	requestId, err := uuid.GenerateUUID()
@@ -295,9 +301,14 @@ func defaultAnalyzeFunction(ctx context.Context, path string, httpClientFunc fun
 		return analyzeWithLegacyEngine(ctx, codeScanner, requestId, target, files, changedFiles, logger)
 	}
 
+	fileUploadBackend := backendFilesBundleStore
 	if config.GetBool(ConfigurationUploadToFileUploadApi) {
 		analysisOptions = append(analysisOptions, codeclient.WithUploadToFileUploadApi())
+		fileUploadBackend = backendFileUploadApi
 	}
+
+	analyticsClient.AddExtensionStringValue(AnalyticsFileUploadBackend, fileUploadBackend)
+	logger.Debug().Msgf("File upload backend: %s", fileUploadBackend)
 
 	result, bundleHash, resultMetaData, err = codeScanner.UploadAndAnalyzeWithOptions(ctx, requestId, target, files, changedFiles, analysisOptions...)
 

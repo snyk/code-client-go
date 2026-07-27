@@ -24,6 +24,7 @@ import (
 
 	"github.com/snyk/code-client-go/internal/commands/code_workflow"
 	"github.com/snyk/code-client-go/pkg/code/sast_contract"
+	"github.com/snyk/go-application-framework/pkg/analytics"
 	"github.com/snyk/go-application-framework/pkg/configuration"
 	"github.com/snyk/go-application-framework/pkg/local_workflows/content_type"
 	"github.com/snyk/go-application-framework/pkg/local_workflows/json_schemas"
@@ -186,8 +187,9 @@ func Test_Code_nativeImplementation_happyPath(t *testing.T) {
 	invocationContext.EXPECT().GetWorkflowIdentifier().Return(workflow.NewWorkflowIdentifier("code"))
 	invocationContext.EXPECT().GetUserInterface().Return(ui.DefaultUi())
 	invocationContext.EXPECT().Context().Return(context.Background()).AnyTimes()
+	invocationContext.EXPECT().GetAnalytics().Return(analytics.New())
 
-	analysisFunc := func(_ context.Context, path string, _ func() *http.Client, _ *zerolog.Logger, _ configuration.Configuration, _ ui.UserInterface) (*sarif.SarifResponse, string, *scan.ResultMetaData, error) {
+	analysisFunc := func(_ context.Context, path string, _ func() *http.Client, _ *zerolog.Logger, _ configuration.Configuration, _ ui.UserInterface, _ analytics.Analytics) (*sarif.SarifResponse, string, *scan.ResultMetaData, error) {
 		assert.Equal(t, expectedPath, path)
 		suppressions := []sarif.Suppression{
 			{
@@ -280,8 +282,9 @@ func Test_Code_nativeImplementation_analysisFails(t *testing.T) {
 	invocationContext.EXPECT().GetWorkflowIdentifier().Return(workflow.NewWorkflowIdentifier("code"))
 	invocationContext.EXPECT().GetUserInterface().Return(ui.DefaultUi())
 	invocationContext.EXPECT().Context().Return(context.Background()).AnyTimes()
+	invocationContext.EXPECT().GetAnalytics().Return(analytics.New())
 
-	analysisFunc := func(context.Context, string, func() *http.Client, *zerolog.Logger, configuration.Configuration, ui.UserInterface) (*sarif.SarifResponse, string, *scan.ResultMetaData, error) {
+	analysisFunc := func(context.Context, string, func() *http.Client, *zerolog.Logger, configuration.Configuration, ui.UserInterface, analytics.Analytics) (*sarif.SarifResponse, string, *scan.ResultMetaData, error) {
 		return nil, "", nil, fmt.Errorf("something went wrong")
 	}
 
@@ -302,8 +305,9 @@ func Test_Code_nativeImplementation_analysisNil(t *testing.T) {
 	invocationContext.EXPECT().GetWorkflowIdentifier().Return(workflow.NewWorkflowIdentifier("code"))
 	invocationContext.EXPECT().GetUserInterface().Return(ui.DefaultUi())
 	invocationContext.EXPECT().Context().Return(context.Background()).AnyTimes()
+	invocationContext.EXPECT().GetAnalytics().Return(analytics.New())
 
-	analysisFunc := func(_ context.Context, path string, _ func() *http.Client, _ *zerolog.Logger, _ configuration.Configuration, _ ui.UserInterface) (*sarif.SarifResponse, string, *scan.ResultMetaData, error) {
+	analysisFunc := func(_ context.Context, path string, _ func() *http.Client, _ *zerolog.Logger, _ configuration.Configuration, _ ui.UserInterface, _ analytics.Analytics) (*sarif.SarifResponse, string, *scan.ResultMetaData, error) {
 		return nil, "", nil, nil
 	}
 
@@ -341,8 +345,9 @@ func Test_Code_nativeImplementation_analysisEmpty(t *testing.T) {
 		invocationContext.EXPECT().GetWorkflowIdentifier().Return(workflow.NewWorkflowIdentifier("code"))
 		invocationContext.EXPECT().GetUserInterface().Return(ui.DefaultUi())
 		invocationContext.EXPECT().Context().Return(context.Background()).AnyTimes()
+		invocationContext.EXPECT().GetAnalytics().Return(analytics.New())
 
-		analysisFunc := func(_ context.Context, path string, _ func() *http.Client, _ *zerolog.Logger, _ configuration.Configuration, _ ui.UserInterface) (*sarif.SarifResponse, string, *scan.ResultMetaData, error) {
+		analysisFunc := func(_ context.Context, path string, _ func() *http.Client, _ *zerolog.Logger, _ configuration.Configuration, _ ui.UserInterface, _ analytics.Analytics) (*sarif.SarifResponse, string, *scan.ResultMetaData, error) {
 			response := &sarif.SarifResponse{
 				Sarif: sarif.SarifDocument{
 					Runs: []sarif.Run{
@@ -385,8 +390,9 @@ func Test_Code_nativeImplementation_analysisEmpty(t *testing.T) {
 		invocationContext.EXPECT().GetWorkflowIdentifier().Return(workflow.NewWorkflowIdentifier("code"))
 		invocationContext.EXPECT().GetUserInterface().Return(ui.DefaultUi())
 		invocationContext.EXPECT().Context().Return(context.Background()).AnyTimes()
+		invocationContext.EXPECT().GetAnalytics().Return(analytics.New())
 
-		analysisFunc := func(_ context.Context, path string, _ func() *http.Client, _ *zerolog.Logger, _ configuration.Configuration, _ ui.UserInterface) (*sarif.SarifResponse, string, *scan.ResultMetaData, error) {
+		analysisFunc := func(_ context.Context, path string, _ func() *http.Client, _ *zerolog.Logger, _ configuration.Configuration, _ ui.UserInterface, _ analytics.Analytics) (*sarif.SarifResponse, string, *scan.ResultMetaData, error) {
 			response := &sarif.SarifResponse{
 				Sarif: sarif.SarifDocument{
 					Runs: []sarif.Run{
