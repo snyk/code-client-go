@@ -277,6 +277,67 @@ func Test_UploadAndAnalyzeWithOptions_recordsUploadMetrics(t *testing.T) {
 		assert.Contains(t, extensions, "upload_duration_ms")
 	})
 
+	t.Run("records the bundle deduplication ratio", func(t *testing.T) {
+		requestId := uuid.NewString()
+		// One of the two files in the bundle is missing on the backend.
+		missingFiles := []string{firstDocPath}
+		mockBundle := bundle.NewBundle(deepcodeMocks.NewMockDeepcodeClient(ctrl), mockInstrumentor, mockErrorReporter, &logger, "testRootPath", uuid.NewString(), files, []string{}, missingFiles)
+		mockBundleManager := bundleMocks.NewMockBundleManager(ctrl)
+		mockBundleManager.EXPECT().CreateEmpty(gomock.Any(), baseDir, gomock.Any(), map[string]bool{}).Return(mockBundle, nil)
+		mockBundleManager.EXPECT().Upload(gomock.Any(), requestId, mockBundle, files).Return(mockBundle, nil)
+
+		mockAnalysisOrchestrator := mockAnalysis.NewMockAnalysisOrchestrator(ctrl)
+		mockAnalysisOrchestrator.EXPECT().RunTest(
+			gomock.Any(), testOrgId, gomock.Any(), gomock.Nil(), gomock.Any(), gomock.Any(),
+		).Return(&sarif.SarifResponse{Status: "COMPLETE"}, &scan.ResultMetaData{}, nil)
+
+		analyticsClient := analytics.New()
+		_, _, _, err := codeclient.NewCodeScanner(
+			mockConfig, mockHTTPClient,
+			codeclient.WithTrackerFactory(mockTrackerFactory),
+			codeclient.WithInstrumentor(mockInstrumentor),
+			codeclient.WithErrorReporter(mockErrorReporter),
+			codeclient.WithLogger(&logger),
+			codeclient.WithAnalytics(analyticsClient),
+		).
+			WithBundleManager(mockBundleManager).
+			WithAnalysisOrchestrator(mockAnalysisOrchestrator).
+			UploadAndAnalyzeWithOptions(t.Context(), requestId, target, sliceToChannel([]string{firstDocPath, secondDocPath}), map[string]bool{})
+		require.NoError(t, err)
+
+		extensions := uploadExtensions(t, analyticsClient)
+		assert.Equal(t, float64(50), extensions["bundle_dedup_ratio_percent"])
+	})
+
+	t.Run("records no deduplication ratio for an empty bundle", func(t *testing.T) {
+		requestId := uuid.NewString()
+		mockBundle := bundle.NewBundle(deepcodeMocks.NewMockDeepcodeClient(ctrl), mockInstrumentor, mockErrorReporter, &logger, "testRootPath", uuid.NewString(), map[string]deepcode.BundleFile{}, []string{}, []string{})
+		mockBundleManager := bundleMocks.NewMockBundleManager(ctrl)
+		mockBundleManager.EXPECT().CreateEmpty(gomock.Any(), baseDir, gomock.Any(), map[string]bool{}).Return(mockBundle, nil)
+		mockBundleManager.EXPECT().Upload(gomock.Any(), requestId, mockBundle, map[string]deepcode.BundleFile{}).Return(mockBundle, nil)
+
+		mockAnalysisOrchestrator := mockAnalysis.NewMockAnalysisOrchestrator(ctrl)
+		mockAnalysisOrchestrator.EXPECT().RunTest(
+			gomock.Any(), testOrgId, gomock.Any(), gomock.Nil(), gomock.Any(), gomock.Any(),
+		).Return(&sarif.SarifResponse{Status: "COMPLETE"}, &scan.ResultMetaData{}, nil)
+
+		analyticsClient := analytics.New()
+		_, _, _, err := codeclient.NewCodeScanner(
+			mockConfig, mockHTTPClient,
+			codeclient.WithTrackerFactory(mockTrackerFactory),
+			codeclient.WithInstrumentor(mockInstrumentor),
+			codeclient.WithErrorReporter(mockErrorReporter),
+			codeclient.WithLogger(&logger),
+			codeclient.WithAnalytics(analyticsClient),
+		).
+			WithBundleManager(mockBundleManager).
+			WithAnalysisOrchestrator(mockAnalysisOrchestrator).
+			UploadAndAnalyzeWithOptions(t.Context(), requestId, target, sliceToChannel([]string{}), map[string]bool{})
+		require.NoError(t, err)
+
+		assert.NotContains(t, uploadExtensions(t, analyticsClient), "bundle_dedup_ratio_percent")
+	})
+
 	t.Run("records a failed bundle upload", func(t *testing.T) {
 		requestId := uuid.NewString()
 		uploadErr := errors.New("bundle upload failed")
