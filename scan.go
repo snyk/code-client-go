@@ -425,7 +425,12 @@ func (c *codeScanner) UploadAndAnalyzeWithOptions(
 	uploadStart := time.Now()
 
 	if cfg.UploadFileContentToFileUploadApi {
-		revision, uploadErr := c.uploadRevision.Upload(ctx, requestId, target, files)
+		// The upload client derives snyk-request-id from the trace id on the context (see
+		// httpClient.Do), so seed it with the scan's requestId to correlate the create,
+		// upload and seal calls with this scan.
+		uploadCtx := observability.GetContextWithTraceId(ctx, requestId)
+
+		revision, uploadErr := c.uploadRevision.Upload(uploadCtx, requestId, target, files)
 		if uploadErr != nil {
 			c.recordUpload(BackendFileUploadApi, false, time.Since(uploadStart))
 			c.logger.Debug().Msg("upload to file-upload-api failed")
