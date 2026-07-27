@@ -276,6 +276,8 @@ func (c *codeScanner) Upload(
 	}
 
 	filesToUpload := originalBundle.GetFiles()
+	c.recordBundleDeduplication(len(originalBundle.GetMissingFiles()), len(filesToUpload))
+
 	uploadedBundle, err := c.bundleManager.Upload(ctx, requestId, originalBundle, filesToUpload)
 	err = c.checkCancellationOrLogError(ctx, target.GetPath(), err, "error uploading bundle...")
 	if err != nil {
@@ -374,6 +376,21 @@ func (c *codeScanner) analyzeLegacy(
 		c.logger.Trace().Msg("sending In-Progress message to client")
 		statusChannel <- status
 	}
+}
+
+func (c *codeScanner) recordBundleDeduplication(missingFiles int, totalFiles int) {
+	if totalFiles == 0 {
+		return
+	}
+
+	ratio := missingFiles * 100 / totalFiles
+	c.analytics.AddExtensionIntegerValue("bundle_dedup_ratio_percent", ratio)
+
+	c.logger.Info().
+		Int("missingFiles", missingFiles).
+		Int("totalFiles", totalFiles).
+		Int("ratioPercent", ratio).
+		Msg("Snyk Code bundle deduplication")
 }
 
 // recordUpload reports the outcome of an upload to analytics and the log.
