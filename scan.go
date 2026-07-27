@@ -26,6 +26,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/pkg/errors"
 	"github.com/rs/zerolog"
+	"github.com/snyk/go-application-framework/pkg/analytics"
 	"github.com/snyk/go-application-framework/pkg/apiclients/fileupload"
 
 	"github.com/snyk/code-client-go/bundle"
@@ -51,7 +52,15 @@ type codeScanner struct {
 	logger               *zerolog.Logger
 	config               config.Config
 	resultTypes          testModels.ResultType
+	analytics            analytics.Analytics
 }
+
+// Labels for the two upload backends, shared by the upload metrics recorded here and the
+// file_upload_backend analytics value recorded by the code workflow.
+const (
+	BackendFilesBundleStore = "files-bundle-store"
+	BackendFileUploadApi    = "file-upload-api"
+)
 
 type httpClientRoundTripper struct {
 	httpClient codeClientHTTP.HTTPClient
@@ -130,6 +139,12 @@ func WithTrackerFactory(trackerFactory scan.TrackerFactory) OptionFunc {
 	}
 }
 
+func WithAnalytics(a analytics.Analytics) OptionFunc {
+	return func(c *codeScanner) {
+		c.analytics = a
+	}
+}
+
 type AnalysisOption func(*analysis.AnalysisConfig)
 
 func ReportLocalTest(projectName string, targetName string, targetReference string) AnalysisOption {
@@ -180,6 +195,9 @@ func NewCodeScanner(
 		instrumentor:   instrumentor,
 		trackerFactory: trackerFactory,
 		resultTypes:    testModels.CodeSecurityCodeQuality,
+		// Consumers that do not report analytics (e.g. the language server) leave this
+		// collector unsent, which makes it the no-op default.
+		analytics: analytics.New(),
 	}
 
 	for _, option := range options {
@@ -221,6 +239,7 @@ func (c *codeScanner) WithBundleManager(bundleManager bundle.BundleManager) *cod
 		errorReporter:        c.errorReporter,
 		logger:               c.logger,
 		config:               c.config,
+		analytics:            c.analytics,
 	}
 }
 
@@ -233,6 +252,7 @@ func (c *codeScanner) WithAnalysisOrchestrator(analysisOrchestrator analysis.Ana
 		errorReporter:        c.errorReporter,
 		logger:               c.logger,
 		config:               c.config,
+		analytics:            c.analytics,
 	}
 }
 
@@ -356,6 +376,18 @@ func (c *codeScanner) analyzeLegacy(
 	}
 }
 
+// recordUpload reports the outcome of an upload to analytics and the log.
+func (c *codeScanner) recordUpload(backend string, success bool, duration time.Duration) {
+	c.analytics.AddExtensionBoolValue("upload_success", success)
+	c.analytics.AddExtensionIntegerValue("upload_duration_ms", int(duration.Milliseconds()))
+
+	c.logger.Info().
+		Str("backend", backend).
+		Bool("success", success).
+		Dur("duration", duration).
+		Msg("Snyk Code upload finished")
+}
+
 func (c *codeScanner) UploadAndAnalyzeWithOptions(
 	ctx context.Context,
 	requestId string,
@@ -373,21 +405,29 @@ func (c *codeScanner) UploadAndAnalyzeWithOptions(
 	var revisionId *string
 	var scanIdentifier string
 	var err error
+	uploadStart := time.Now()
+
 	if cfg.UploadFileContentToFileUploadApi {
 		revision, uploadErr := c.uploadRevision.Upload(ctx, requestId, target, files)
 		if uploadErr != nil {
+			c.recordUpload(BackendFileUploadApi, false, time.Since(uploadStart))
 			c.logger.Debug().Msg("upload to file-upload-api failed")
 			return nil, "", nil, uploadErr
 		}
+		c.recordUpload(BackendFileUploadApi, true, time.Since(uploadStart))
+
 		revisionString := string(revision)
 		revisionId = &revisionString
 		scanIdentifier = revisionString
 	} else {
 		uploadedBundle, err = c.Upload(ctx, requestId, target, files, changedFiles)
 		if err != nil || uploadedBundle == nil || uploadedBundle.GetBundleHash() == "" {
+			c.recordUpload(BackendFilesBundleStore, false, time.Since(uploadStart))
 			c.logger.Debug().Msg("empty bundle, no Snyk Code analysis")
 			return nil, "", nil, err
 		}
+		c.recordUpload(BackendFilesBundleStore, true, time.Since(uploadStart))
+
 		scanIdentifier = uploadedBundle.GetBundleHash()
 	}
 
