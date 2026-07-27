@@ -154,6 +154,7 @@ func Test_defaultAnalyzeFunction_usesFileUploadApi(t *testing.T) {
 	var (
 		mu                                                 sync.Mutex
 		filtersHit, createHit, uploadHit, sealHit, testHit bool
+		uploadRequestIds                                   []string
 	)
 
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -165,13 +166,16 @@ func Test_defaultAnalyzeFunction_usesFileUploadApi(t *testing.T) {
 			_, _ = w.Write([]byte(`{"configFiles":[],"extensions":[".js"]}`))
 		case r.Method == http.MethodPost && strings.HasSuffix(r.URL.Path, "/files"):
 			uploadHit = true
+			uploadRequestIds = append(uploadRequestIds, r.Header.Get("snyk-request-id"))
 			w.WriteHeader(http.StatusNoContent)
 		case r.Method == http.MethodPost && strings.HasSuffix(r.URL.Path, "/upload_revisions"):
 			createHit = true
+			uploadRequestIds = append(uploadRequestIds, r.Header.Get("snyk-request-id"))
 			w.WriteHeader(http.StatusCreated)
 			_, _ = fmt.Fprintf(w, `{"data":{"id":%q,"type":"upload_revision","attributes":{"revision_type":"snapshot","sealed":false}}}`, revID)
 		case r.Method == http.MethodPatch && strings.Contains(r.URL.Path, "/upload_revisions/"):
 			sealHit = true
+			uploadRequestIds = append(uploadRequestIds, r.Header.Get("snyk-request-id"))
 			_, _ = fmt.Fprintf(w, `{"data":{"id":%q,"type":"upload_revision","attributes":{"revision_type":"snapshot","sealed":true}}}`, revID)
 		case r.Method == http.MethodPost && strings.HasSuffix(r.URL.Path, "/tests"):
 			// The test service is invoked against the uploaded revision; its happy
@@ -221,6 +225,14 @@ func Test_defaultAnalyzeFunction_usesFileUploadApi(t *testing.T) {
 	assert.True(t, uploadHit)
 	assert.True(t, sealHit)
 	assert.True(t, testHit)
+
+	// The scan's request id is generated inside defaultAnalyzeFunction, so assert the property
+	// that was broken instead: every upload call correlates to the same scan.
+	require.Len(t, uploadRequestIds, 3)
+	assert.NotEmpty(t, uploadRequestIds[0])
+	for _, requestId := range uploadRequestIds[1:] {
+		assert.Equal(t, uploadRequestIds[0], requestId)
+	}
 }
 
 func Test_defaultAnalyzeFunction_recordsFailedFileUploadApiUpload(t *testing.T) {
@@ -229,6 +241,7 @@ func Test_defaultAnalyzeFunction_recordsFailedFileUploadApiUpload(t *testing.T) 
 	var (
 		mu                 sync.Mutex
 		createHit, testHit bool
+		createRequestId    string
 	)
 
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -241,6 +254,7 @@ func Test_defaultAnalyzeFunction_recordsFailedFileUploadApiUpload(t *testing.T) 
 			// Creating the revision fails, so nothing is ever uploaded or sealed.
 			// 403 rather than 500 because the http client retries 5xx (see retryErrorCodes).
 			createHit = true
+			createRequestId = r.Header.Get("snyk-request-id")
 			w.WriteHeader(http.StatusForbidden)
 		case r.Method == http.MethodPost && strings.HasSuffix(r.URL.Path, "/tests"):
 			testHit = true
@@ -284,6 +298,7 @@ func Test_defaultAnalyzeFunction_recordsFailedFileUploadApiUpload(t *testing.T) 
 	mu.Lock()
 	defer mu.Unlock()
 	assert.True(t, createHit)
+	assert.NotEmpty(t, createRequestId)
 	assert.False(t, testHit, "the analysis must not run when the upload failed")
 }
 
