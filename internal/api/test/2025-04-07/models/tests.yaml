@@ -13,10 +13,12 @@ components:
           items:
             type: string
             enum:
+            - all_scanners
             - sast
             - sca
             - legacy_scanners
             - secrets
+            - container
         result_type:
           $ref: '#/components/schemas/ResultType'
         limit_test_to_files:
@@ -31,6 +33,19 @@ components:
           type: array
           items:
             type: string
+        inclusion_globs:
+          description: A list of file paths to include in the workspace. If empty,
+            all files are included (subject to exclusion globs).
+          type: array
+          items:
+            type: string
+        limit_test_to_projects:
+          description: A list of project IDs to limit the test to. If empty, all projects
+            are tested.
+          type: array
+          items:
+            type: string
+            format: uuid
       additionalProperties: false
     OutputConfig:
       type: object
@@ -38,6 +53,9 @@ components:
         report:
           type: boolean
           description: Determines if the test is stateless (false) or stateful (true)
+        monitor:
+          type: boolean
+          description: Determines if a project should be created (true) or not (false).
         project_name:
           type: string
           pattern: ^[?#@&+=%a-zA-Z0-9_.~\/\\:\s-]+$
@@ -47,6 +65,14 @@ components:
         target_name:
           type: string
           pattern: ^[?#@&+=%a-zA-Z0-9_.~\/\\:\s-]+$
+        asset_name:
+          type: string
+          description: The name used for the asset.
+          pattern: ^[?#@&+=%a-zA-Z0-9_.~\/\\:\s-]+$
+        asset_id:
+          type: string
+          format: uuid
+          description: The id of the asset to associate with the test.
         target_reference:
           type: string
           description: A reference for the target's version - can be a git branch
@@ -54,7 +80,8 @@ components:
           example: main
         label:
           type: string
-          description: Arbitrary value up to the user
+          description: 'Arbitrary value up to the user. Deprecated: use `labels` instead.'
+          deprecated: true
           pattern: ^[:/?#@&+=%a-zA-Z0-9_.~-]+$
         labels:
           type: object
@@ -63,11 +90,6 @@ components:
           additionalProperties:
             type: string
             pattern: ^[:/?#@&+=%a-zA-Z0-9_.~-]+$
-        project_tags:
-          type: array
-          description: Project tags to assign when reporting. Each entry is a key=value string.
-          items:
-            type: string
         origin:
           type: string
           description: The source control management system or platform origin
@@ -86,7 +108,62 @@ components:
           - import
           - auto_import
           - essentials_import
+          - api_import
+          - push_test
+          - manual_retest
+          - container_import
           example: api_test
+        project_environment:
+          type: array
+          description: Project environment attributes
+          items:
+            type: string
+            enum:
+            - frontend
+            - backend
+            - internal
+            - external
+            - mobile
+            - saas
+            - onprem
+            - hosted
+            - distributed
+          example:
+          - frontend
+          - backend
+        project_business_criticality:
+          type: array
+          description: Project business criticality attributes
+          items:
+            type: string
+            enum:
+            - critical
+            - high
+            - medium
+            - low
+          example:
+          - high
+        project_lifecycle:
+          type: array
+          description: Project lifecycle attributes
+          items:
+            type: string
+            enum:
+            - production
+            - development
+            - sandbox
+          example:
+          - production
+        project_tags:
+          type: array
+          description: 'Project tags as an array of key=value pairs. Each tag must
+            be in the format ''key=value''. Example: ["department=finance", "team=alpha"]'
+          items:
+            type: string
+            pattern: ^[a-zA-Z0-9_-]{1,30}=[:/?#@&+=%a-zA-Z0-9_.~-]{1,256}$
+          example:
+          - department=finance
+          - team=alpha
       additionalProperties: false
     TestConfiguration:
       type: object
@@ -113,6 +190,7 @@ components:
           - $ref: '#/components/schemas/TestInputUploadRevision'
           - $ref: '#/components/schemas/TestInputSBOMRevision'
           - $ref: '#/components/schemas/TestInputSBOMSourceRevisions'
+          - $ref: '#/components/schemas/TestInputContainerAnalysisRevision'
         configuration:
           $ref: '#/components/schemas/TestConfiguration'
       additionalProperties: false
@@ -365,8 +443,8 @@ components:
         repo_url:
           description: A repository url for which a test will run.
           type: string
-          format: uri
-          example: https://github/com/snyk/goof
+          maxLength: 1000
+          example: https://github.com/snyk/goof
         revision:
           description: SHA of the commit to be tested.
           type: string
@@ -389,6 +467,11 @@ components:
           example: 275af21f-e92b-40aa-8604-ef9b00c9bd8d
           format: uuid
           type: string
+        integration_id:
+          description: A Snyk integration id that has access to the target's repository.
+          type: string
+          format: uuid
+          example: 275af21f-e92b-40aa-8604-ef9b00c9bd8d
         base_version:
           description: SHA of the last commit existing in base branch
           type: string
@@ -499,6 +582,30 @@ components:
                 git@github.com:test-repo/test-repo.git
 
                 '
+            commit_id:
+              description: SHA of the commit being tested
+              type: string
+              example: 024db817148169e6ca9e7f33408cca01002c1dce
+            branch:
+              type: string
+              maxLength: 1000
+              description: The name of the branch being tested
+      required:
+      - type
+      - revision_id
+    TestInputContainerAnalysisRevision:
+      type: object
+      properties:
+        type:
+          type: string
+          enum:
+          - container_analysis_revision
+          example: container_analysis_revision
+        revision_id:
+          description: A Snyk revision id referencing the uploaded container analysis
+          type: string
+          maxLength: 100
+          example: 275af21f-e92b-40aa-8604-ef9b00c9bd8d
       required:
       - type
       - revision_id
@@ -708,3 +815,58 @@ components:
       required:
       - created_at
       - status
+    CreateBatchTestRequestBody:
+      type: object
+      properties:
+        data:
+          type: object
+          properties:
+            type:
+              type: string
+              enum:
+              - batch_test
+              example: batch_test
+            attributes:
+              $ref: '#/components/schemas/CreateBatchTestAttributes'
+          required:
+          - type
+          - attributes
+      required:
+      - data
+    CreateBatchTestAttributes:
+      type: object
+      properties:
+        scanner:
+          type: string
+          enum:
+          - secrets
+          - sca
+          description: The scanner type to use for all tests in the batch
+          example: secrets
+        input:
+          $ref: '#/components/schemas/BatchInput'
+        initiator:
+          type: string
+          description: The type of test flow that initiated the batch
+          enum:
+          - recurring_test
+          example: recurring_test
+      required:
+      - scanner
+      - input
+      - initiator
+    BatchInput:
+      type: object
+      description: Reference to the batch file in object storage
+      properties:
+        bucket:
+          type: string
+          description: Name of the bucket where the batch file is stored
+          example: my-batch-bucket
+        path:
+          type: string
+          description: Path to the batch file within the bucket
+          example: batches/secrets-2024-01-01.json
+      required:
+      - bucket
+      - path
