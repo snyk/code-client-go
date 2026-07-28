@@ -487,7 +487,7 @@ func TestAnalysis_RunTest_WithProjectTags(t *testing.T) {
 	assert.Equal(t, sarifResponse.Version, result.Sarif.Version)
 }
 
-func mockTestCreatedResponseWithRevisionValidation(t *testing.T, mockHTTPClient *httpmocks.MockHTTPClient, testId uuid.UUID, orgId string, expectedRevisionId string, responseCode int) {
+func mockTestCreatedResponseWithRevisionValidation(t *testing.T, mockHTTPClient *httpmocks.MockHTTPClient, testId uuid.UUID, orgId string, expectedRevisionId string, expectedCommitId string, expectedBranch string, responseCode int) {
 	t.Helper()
 	response := v20250407.NewTestResponse()
 	response.Data.Id = testId
@@ -503,6 +503,9 @@ func mockTestCreatedResponseWithRevisionValidation(t *testing.T, mockHTTPClient 
 		revision, err := testRequestBody.Data.Attributes.Input.AsTestInputUploadRevision()
 		assert.NoError(t, err)
 		assert.Equal(t, expectedRevisionId, revision.RevisionId)
+		require.NotNil(t, revision.Metadata)
+		assert.Equal(t, expectedCommitId, *revision.Metadata.CommitId)
+		assert.Equal(t, expectedBranch, *revision.Metadata.Branch)
 
 		return req.URL.String() == expectedTestCreatedUrl && req.Method == http.MethodPost
 	})).Times(1).Return(&http.Response{
@@ -524,10 +527,17 @@ func TestAnalysis_RunTest_WithUploadRevision(t *testing.T) {
 	snapshotId := uuid.New()
 	testId := uuid.New()
 	revisionId := uuid.NewString()
-	targetId, err := scan.NewRepositoryTarget("../mypath/")
+	expectedCommitId := "abc123"
+	expectedBranch := "feature/my-branch"
+	targetId, err := scan.NewRepositoryTarget(
+		"../mypath/",
+		scan.WithRepositoryUrl("https://github.com/test/repo"),
+		scan.WithCommitId(expectedCommitId),
+		scan.WithBranchName(expectedBranch),
+	)
 	assert.NoError(t, err)
 
-	mockTestCreatedResponseWithRevisionValidation(t, mockHTTPClient, testId, orgId, revisionId, http.StatusCreated)
+	mockTestCreatedResponseWithRevisionValidation(t, mockHTTPClient, testId, orgId, revisionId, expectedCommitId, expectedBranch, http.StatusCreated)
 	mockTestStatusResponse(t, mockHTTPClient, orgId, testId, http.StatusOK)
 
 	expectedWebuilink := ""

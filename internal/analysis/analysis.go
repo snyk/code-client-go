@@ -260,7 +260,7 @@ func (a *analysisOrchestrator) RunTest(ctx context.Context, orgId string, b bund
 	case b != nil:
 		input = testApi.WithInputBundle(b.GetBundleHash(), target.GetPath(), repoUrl, b.GetLimitToFiles(), commitId, branchName)
 	case revisionId != nil:
-		input = testApi.WithInputUploadRevision(*revisionId, target.GetPath(), repoUrl)
+		input = testApi.WithInputUploadRevision(*revisionId, target.GetPath(), repoUrl, commitId, branchName)
 	default:
 		return nil, nil, ErrMissingTestInput
 	}
