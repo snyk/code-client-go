@@ -155,6 +155,7 @@ func Test_defaultAnalyzeFunction_usesFileUploadApi(t *testing.T) {
 		mu                                                 sync.Mutex
 		filtersHit, createHit, uploadHit, sealHit, testHit bool
 		uploadRequestIds                                   []string
+		testRequestId                                      string
 	)
 
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -181,6 +182,7 @@ func Test_defaultAnalyzeFunction_usesFileUploadApi(t *testing.T) {
 			// The test service is invoked against the uploaded revision; its happy
 			// path is covered by the analysis package tests, so it is stubbed here.
 			testHit = true
+			testRequestId = r.Header.Get("snyk-request-id")
 			w.WriteHeader(http.StatusBadRequest)
 		default:
 			http.NotFound(w, r)
@@ -233,6 +235,7 @@ func Test_defaultAnalyzeFunction_usesFileUploadApi(t *testing.T) {
 	for _, requestId := range uploadRequestIds[1:] {
 		assert.Equal(t, uploadRequestIds[0], requestId)
 	}
+	assert.Equal(t, uploadRequestIds[0], testRequestId)
 }
 
 func Test_defaultAnalyzeFunction_recordsFailedFileUploadApiUpload(t *testing.T) {

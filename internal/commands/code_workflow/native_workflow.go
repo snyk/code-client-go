@@ -15,6 +15,7 @@ import (
 	codeclient "github.com/snyk/code-client-go"
 	"github.com/snyk/code-client-go/bundle"
 	codeclienthttp "github.com/snyk/code-client-go/http"
+	"github.com/snyk/code-client-go/observability"
 	"github.com/snyk/code-client-go/sarif"
 	"github.com/snyk/code-client-go/scan"
 	"github.com/snyk/error-catalog-golang-public/code"
@@ -205,6 +206,8 @@ func defaultAnalyzeFunction(ctx context.Context, path string, httpClientFunc fun
 	if err != nil {
 		return nil, "", nil, err
 	}
+	// Set traceId as requestId so it can be reused
+	ctx = observability.GetContextWithTraceId(ctx, requestId)
 
 	reportMode, err := GetReportMode(config)
 	if err != nil {
