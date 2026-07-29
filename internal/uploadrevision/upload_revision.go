@@ -17,11 +17,8 @@
 package uploadrevision
 
 import (
-	"bytes"
 	"context"
 	"errors"
-	"io"
-	"io/fs"
 	"net/http"
 
 	"github.com/rs/zerolog"
@@ -55,7 +52,7 @@ func NewUploadRevision(httpClient *http.Client, cfg fileupload.Config, deepcodeC
 		httpClient,
 		cfg,
 		fileupload.WithPathEncoder(util.EncodePath),
-		fileupload.WithContentTranscoder(newUTF8File),
+		fileupload.WithContentTranscoder(toUTF8),
 	)
 	return &uploadRevision{
 		client:               client,
@@ -64,56 +61,15 @@ func NewUploadRevision(httpClient *http.Client, cfg fileupload.Config, deepcodeC
 	}
 }
 
-// utf8File holds a file's content converted to UTF-8, so that the size it reports is the size
-// of the content that gets streamed rather than the size of the content on disk. The upload
-// client closes the file this content was read from.
-type utf8File struct {
-	info   fs.FileInfo
-	reader *bytes.Reader
-}
-
-var _ fs.File = (*utf8File)(nil)
-
-func newUTF8File(f fs.File) (fs.File, error) {
-	content, err := io.ReadAll(f)
-	if err != nil {
-		return nil, err
-	}
-
-	info, err := f.Stat()
-	if err != nil {
-		return nil, err
-	}
-
-	// Falls back to the raw content like util.Hash does, so that a file which cannot be
-	// converted is still uploaded.
+// toUTF8 converts a file's content to UTF-8. It falls back to the raw content like util.Hash
+// does, so that a file which cannot be converted is still uploaded rather than skipped.
+func toUTF8(content []byte) ([]byte, error) {
 	utf8Content, err := util.ConvertToUTF8(content)
 	if err != nil {
-		utf8Content = content
+		return content, nil
 	}
 
-	return &utf8File{info: info, reader: bytes.NewReader(utf8Content)}, nil
-}
-
-func (u *utf8File) Read(p []byte) (int, error) {
-	return u.reader.Read(p)
-}
-
-func (u *utf8File) Close() error {
-	return nil
-}
-
-func (u *utf8File) Stat() (fs.FileInfo, error) {
-	return utf8FileInfo{FileInfo: u.info, size: u.reader.Size()}, nil
-}
-
-type utf8FileInfo struct {
-	fs.FileInfo
-	size int64
-}
-
-func (i utf8FileInfo) Size() int64 {
-	return i.size
+	return utf8Content, nil
 }
 
 func (u *uploadRevision) Upload(ctx context.Context, requestId string, target scan.Target, files <-chan string) (RevisionID, error) {
