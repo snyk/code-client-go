@@ -41,6 +41,7 @@ const (
 	ConfigurationCommitId        = "commit-id"
 
 	MetadataBundleHash = "Snyk-Bundle-Hash"
+	ConfigurationUploadToFileUploadApi = "internal_upload_to_fua"
 )
 
 type reportType string
@@ -275,6 +276,10 @@ func defaultAnalyzeFunction(ctx context.Context, path string, httpClientFunc fun
 
 	changedFiles := make(map[string]bool)
 	var bundleHash string
+
+	if config.GetBool(ConfigurationUploadToFileUploadApi) {
+		analysisOptions = append(analysisOptions, codeclient.WithUploadToFileUploadApi())
+	}
 
 	result, bundleHash, resultMetaData, err = codeScanner.UploadAndAnalyzeWithOptions(ctx, requestId, target, files, changedFiles, analysisOptions...)
 

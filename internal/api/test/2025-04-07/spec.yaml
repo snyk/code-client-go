@@ -311,3 +311,52 @@ paths:
         "403": { $ref: "./common/common.yaml#/components/responses/403" }
         "404": { $ref: "./common/common.yaml#/components/responses/404" }
         "500": { $ref: "./common/common.yaml#/components/responses/500" }
+  /orgs/{org_id}/tests/batch:
+    post:
+      summary: Create multiple tests from a batch of targets
+      operationId: createBatchTests
+      description: Creates multiple tests for the specified targets.
+      x-cerberus:
+        authentication:
+          strategies:
+            - SharedSecret:
+                env: AUTHN_SHARED_SECRET
+        enableAccessAudit: true
+      tags:
+        - Test
+      parameters:
+        - { $ref: "./common/common.yaml#/components/parameters/Version" }
+        - { $ref: "./parameters/orgs.yaml#/components/parameters/OrgId" }
+      requestBody:
+        description: Batch of targets to test
+        content:
+          application/json:
+            schema:
+              { $ref: "./models/tests.yaml#/components/schemas/CreateBatchTestRequestBody" }
+      responses:
+        "204":
+          description: Batch tests created successfully
+          headers:
+            snyk-version-requested:
+              {
+                $ref: "./common/common.yaml#/components/headers/VersionRequestedResponseHeader",
+              }
+            snyk-version-served:
+              {
+                $ref: "./common/common.yaml#/components/headers/VersionServedResponseHeader",
+              }
+            snyk-request-id:
+              {
+                $ref: "./common/common.yaml#/components/headers/RequestIdResponseHeader",
+              }
+            snyk-version-lifecycle-stage:
+              {
+                $ref: "./common/common.yaml#/components/headers/VersionStageResponseHeader",
+              }
+            deprecation:
+              { $ref: "./common/common.yaml#/components/headers/DeprecationHeader" }
+            sunset: { $ref: "./common/common.yaml#/components/headers/SunsetHeader" }
+        "400": { $ref: "./common/common.yaml#/components/responses/400" }
+        "401": { $ref: "./common/common.yaml#/components/responses/401" }
+        "403": { $ref: "./common/common.yaml#/components/responses/403" }
+        "500": { $ref: "./common/common.yaml#/components/responses/500" }

@@ -55,9 +55,9 @@ func (mr *MockAnalysisOrchestratorMockRecorder) RunLegacyTest(ctx, bundleHash, s
 }
 
 // RunTest mocks base method.
-func (m *MockAnalysisOrchestrator) RunTest(ctx context.Context, orgId string, b bundle.Bundle, target scan.Target, reportingOptions analysis.AnalysisConfig) (*sarif.SarifResponse, *scan.ResultMetaData, error) {
+func (m *MockAnalysisOrchestrator) RunTest(ctx context.Context, orgId string, b bundle.Bundle, revisionId *string, target scan.Target, reportingOptions analysis.AnalysisConfig) (*sarif.SarifResponse, *scan.ResultMetaData, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "RunTest", ctx, orgId, b, target, reportingOptions)
+	ret := m.ctrl.Call(m, "RunTest", ctx, orgId, b, revisionId, target, reportingOptions)
 	ret0, _ := ret[0].(*sarif.SarifResponse)
 	ret1, _ := ret[1].(*scan.ResultMetaData)
 	ret2, _ := ret[2].(error)
@@ -65,9 +65,9 @@ func (m *MockAnalysisOrchestrator) RunTest(ctx context.Context, orgId string, b 
 }
 
 // RunTest indicates an expected call of RunTest.
-func (mr *MockAnalysisOrchestratorMockRecorder) RunTest(ctx, orgId, b, target, reportingOptions interface{}) *gomock.Call {
+func (mr *MockAnalysisOrchestratorMockRecorder) RunTest(ctx, orgId, b, revisionId, target, reportingOptions interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RunTest", reflect.TypeOf((*MockAnalysisOrchestrator)(nil).RunTest), ctx, orgId, b, target, reportingOptions)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RunTest", reflect.TypeOf((*MockAnalysisOrchestrator)(nil).RunTest), ctx, orgId, b, revisionId, target, reportingOptions)
 }
 
 // RunTestRemote mocks base method.

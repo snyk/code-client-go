@@ -1,19 +1,93 @@
 package code_workflow
 
 import (
+	"context"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"os"
 	"path/filepath"
 	"strings"
+	"sync"
 	"testing"
 
+	"github.com/google/uuid"
 	"github.com/rs/zerolog"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 
 	"github.com/snyk/go-application-framework/pkg/configuration"
 	"github.com/snyk/go-application-framework/pkg/networking"
+	"github.com/snyk/go-application-framework/pkg/ui"
 )
+
+func Test_defaultAnalyzeFunction_usesFileUploadApi(t *testing.T) {
+	logger := zerolog.Nop()
+	revID := uuid.NewString()
+
+	var (
+		mu                                                 sync.Mutex
+		filtersHit, createHit, uploadHit, sealHit, testHit bool
+	)
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		mu.Lock()
+		defer mu.Unlock()
+		switch {
+		case r.Method == http.MethodGet && r.URL.Path == "/filters":
+			filtersHit = true
+			_, _ = w.Write([]byte(`{"configFiles":[],"extensions":[".js"]}`))
+		case r.Method == http.MethodPost && strings.HasSuffix(r.URL.Path, "/files"):
+			uploadHit = true
+			w.WriteHeader(http.StatusNoContent)
+		case r.Method == http.MethodPost && strings.HasSuffix(r.URL.Path, "/upload_revisions"):
+			createHit = true
+			w.WriteHeader(http.StatusCreated)
+			_, _ = fmt.Fprintf(w, `{"data":{"id":%q,"type":"upload_revision","attributes":{"revision_type":"snapshot","sealed":false}}}`, revID)
+		case r.Method == http.MethodPatch && strings.Contains(r.URL.Path, "/upload_revisions/"):
+			sealHit = true
+			_, _ = fmt.Fprintf(w, `{"data":{"id":%q,"type":"upload_revision","attributes":{"revision_type":"snapshot","sealed":true}}}`, revID)
+		case r.Method == http.MethodPost && strings.HasSuffix(r.URL.Path, "/tests"):
+			// The test service is invoked against the uploaded revision; its happy
+			// path is covered by the analysis package tests, so it is stubbed here.
+			testHit = true
+			w.WriteHeader(http.StatusBadRequest)
+		default:
+			http.NotFound(w, r)
+		}
+	}))
+	defer server.Close()
+
+	path := t.TempDir()
+	writeFile(t, filepath.Join(path, "app.js"))
+
+	config := configuration.NewWithOpts()
+	config.Set(configuration.API_URL, server.URL)
+	config.Set(configuration.ORGANIZATION, uuid.NewString())
+	config.Set(configuration.MAX_THREADS, 1)
+	config.Set(configuration.FLAG_REMOTE_REPO_URL, "https://github.com/snyk/nodejs-goof")
+	config.Set(ConfigurationUploadToFileUploadApi, true)
+
+	result, _, _, err := defaultAnalyzeFunction(
+		context.Background(),
+		path,
+		func() *http.Client { return server.Client() },
+		&logger,
+		config,
+		ui.DefaultUi(),
+	)
+
+	require.NoError(t, err)
+	assert.Nil(t, result)
+
+	mu.Lock()
+	defer mu.Unlock()
+	assert.True(t, filtersHit)
+	assert.True(t, createHit)
+	assert.True(t, uploadHit)
+	assert.True(t, sealHit)
+	assert.True(t, testHit)
+}
 
 func writeFile(t *testing.T, filename string) {
 	t.Helper()
