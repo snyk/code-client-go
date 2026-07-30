@@ -1,6 +1,7 @@
 package code_workflow
 
 import (
+	"bytes"
 	"context"
 	"fmt"
 	"net/http"
@@ -148,7 +149,8 @@ func Test_defaultAnalyzeFunction_usesLocalEngineLegacyEndpoints(t *testing.T) {
 }
 
 func Test_defaultAnalyzeFunction_usesFileUploadApi(t *testing.T) {
-	logger := zerolog.Nop()
+	logs := &bytes.Buffer{}
+	logger := zerolog.New(logs)
 	revID := uuid.NewString()
 
 	var (
@@ -219,6 +221,10 @@ func Test_defaultAnalyzeFunction_usesFileUploadApi(t *testing.T) {
 	assert.Equal(t, codeclient.BackendFileUploadApi, extensions[AnalyticsFileUploadBackend])
 	assert.Equal(t, true, extensions["upload_success"])
 	assert.Contains(t, extensions, "upload_duration_ms")
+
+	// The revision id is the only identifier tying a scan to the content that was uploaded for it.
+	assert.Contains(t, logs.String(), "Snyk Code upload revision created")
+	assert.Contains(t, logs.String(), revID)
 
 	mu.Lock()
 	defer mu.Unlock()

@@ -438,6 +438,8 @@ func (c *codeScanner) UploadAndAnalyzeWithOptions(
 		revisionString := string(revision)
 		revisionId = &revisionString
 		scanIdentifier = revisionString
+
+		c.logger.Info().Str("revisionId", revisionString).Msg("Snyk Code upload revision created")
 	} else {
 		uploadedBundle, err = c.Upload(ctx, requestId, target, files, changedFiles)
 		if err != nil || uploadedBundle == nil || uploadedBundle.GetBundleHash() == "" {
