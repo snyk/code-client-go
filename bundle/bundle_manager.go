@@ -21,10 +21,11 @@ import (
 	"os"
 
 	"github.com/rs/zerolog"
-	"github.com/snyk/code-client-go/internal/util/supportedfiles"
+	"github.com/snyk/go-application-framework/pkg/analytics"
 
 	"github.com/snyk/code-client-go/internal/deepcode"
 	"github.com/snyk/code-client-go/internal/util"
+	"github.com/snyk/code-client-go/internal/util/supportedfiles"
 	"github.com/snyk/code-client-go/observability"
 	"github.com/snyk/code-client-go/scan"
 )
@@ -38,6 +39,7 @@ type bundleManager struct {
 	logger               *zerolog.Logger
 	trackerFactory       scan.TrackerFactory
 	supportedFilesFilter *supportedfiles.SupportedFilesFilter
+	analytics            analytics.Analytics
 }
 
 type BundleManager interface {
@@ -69,6 +71,7 @@ func NewBundleManager(
 	instrumentor observability.Instrumentor,
 	errorReporter observability.ErrorReporter,
 	trackerFactory scan.TrackerFactory,
+	analyticsClient analytics.Analytics,
 ) *bundleManager {
 	return &bundleManager{
 		deepcodeClient:       deepcodeClient,
@@ -77,6 +80,7 @@ func NewBundleManager(
 		logger:               logger,
 		trackerFactory:       trackerFactory,
 		supportedFilesFilter: supportedfiles.NewSupportedFilesFilter(deepcodeClient, logger),
+		analytics:            analyticsClient,
 	}
 }
 
@@ -116,9 +120,9 @@ func (b *bundleManager) create(
 	var limitToFiles []string
 	fileHashes := make(map[string]string)
 	bundleFiles := make(map[string]deepcode.BundleFile)
-	noFiles := true
+	filesBeforeFiltering := 0
 	for absoluteFilePath := range filePaths {
-		noFiles = false
+		filesBeforeFiltering++
 		if ctx.Err() != nil {
 			return bundle, err // The cancellation error should be handled by the calling function
 		}
@@ -156,7 +160,9 @@ func (b *bundleManager) create(
 		}
 	}
 
-	if noFiles {
+	b.recordFileFiltering(filesBeforeFiltering, len(bundleFiles))
+
+	if filesBeforeFiltering == 0 {
 		return bundle, NoFilesError{}
 	}
 
@@ -178,6 +184,18 @@ func (b *bundleManager) create(
 		missingFiles,
 	)
 	return bundle, err
+}
+
+// recordFileFiltering reports how many of the files handed to create survived the supported
+// files filter.
+func (b *bundleManager) recordFileFiltering(beforeFiltering int, afterFiltering int) {
+	b.analytics.AddExtensionIntegerValue("files_to_upload_before_filtering", beforeFiltering)
+	b.analytics.AddExtensionIntegerValue("files_to_upload_after_filtering", afterFiltering)
+
+	b.logger.Info().
+		Int("beforeFiltering", beforeFiltering).
+		Int("afterFiltering", afterFiltering).
+		Msg("Snyk Code file filtering")
 }
 
 func (b *bundleManager) Upload(

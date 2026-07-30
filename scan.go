@@ -206,7 +206,7 @@ func NewCodeScanner(
 
 	// initialize other dependencies
 	deepcodeClient := deepcode.NewDeepcodeClient(scanner.config, httpClient, scanner.logger, scanner.instrumentor, scanner.errorReporter)
-	bundleManager := bundle.NewBundleManager(deepcodeClient, scanner.logger, scanner.instrumentor, scanner.errorReporter, scanner.trackerFactory)
+	bundleManager := bundle.NewBundleManager(deepcodeClient, scanner.logger, scanner.instrumentor, scanner.errorReporter, scanner.trackerFactory, scanner.analytics)
 	scanner.bundleManager = bundleManager
 	analysisOrchestrator := analysis.NewAnalysisOrchestrator(
 		scanner.config,
