@@ -160,7 +160,7 @@ func (b *bundleManager) create(
 		}
 	}
 
-	b.recordFileFiltering(filesBeforeFiltering, len(bundleFiles))
+	supportedfiles.RecordFileFiltering(b.analytics, b.logger, filesBeforeFiltering, len(bundleFiles))
 
 	if filesBeforeFiltering == 0 {
 		return bundle, NoFilesError{}
@@ -184,18 +184,6 @@ func (b *bundleManager) create(
 		missingFiles,
 	)
 	return bundle, err
-}
-
-// recordFileFiltering reports how many of the files handed to create survived the supported
-// files filter.
-func (b *bundleManager) recordFileFiltering(beforeFiltering int, afterFiltering int) {
-	b.analytics.AddExtensionIntegerValue("files_to_upload_before_filtering", beforeFiltering)
-	b.analytics.AddExtensionIntegerValue("files_to_upload_after_filtering", afterFiltering)
-
-	b.logger.Info().
-		Int("beforeFiltering", beforeFiltering).
-		Int("afterFiltering", afterFiltering).
-		Msg("Snyk Code file filtering")
 }
 
 func (b *bundleManager) Upload(

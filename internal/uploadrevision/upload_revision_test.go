@@ -32,6 +32,7 @@ import (
 	"github.com/golang/mock/gomock"
 	"github.com/google/uuid"
 	"github.com/rs/zerolog"
+	"github.com/snyk/go-application-framework/pkg/analytics"
 	"github.com/snyk/go-application-framework/pkg/apiclients/fileupload"
 	"github.com/stretchr/testify/suite"
 
@@ -56,11 +57,24 @@ func response(status int, body string) *http.Response {
 
 type uploadRevisionSuite struct {
 	suite.Suite
-	deepcodeClient *deepcodeMocks.MockDeepcodeClient
-	uploader       uploadrevision.UploadRevision
-	uploaded       map[string]string
-	uploadCall     map[string]int
-	revID          uuid.UUID
+	deepcodeClient  *deepcodeMocks.MockDeepcodeClient
+	uploader        uploadrevision.UploadRevision
+	uploaded        map[string]string
+	uploadCall      map[string]int
+	revID           uuid.UUID
+	analyticsClient analytics.Analytics
+}
+
+// recordedExtensions returns the analytics extension values the upload recorded. Integers come
+// back as float64 because the collector round-trips the extension map through JSON.
+func (s *uploadRevisionSuite) recordedExtensions() map[string]interface{} {
+	body, err := analytics.GetV2InstrumentationObject(s.analyticsClient.GetInstrumentation())
+	s.Require().NoError(err)
+
+	if body.Data.Attributes.Interaction.Extension == nil {
+		return map[string]interface{}{}
+	}
+	return *body.Data.Attributes.Interaction.Extension
 }
 
 func TestUploadRevisionSuite(t *testing.T) {
@@ -114,11 +128,13 @@ func (s *uploadRevisionSuite) SetupTest() {
 	})
 
 	logger := zerolog.Nop()
+	s.analyticsClient = analytics.New()
 	s.uploader = uploadrevision.NewUploadRevision(
 		&http.Client{Transport: transport},
 		fileupload.Config{BaseURL: "https://example.com", OrgID: uuid.New()},
 		s.deepcodeClient,
 		&logger,
+		s.analyticsClient,
 	)
 }
 
@@ -170,6 +186,29 @@ func (s *uploadRevisionSuite) TestUpload_SingleFile() {
 	s.Require().Len(s.uploaded, 1)
 	s.Equal("package main", s.uploaded["main.go"])
 	s.Equal(1, s.uploadCall["main.go"])
+}
+
+func (s *uploadRevisionSuite) TestUpload_RecordsFileCountsBeforeAndAfterFiltering() {
+	s.deepcodeClient.EXPECT().GetFilters(gomock.Any()).Return(deepcode.FiltersResponse{
+		ConfigFiles: []string{},
+		Extensions:  []string{".go"},
+	}, nil)
+
+	dir := s.T().TempDir()
+	s.writeFile(dir, "main.go", []byte("package main"))
+	s.writeFile(dir, "notes.txt", []byte("not supported"))
+
+	files := make(chan string, 2)
+	files <- filepath.Join(dir, "main.go")
+	files <- filepath.Join(dir, "notes.txt")
+	close(files)
+
+	_, err := s.uploader.Upload(context.Background(), "requestId", scan.RepositoryTarget{LocalFilePath: dir}, files)
+	s.Require().NoError(err)
+
+	extensions := s.recordedExtensions()
+	s.Equal(float64(2), extensions["files_to_upload_before_filtering"])
+	s.Equal(float64(1), extensions["files_to_upload_after_filtering"])
 }
 
 func (s *uploadRevisionSuite) TestUpload_EncodesPaths() {

@@ -225,6 +225,7 @@ func NewCodeScanner(
 		fileupload.Config{BaseURL: scanner.config.SnykApi(), OrgID: orgID},
 		deepcodeClient,
 		scanner.logger,
+		scanner.analytics,
 	)
 
 	return scanner

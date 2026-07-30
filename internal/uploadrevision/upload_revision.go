@@ -22,6 +22,7 @@ import (
 	"net/http"
 
 	"github.com/rs/zerolog"
+	"github.com/snyk/go-application-framework/pkg/analytics"
 	"github.com/snyk/go-application-framework/pkg/apiclients/fileupload"
 
 	"github.com/snyk/code-client-go/bundle"
@@ -43,11 +44,12 @@ type uploadRevision struct {
 	client               fileupload.Client
 	supportedFilesFilter *supportedfiles.SupportedFilesFilter
 	logger               *zerolog.Logger
+	analytics            analytics.Analytics
 }
 
 var _ UploadRevision = (*uploadRevision)(nil)
 
-func NewUploadRevision(httpClient *http.Client, cfg fileupload.Config, deepcodeClient deepcode.DeepcodeClient, logger *zerolog.Logger) *uploadRevision {
+func NewUploadRevision(httpClient *http.Client, cfg fileupload.Config, deepcodeClient deepcode.DeepcodeClient, logger *zerolog.Logger, analyticsClient analytics.Analytics) *uploadRevision {
 	client := fileupload.NewClient(
 		httpClient,
 		cfg,
@@ -58,6 +60,7 @@ func NewUploadRevision(httpClient *http.Client, cfg fileupload.Config, deepcodeC
 		client:               client,
 		supportedFilesFilter: supportedfiles.NewSupportedFilesFilter(deepcodeClient, logger),
 		logger:               logger,
+		analytics:            analyticsClient,
 	}
 }
 
@@ -74,9 +77,9 @@ func toUTF8(content []byte) ([]byte, error) {
 
 func (u *uploadRevision) Upload(ctx context.Context, requestId string, target scan.Target, files <-chan string) (RevisionID, error) {
 	var supported []string
-	noFiles := true
+	filesBeforeFiltering := 0
 	for path := range files {
-		noFiles = false
+		filesBeforeFiltering++
 		isSupported, err := u.supportedFilesFilter.IsFileSupported(ctx, path)
 		if err != nil {
 			return "", err
@@ -86,7 +89,9 @@ func (u *uploadRevision) Upload(ctx context.Context, requestId string, target sc
 		}
 	}
 
-	if noFiles {
+	supportedfiles.RecordFileFiltering(u.analytics, u.logger, filesBeforeFiltering, len(supported))
+
+	if filesBeforeFiltering == 0 {
 		return "", bundle.NoFilesError{}
 	}
 
