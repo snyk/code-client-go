@@ -377,7 +377,7 @@ func determineAnalyzeInput(path string, config configuration.Configuration, logg
 		logger.Warn().Err(err).Msg("could not determine repository URL; consistent-ignores and SCM association may not be applied. Pass --remote-repo-url to set it explicitly")
 	}
 
-	files, err = getFilesForPath(path, logger, config.GetInt(configuration.MAX_THREADS))
+	files, err = getFilesForPath(path, logger, config)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -386,8 +386,8 @@ func determineAnalyzeInput(path string, config configuration.Configuration, logg
 }
 
 // Return a channel that notifies each file in the path that doesn't match the filter rules
-func getFilesForPath(path string, logger *zerolog.Logger, max_threads int) (<-chan string, error) {
-	filter := utils.NewFileFilter(path, logger, utils.WithThreadNumber(max_threads))
+func getFilesForPath(path string, logger *zerolog.Logger, config configuration.Configuration) (<-chan string, error) {
+	filter := utils.NewFileFilterFromConfig(path, logger, config, utils.WithThreadNumber(config.GetInt(configuration.MAX_THREADS)))
 	rules, err := filter.GetRules([]string{".gitignore", ".dcignore", ".snyk"})
 	if err != nil {
 		return nil, err
