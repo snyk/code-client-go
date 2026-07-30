@@ -15,6 +15,7 @@ import (
 	codeclient "github.com/snyk/code-client-go"
 	"github.com/snyk/code-client-go/bundle"
 	codeclienthttp "github.com/snyk/code-client-go/http"
+	"github.com/snyk/code-client-go/internal/contributorbilling"
 	"github.com/snyk/code-client-go/sarif"
 	"github.com/snyk/code-client-go/scan"
 	"github.com/snyk/error-catalog-golang-public/code"
@@ -128,6 +129,17 @@ func EntryPointNative(invocationCtx workflow.InvocationContext, opts ...Optional
 	isNoFilesErr := bundle.IsNoFilesError(err)
 	if err != nil && !isNoFilesErr {
 		return nil, err
+	}
+
+	if err == nil {
+		reportMode, reportErr := GetReportMode(config)
+		if reportErr == nil && reportMode != noReport && resultMetaData != nil && resultMetaData.ProjectId != "" {
+			repoPath := config.GetString(configuration.INPUT_DIRECTORY)
+			if repoPath == "" {
+				repoPath = path
+			}
+			contributorbilling.EmitProject(invocationCtx.Context(), invocationCtx, resultMetaData.ProjectId, repoPath)
+		}
 	}
 
 	logger.Debug().Msgf("Result metadata: %+v", resultMetaData)
