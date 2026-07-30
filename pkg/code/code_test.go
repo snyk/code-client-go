@@ -24,6 +24,7 @@ import (
 
 	"github.com/snyk/code-client-go/internal/commands/code_workflow"
 	"github.com/snyk/code-client-go/pkg/code/sast_contract"
+	"github.com/snyk/go-application-framework/pkg/analytics"
 	"github.com/snyk/go-application-framework/pkg/configuration"
 	"github.com/snyk/go-application-framework/pkg/local_workflows/content_type"
 	"github.com/snyk/go-application-framework/pkg/local_workflows/json_schemas"
@@ -186,8 +187,9 @@ func Test_Code_nativeImplementation_happyPath(t *testing.T) {
 	invocationContext.EXPECT().GetWorkflowIdentifier().Return(workflow.NewWorkflowIdentifier("code"))
 	invocationContext.EXPECT().GetUserInterface().Return(ui.DefaultUi())
 	invocationContext.EXPECT().Context().Return(context.Background()).AnyTimes()
+	invocationContext.EXPECT().GetAnalytics().Return(analytics.New())
 
-	analysisFunc := func(_ context.Context, path string, _ func() *http.Client, _ *zerolog.Logger, _ configuration.Configuration, _ ui.UserInterface) (*sarif.SarifResponse, string, *scan.ResultMetaData, error) {
+	analysisFunc := func(_ context.Context, path string, _ func() *http.Client, _ *zerolog.Logger, _ configuration.Configuration, _ ui.UserInterface, _ analytics.Analytics) (*sarif.SarifResponse, string, *scan.ResultMetaData, error) {
 		assert.Equal(t, expectedPath, path)
 		suppressions := []sarif.Suppression{
 			{
@@ -268,6 +270,42 @@ func Test_Code_nativeImplementation_happyPath(t *testing.T) {
 	}
 }
 
+func Test_Code_entrypoint_recordsSCLEInAnalytics(t *testing.T) {
+	for _, tc := range []struct {
+		name        string
+		scleEnabled bool
+	}{
+		{name: "SCLE enabled", scleEnabled: true},
+		{name: "SCLE disabled", scleEnabled: false},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			config := configuration.NewWithOpts()
+			config.Set(ConfigurationSastEnabled, true)
+			config.Set(ConfigurationSlceEnabled, tc.scleEnabled)
+
+			analyticsClient := analytics.New()
+
+			mockController := gomock.NewController(t)
+			invocationContext := mocks.NewMockInvocationContext(mockController)
+			invocationContext.EXPECT().GetConfiguration().Return(config).AnyTimes()
+			invocationContext.EXPECT().GetEnhancedLogger().Return(&zerolog.Logger{})
+			invocationContext.EXPECT().GetAnalytics().Return(analyticsClient)
+			// The legacy path dispatches to the legacycli workflow, which is not
+			// registered here, so the invocation fails after analytics are recorded.
+			invocationContext.EXPECT().GetEngine().Return(workflow.NewWorkFlowEngine(config))
+
+			_, err := codeWorkflowEntryPoint(invocationContext, nil)
+			require.Error(t, err)
+
+			body, err := analytics.GetV2InstrumentationObject(analyticsClient.GetInstrumentation())
+			require.NoError(t, err)
+			require.NotNil(t, body.Data.Attributes.Interaction.Extension)
+			assert.Equal(t, tc.scleEnabled, (*body.Data.Attributes.Interaction.Extension)["isSCLE"])
+			assert.Equal(t, "legacy", (*body.Data.Attributes.Interaction.Extension)["implementation"])
+		})
+	}
+}
+
 func Test_Code_nativeImplementation_analysisFails(t *testing.T) {
 	config := configuration.NewWithOpts(configuration.WithAutomaticEnv())
 	networkAccess := networking.NewNetworkAccess(config)
@@ -280,8 +318,9 @@ func Test_Code_nativeImplementation_analysisFails(t *testing.T) {
 	invocationContext.EXPECT().GetWorkflowIdentifier().Return(workflow.NewWorkflowIdentifier("code"))
 	invocationContext.EXPECT().GetUserInterface().Return(ui.DefaultUi())
 	invocationContext.EXPECT().Context().Return(context.Background()).AnyTimes()
+	invocationContext.EXPECT().GetAnalytics().Return(analytics.New())
 
-	analysisFunc := func(context.Context, string, func() *http.Client, *zerolog.Logger, configuration.Configuration, ui.UserInterface) (*sarif.SarifResponse, string, *scan.ResultMetaData, error) {
+	analysisFunc := func(context.Context, string, func() *http.Client, *zerolog.Logger, configuration.Configuration, ui.UserInterface, analytics.Analytics) (*sarif.SarifResponse, string, *scan.ResultMetaData, error) {
 		return nil, "", nil, fmt.Errorf("something went wrong")
 	}
 
@@ -302,8 +341,9 @@ func Test_Code_nativeImplementation_analysisNil(t *testing.T) {
 	invocationContext.EXPECT().GetWorkflowIdentifier().Return(workflow.NewWorkflowIdentifier("code"))
 	invocationContext.EXPECT().GetUserInterface().Return(ui.DefaultUi())
 	invocationContext.EXPECT().Context().Return(context.Background()).AnyTimes()
+	invocationContext.EXPECT().GetAnalytics().Return(analytics.New())
 
-	analysisFunc := func(_ context.Context, path string, _ func() *http.Client, _ *zerolog.Logger, _ configuration.Configuration, _ ui.UserInterface) (*sarif.SarifResponse, string, *scan.ResultMetaData, error) {
+	analysisFunc := func(_ context.Context, path string, _ func() *http.Client, _ *zerolog.Logger, _ configuration.Configuration, _ ui.UserInterface, _ analytics.Analytics) (*sarif.SarifResponse, string, *scan.ResultMetaData, error) {
 		return nil, "", nil, nil
 	}
 
@@ -341,8 +381,9 @@ func Test_Code_nativeImplementation_analysisEmpty(t *testing.T) {
 		invocationContext.EXPECT().GetWorkflowIdentifier().Return(workflow.NewWorkflowIdentifier("code"))
 		invocationContext.EXPECT().GetUserInterface().Return(ui.DefaultUi())
 		invocationContext.EXPECT().Context().Return(context.Background()).AnyTimes()
+		invocationContext.EXPECT().GetAnalytics().Return(analytics.New())
 
-		analysisFunc := func(_ context.Context, path string, _ func() *http.Client, _ *zerolog.Logger, _ configuration.Configuration, _ ui.UserInterface) (*sarif.SarifResponse, string, *scan.ResultMetaData, error) {
+		analysisFunc := func(_ context.Context, path string, _ func() *http.Client, _ *zerolog.Logger, _ configuration.Configuration, _ ui.UserInterface, _ analytics.Analytics) (*sarif.SarifResponse, string, *scan.ResultMetaData, error) {
 			response := &sarif.SarifResponse{
 				Sarif: sarif.SarifDocument{
 					Runs: []sarif.Run{
@@ -385,8 +426,9 @@ func Test_Code_nativeImplementation_analysisEmpty(t *testing.T) {
 		invocationContext.EXPECT().GetWorkflowIdentifier().Return(workflow.NewWorkflowIdentifier("code"))
 		invocationContext.EXPECT().GetUserInterface().Return(ui.DefaultUi())
 		invocationContext.EXPECT().Context().Return(context.Background()).AnyTimes()
+		invocationContext.EXPECT().GetAnalytics().Return(analytics.New())
 
-		analysisFunc := func(_ context.Context, path string, _ func() *http.Client, _ *zerolog.Logger, _ configuration.Configuration, _ ui.UserInterface) (*sarif.SarifResponse, string, *scan.ResultMetaData, error) {
+		analysisFunc := func(_ context.Context, path string, _ func() *http.Client, _ *zerolog.Logger, _ configuration.Configuration, _ ui.UserInterface, _ analytics.Analytics) (*sarif.SarifResponse, string, *scan.ResultMetaData, error) {
 			response := &sarif.SarifResponse{
 				Sarif: sarif.SarifDocument{
 					Runs: []sarif.Run{
@@ -480,8 +522,7 @@ func Test_Code_UseNativeImplementation(t *testing.T) {
 		config := configuration.NewWithOpts()
 		config.Set(configuration.FF_CODE_CONSISTENT_IGNORES, false)
 		config.Set(configuration.FF_CODE_NATIVE_IMPLEMENTATION, false)
-		config.Set(ConfigurationSlceEnabled, false)
-		actual := useNativeImplementation(config, &logger, true)
+		actual := useNativeImplementation(config, &logger, true, false)
 		assert.Equal(t, expected, actual)
 	})
 
@@ -490,8 +531,7 @@ func Test_Code_UseNativeImplementation(t *testing.T) {
 		config := configuration.NewWithOpts()
 		config.Set(configuration.FF_CODE_CONSISTENT_IGNORES, false)
 		config.Set(configuration.FF_CODE_NATIVE_IMPLEMENTATION, true)
-		config.Set(ConfigurationSlceEnabled, false)
-		actual := useNativeImplementation(config, &logger, true)
+		actual := useNativeImplementation(config, &logger, true, false)
 		assert.Equal(t, expected, actual)
 	})
 
@@ -500,8 +540,7 @@ func Test_Code_UseNativeImplementation(t *testing.T) {
 		config := configuration.NewWithOpts()
 		config.Set(configuration.FF_CODE_CONSISTENT_IGNORES, true)
 		config.Set(configuration.FF_CODE_NATIVE_IMPLEMENTATION, false)
-		config.Set(ConfigurationSlceEnabled, false)
-		actual := useNativeImplementation(config, &logger, true)
+		actual := useNativeImplementation(config, &logger, true, false)
 		assert.Equal(t, expected, actual)
 	})
 
@@ -510,8 +549,7 @@ func Test_Code_UseNativeImplementation(t *testing.T) {
 		config := configuration.NewWithOpts()
 		config.Set(configuration.FF_CODE_CONSISTENT_IGNORES, true)
 		config.Set(configuration.FF_CODE_NATIVE_IMPLEMENTATION, true)
-		config.Set(ConfigurationSlceEnabled, false)
-		actual := useNativeImplementation(config, &logger, true)
+		actual := useNativeImplementation(config, &logger, true, false)
 		assert.Equal(t, expected, actual)
 	})
 
@@ -520,8 +558,7 @@ func Test_Code_UseNativeImplementation(t *testing.T) {
 		config := configuration.NewWithOpts()
 		config.Set(configuration.FF_CODE_CONSISTENT_IGNORES, true)
 		config.Set(configuration.FF_CODE_NATIVE_IMPLEMENTATION, true)
-		config.Set(ConfigurationSlceEnabled, true)
-		actual := useNativeImplementation(config, &logger, true)
+		actual := useNativeImplementation(config, &logger, true, true)
 		assert.Equal(t, expected, actual)
 	})
 
@@ -530,8 +567,7 @@ func Test_Code_UseNativeImplementation(t *testing.T) {
 		config := configuration.NewWithOpts()
 		config.Set(configuration.FF_CODE_CONSISTENT_IGNORES, false)
 		config.Set(configuration.FF_CODE_NATIVE_IMPLEMENTATION, false)
-		config.Set(ConfigurationSlceEnabled, true)
-		actual := useNativeImplementation(config, &logger, true)
+		actual := useNativeImplementation(config, &logger, true, true)
 		assert.Equal(t, expected, actual)
 	})
 }
