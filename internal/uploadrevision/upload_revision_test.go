@@ -170,6 +170,24 @@ func (s *uploadRevisionSuite) TestUpload_NoFiles() {
 	s.Empty(s.uploaded)
 }
 
+func (s *uploadRevisionSuite) TestUpload_StopsOnCancelledContext() {
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+
+	files := make(chan string, 3)
+	files <- "/path/a.go"
+	files <- "/path/b.go"
+	files <- "/path/c.go"
+	close(files)
+
+	_, err := s.uploader.Upload(ctx, "requestId", scan.RepositoryTarget{LocalFilePath: "/path"}, files)
+
+	s.Require().ErrorIs(err, context.Canceled)
+	// The remaining paths are left unread rather than the whole channel being drained. No
+	// GetFilters call is set up either, so filtering must not have started.
+	s.Len(files, 2)
+}
+
 func (s *uploadRevisionSuite) TestUpload_SingleFileExcludedByFilters() {
 	s.deepcodeClient.EXPECT().GetFilters(gomock.Any()).Return(deepcode.FiltersResponse{
 		ConfigFiles: []string{},

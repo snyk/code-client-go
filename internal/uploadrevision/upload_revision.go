@@ -86,6 +86,10 @@ func (u *uploadRevision) Upload(ctx context.Context, requestId string, target sc
 	filesBeforeFiltering := 0
 	for path := range files {
 		filesBeforeFiltering++
+		if ctx.Err() != nil {
+			return "", ctx.Err() // The cancellation error should be handled by the calling function
+		}
+
 		isSupported, err := u.supportedFilesFilter.IsFileSupported(ctx, path)
 		if err != nil {
 			return "", err
