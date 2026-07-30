@@ -450,6 +450,11 @@ func (c *codeScanner) UploadAndAnalyzeWithOptions(
 		scanIdentifier = uploadedBundle.GetBundleHash()
 	}
 
+	err = c.checkCancellationOrLogError(ctx, target.GetPath(), err, "error running analysis...")
+	if err != nil {
+		return nil, "", nil, err
+	}
+
 	response, metadata, err := c.analysisOrchestrator.RunTest(ctx, c.config.Organization(), uploadedBundle, revisionId, target, cfg)
 	err = c.checkCancellationOrLogError(ctx, target.GetPath(), err, "error running analysis...")
 	if err != nil {
