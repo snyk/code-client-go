@@ -291,6 +291,7 @@ func Test_defaultAnalyzeFunction_recordsFailedFileUploadApiUpload(t *testing.T) 
 	)
 
 	require.Error(t, err)
+	assert.Contains(t, err.Error(), "error uploading files")
 	assert.Nil(t, result)
 
 	extensions := recordedExtensions(t, analyticsClient)

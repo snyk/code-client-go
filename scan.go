@@ -428,9 +428,9 @@ func (c *codeScanner) UploadAndAnalyzeWithOptions(
 
 	if cfg.UploadFileContentToFileUploadApi {
 		revision, uploadErr := c.uploadRevision.Upload(ctx, requestId, target, files)
+		uploadErr = c.checkCancellationOrLogError(ctx, target.GetPath(), uploadErr, "error uploading files...")
 		if uploadErr != nil {
 			c.recordUpload(BackendFileUploadApi, false, time.Since(uploadStart))
-			c.logger.Debug().Msg("upload to file-upload-api failed")
 			return nil, "", nil, uploadErr
 		}
 		c.recordUpload(BackendFileUploadApi, true, time.Since(uploadStart))
