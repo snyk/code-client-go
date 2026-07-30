@@ -335,6 +335,7 @@ func (s *uploadRevisionSuite) TestUpload_RecordsFilesExcludedDuringUpload() {
 
 	s.Equal(float64(1), s.recordedExtensions()["files_excluded_during_upload"])
 	s.Equal("package main", s.uploaded["main.go"])
+	s.Contains(s.logs.String(), `"uploadedFiles":1,"excludedFiles":1`)
 }
 
 func (s *uploadRevisionSuite) TestUpload_EncodesPaths() {

@@ -115,7 +115,7 @@ func (u *uploadRevision) Upload(ctx context.Context, requestId string, target sc
 	tracker.Begin("Snyk Code analysis for "+target.GetPath(), "Uploading files...")
 
 	res, err := u.client.CreateRevisionFromChan(ctx, supportedFiles, target.GetPath())
-	u.recordUploadExclusions(res.SkippedFiles)
+	u.recordUploadOutcome(res)
 	if err != nil {
 		if errors.Is(err, fileupload.ErrNoFilesProvided) {
 			return "", bundle.NoFilesError{}
@@ -126,16 +126,17 @@ func (u *uploadRevision) Upload(ctx context.Context, requestId string, target sc
 	return RevisionID(res.RevisionID.String()), nil
 }
 
-// recordUploadExclusions reports the files the upload client skipped, with each file's reason so
-// that a file missing from a scan can be explained.
-func (u *uploadRevision) recordUploadExclusions(skippedFiles []fileupload.SkippedFile) {
-	u.analytics.AddExtensionIntegerValue("files_excluded_during_upload", len(skippedFiles))
+// recordUploadOutcome reports how many files the upload client sent and how many it skipped,
+// with each skipped file's reason so that a file missing from a scan can be explained.
+func (u *uploadRevision) recordUploadOutcome(res fileupload.UploadResult) {
+	u.analytics.AddExtensionIntegerValue("files_excluded_during_upload", len(res.SkippedFiles))
 
 	u.logger.Info().
-		Int("excludedFiles", len(skippedFiles)).
-		Msg("Snyk Code upload exclusions")
+		Int("uploadedFiles", res.UploadedFilesCount).
+		Int("excludedFiles", len(res.SkippedFiles)).
+		Msg("Snyk Code upload file counts")
 
-	for _, skippedFile := range skippedFiles {
+	for _, skippedFile := range res.SkippedFiles {
 		u.logger.Debug().
 			Err(skippedFile.Reason).
 			Str("filePath", skippedFile.Path).
