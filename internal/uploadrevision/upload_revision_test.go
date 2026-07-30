@@ -17,6 +17,7 @@
 package uploadrevision_test
 
 import (
+	"bytes"
 	"compress/gzip"
 	"context"
 	"fmt"
@@ -82,6 +83,7 @@ type uploadRevisionSuite struct {
 	revID           uuid.UUID
 	analyticsClient analytics.Analytics
 	tracker         *recordingTracker
+	logs            *bytes.Buffer
 }
 
 // recordedExtensions returns the analytics extension values the upload recorded. Integers come
@@ -146,7 +148,8 @@ func (s *uploadRevisionSuite) SetupTest() {
 		}
 	})
 
-	logger := zerolog.Nop()
+	s.logs = &bytes.Buffer{}
+	logger := zerolog.New(s.logs)
 	s.analyticsClient = analytics.New()
 	s.tracker = &recordingTracker{}
 	s.uploader = uploadrevision.NewUploadRevision(
@@ -248,6 +251,27 @@ func (s *uploadRevisionSuite) TestUpload_RecordsFileCountsBeforeAndAfterFilterin
 	extensions := s.recordedExtensions()
 	s.Equal(float64(2), extensions["files_to_upload_before_filtering"])
 	s.Equal(float64(1), extensions["files_to_upload_after_filtering"])
+}
+
+func (s *uploadRevisionSuite) TestUpload_LogsUploadClientOutput() {
+	s.deepcodeClient.EXPECT().GetFilters(gomock.Any()).Return(deepcode.FiltersResponse{
+		ConfigFiles: []string{},
+		Extensions:  []string{".go"},
+	}, nil)
+
+	dir := s.T().TempDir()
+	s.writeFile(dir, "main.go", []byte("package main"))
+
+	files := make(chan string, 1)
+	files <- filepath.Join(dir, "main.go")
+	close(files)
+
+	_, err := s.uploader.Upload(context.Background(), "requestId", scan.RepositoryTarget{LocalFilePath: dir}, files)
+	s.Require().NoError(err)
+
+	// This field is logged by the upload client itself, so its presence proves the client was
+	// given a real logger rather than the no-op one it defaults to.
+	s.Contains(s.logs.String(), "file_size_limit_bytes")
 }
 
 func (s *uploadRevisionSuite) TestUpload_ReportsProgress() {

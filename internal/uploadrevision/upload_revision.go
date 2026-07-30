@@ -54,6 +54,7 @@ func NewUploadRevision(httpClient *http.Client, cfg fileupload.Config, deepcodeC
 	client := fileupload.NewClient(
 		httpClient,
 		cfg,
+		fileupload.WithLogger(logger),
 		fileupload.WithPathEncoder(util.EncodePath),
 		fileupload.WithContentTranscoder(toUTF8),
 	)
