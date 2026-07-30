@@ -160,11 +160,10 @@ func getSlceEnabled(engine workflow.Engine) configuration.DefaultValueFunction {
 	return callback
 }
 
-func useNativeImplementation(config configuration.Configuration, logger *zerolog.Logger, sastEnabled bool) bool {
+func useNativeImplementation(config configuration.Configuration, logger *zerolog.Logger, sastEnabled bool, scleEnabled bool) bool {
 	useConsistentIgnoresFF := config.GetBool(configuration.FF_CODE_CONSISTENT_IGNORES)
 	useNativeImplementationFF := config.GetBool(configuration.FF_CODE_NATIVE_IMPLEMENTATION)
 	reportEnabled := config.GetBool(code_workflow.ConfigurationReportFlag)
-	scleEnabled := config.GetBool(ConfigurarionSlceEnabled)
 
 	nativeImplementationEnabled := (useConsistentIgnoresFF || useNativeImplementationFF) && !scleEnabled
 
@@ -212,7 +211,8 @@ func codeWorkflowEntryPoint(invocationCtx workflow.InvocationContext, _ []workfl
 		return result, err
 	}
 
-	nativeImplementation := useNativeImplementation(config, logger, sastEnabled)
+	scleEnabled := config.GetBool(ConfigurarionSlceEnabled)
+	nativeImplementation := useNativeImplementation(config, logger, sastEnabled, scleEnabled)
 
 	if !sastEnabled {
 		return result, code.NewFeatureIsNotEnabledError(fmt.Sprintf("Snyk Code is not supported for your current organization: `%s`.", config.GetString(configuration.ORGANIZATION_SLUG)))
@@ -223,7 +223,9 @@ func codeWorkflowEntryPoint(invocationCtx workflow.InvocationContext, _ []workfl
 		implementationName = "native"
 	}
 
-	invocationCtx.GetAnalytics().AddExtensionStringValue("implementation", implementationName)
+	analyticsClient := invocationCtx.GetAnalytics()
+	analyticsClient.AddExtensionStringValue("implementation", implementationName)
+	analyticsClient.AddExtensionBoolValue("isSCLE", scleEnabled)
 	logger.Debug().Msgf("Implementation: %s", implementationName)
 
 	if nativeImplementation {

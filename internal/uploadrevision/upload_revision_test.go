@@ -17,6 +17,7 @@
 package uploadrevision_test
 
 import (
+	"bytes"
 	"compress/gzip"
 	"context"
 	"fmt"
@@ -32,6 +33,7 @@ import (
 	"github.com/golang/mock/gomock"
 	"github.com/google/uuid"
 	"github.com/rs/zerolog"
+	"github.com/snyk/go-application-framework/pkg/analytics"
 	"github.com/snyk/go-application-framework/pkg/apiclients/fileupload"
 	"github.com/stretchr/testify/suite"
 
@@ -54,13 +56,46 @@ func response(status int, body string) *http.Response {
 	}
 }
 
+// recordingTracker captures the progress calls the upload makes.
+type recordingTracker struct {
+	begun []string
+	ended []string
+}
+
+func (t *recordingTracker) Begin(title, message string) {
+	t.begun = append(t.begun, title+" - "+message)
+}
+
+func (t *recordingTracker) End(message string) {
+	t.ended = append(t.ended, message)
+}
+
+func (t *recordingTracker) GenerateTracker() scan.Tracker {
+	return t
+}
+
 type uploadRevisionSuite struct {
 	suite.Suite
-	deepcodeClient *deepcodeMocks.MockDeepcodeClient
-	uploader       uploadrevision.UploadRevision
-	uploaded       map[string]string
-	uploadCall     map[string]int
-	revID          uuid.UUID
+	deepcodeClient  *deepcodeMocks.MockDeepcodeClient
+	uploader        uploadrevision.UploadRevision
+	uploaded        map[string]string
+	uploadCall      map[string]int
+	revID           uuid.UUID
+	analyticsClient analytics.Analytics
+	tracker         *recordingTracker
+	logs            *bytes.Buffer
+}
+
+// recordedExtensions returns the analytics extension values the upload recorded. Integers come
+// back as float64 because the collector round-trips the extension map through JSON.
+func (s *uploadRevisionSuite) recordedExtensions() map[string]interface{} {
+	body, err := analytics.GetV2InstrumentationObject(s.analyticsClient.GetInstrumentation())
+	s.Require().NoError(err)
+
+	if body.Data.Attributes.Interaction.Extension == nil {
+		return map[string]interface{}{}
+	}
+	return *body.Data.Attributes.Interaction.Extension
 }
 
 func TestUploadRevisionSuite(t *testing.T) {
@@ -113,12 +148,17 @@ func (s *uploadRevisionSuite) SetupTest() {
 		}
 	})
 
-	logger := zerolog.Nop()
+	s.logs = &bytes.Buffer{}
+	logger := zerolog.New(s.logs)
+	s.analyticsClient = analytics.New()
+	s.tracker = &recordingTracker{}
 	s.uploader = uploadrevision.NewUploadRevision(
 		&http.Client{Transport: transport},
 		fileupload.Config{BaseURL: "https://example.com", OrgID: uuid.New()},
 		s.deepcodeClient,
 		&logger,
+		s.analyticsClient,
+		s.tracker,
 	)
 }
 
@@ -131,6 +171,24 @@ func (s *uploadRevisionSuite) TestUpload_NoFiles() {
 	s.Empty(revisionID)
 	s.True(bundle.IsNoFilesError(err))
 	s.Empty(s.uploaded)
+}
+
+func (s *uploadRevisionSuite) TestUpload_StopsOnCancelledContext() {
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+
+	files := make(chan string, 3)
+	files <- "/path/a.go"
+	files <- "/path/b.go"
+	files <- "/path/c.go"
+	close(files)
+
+	_, err := s.uploader.Upload(ctx, "requestId", scan.RepositoryTarget{LocalFilePath: "/path"}, files)
+
+	s.Require().ErrorIs(err, context.Canceled)
+	// The remaining paths are left unread rather than the whole channel being drained. No
+	// GetFilters call is set up either, so filtering must not have started.
+	s.Len(files, 2)
 }
 
 func (s *uploadRevisionSuite) TestUpload_SingleFileExcludedByFilters() {
@@ -170,6 +228,114 @@ func (s *uploadRevisionSuite) TestUpload_SingleFile() {
 	s.Require().Len(s.uploaded, 1)
 	s.Equal("package main", s.uploaded["main.go"])
 	s.Equal(1, s.uploadCall["main.go"])
+}
+
+func (s *uploadRevisionSuite) TestUpload_RecordsFileCountsBeforeAndAfterFiltering() {
+	s.deepcodeClient.EXPECT().GetFilters(gomock.Any()).Return(deepcode.FiltersResponse{
+		ConfigFiles: []string{},
+		Extensions:  []string{".go"},
+	}, nil)
+
+	dir := s.T().TempDir()
+	s.writeFile(dir, "main.go", []byte("package main"))
+	s.writeFile(dir, "notes.txt", []byte("not supported"))
+
+	files := make(chan string, 2)
+	files <- filepath.Join(dir, "main.go")
+	files <- filepath.Join(dir, "notes.txt")
+	close(files)
+
+	_, err := s.uploader.Upload(context.Background(), "requestId", scan.RepositoryTarget{LocalFilePath: dir}, files)
+	s.Require().NoError(err)
+
+	extensions := s.recordedExtensions()
+	s.Equal(float64(2), extensions["files_to_upload_before_filtering"])
+	s.Equal(float64(1), extensions["files_to_upload_after_filtering"])
+}
+
+func (s *uploadRevisionSuite) TestUpload_LogsUploadClientOutput() {
+	s.deepcodeClient.EXPECT().GetFilters(gomock.Any()).Return(deepcode.FiltersResponse{
+		ConfigFiles: []string{},
+		Extensions:  []string{".go"},
+	}, nil)
+
+	dir := s.T().TempDir()
+	s.writeFile(dir, "main.go", []byte("package main"))
+
+	files := make(chan string, 1)
+	files <- filepath.Join(dir, "main.go")
+	close(files)
+
+	_, err := s.uploader.Upload(context.Background(), "requestId", scan.RepositoryTarget{LocalFilePath: dir}, files)
+	s.Require().NoError(err)
+
+	// This field is logged by the upload client itself, so its presence proves the client was
+	// given a real logger rather than the no-op one it defaults to.
+	s.Contains(s.logs.String(), "file_size_limit_bytes")
+}
+
+func (s *uploadRevisionSuite) TestUpload_ReportsProgress() {
+	s.deepcodeClient.EXPECT().GetFilters(gomock.Any()).Return(deepcode.FiltersResponse{
+		ConfigFiles: []string{},
+		Extensions:  []string{".go"},
+	}, nil)
+
+	dir := s.T().TempDir()
+	s.writeFile(dir, "main.go", []byte("package main"))
+
+	files := make(chan string, 1)
+	files <- filepath.Join(dir, "main.go")
+	close(files)
+
+	_, err := s.uploader.Upload(context.Background(), "requestId", scan.RepositoryTarget{LocalFilePath: dir}, files)
+	s.Require().NoError(err)
+
+	s.Equal([]string{
+		"Snyk Code analysis for " + dir + " - Checking files for analysis",
+		"Snyk Code analysis for " + dir + " - Uploading files...",
+	}, s.tracker.begun)
+	s.Equal([]string{""}, s.tracker.ended)
+}
+
+func (s *uploadRevisionSuite) TestUpload_EndsProgressWhenNoFilesAreSupported() {
+	s.deepcodeClient.EXPECT().GetFilters(gomock.Any()).Return(deepcode.FiltersResponse{
+		ConfigFiles: []string{},
+		Extensions:  []string{".java"},
+	}, nil)
+
+	files := make(chan string, 1)
+	files <- "/path/file.txt"
+	close(files)
+
+	_, err := s.uploader.Upload(context.Background(), "requestId", scan.RepositoryTarget{LocalFilePath: "/path"}, files)
+	s.Require().Error(err)
+
+	s.Equal([]string{""}, s.tracker.ended)
+}
+
+func (s *uploadRevisionSuite) TestUpload_RecordsFilesExcludedDuringUpload() {
+	s.deepcodeClient.EXPECT().GetFilters(gomock.Any()).Return(deepcode.FiltersResponse{
+		ConfigFiles: []string{},
+		Extensions:  []string{".go"},
+	}, nil)
+
+	dir := s.T().TempDir()
+	s.writeFile(dir, "main.go", []byte("package main"))
+	// A path over the client's 256 character limit is the simplest exclusion to trigger here.
+	excludedRelPath := filepath.Join(strings.Repeat("a", 250), "excluded.go")
+	s.writeFile(dir, excludedRelPath, []byte("package excluded"))
+
+	files := make(chan string, 2)
+	files <- filepath.Join(dir, "main.go")
+	files <- filepath.Join(dir, excludedRelPath)
+	close(files)
+
+	_, err := s.uploader.Upload(context.Background(), "requestId", scan.RepositoryTarget{LocalFilePath: dir}, files)
+	s.Require().NoError(err)
+
+	s.Equal(float64(1), s.recordedExtensions()["files_excluded_during_upload"])
+	s.Equal("package main", s.uploaded["main.go"])
+	s.Contains(s.logs.String(), `"uploadedFiles":1,"excludedFiles":1`)
 }
 
 func (s *uploadRevisionSuite) TestUpload_EncodesPaths() {
