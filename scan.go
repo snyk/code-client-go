@@ -206,7 +206,7 @@ func NewCodeScanner(
 
 	// initialize other dependencies
 	deepcodeClient := deepcode.NewDeepcodeClient(scanner.config, httpClient, scanner.logger, scanner.instrumentor, scanner.errorReporter)
-	bundleManager := bundle.NewBundleManager(deepcodeClient, scanner.logger, scanner.instrumentor, scanner.errorReporter, scanner.trackerFactory)
+	bundleManager := bundle.NewBundleManager(deepcodeClient, scanner.logger, scanner.instrumentor, scanner.errorReporter, scanner.trackerFactory, scanner.analytics)
 	scanner.bundleManager = bundleManager
 	analysisOrchestrator := analysis.NewAnalysisOrchestrator(
 		scanner.config,
@@ -225,6 +225,8 @@ func NewCodeScanner(
 		fileupload.Config{BaseURL: scanner.config.SnykApi(), OrgID: orgID},
 		deepcodeClient,
 		scanner.logger,
+		scanner.analytics,
+		scanner.trackerFactory,
 	)
 
 	return scanner
@@ -425,15 +427,10 @@ func (c *codeScanner) UploadAndAnalyzeWithOptions(
 	uploadStart := time.Now()
 
 	if cfg.UploadFileContentToFileUploadApi {
-		// The upload client derives snyk-request-id from the trace id on the context (see
-		// httpClient.Do), so seed it with the scan's requestId to correlate the create,
-		// upload and seal calls with this scan.
-		uploadCtx := observability.GetContextWithTraceId(ctx, requestId)
-
-		revision, uploadErr := c.uploadRevision.Upload(uploadCtx, requestId, target, files)
+		revision, uploadErr := c.uploadRevision.Upload(ctx, requestId, target, files)
+		uploadErr = c.checkCancellationOrLogError(ctx, target.GetPath(), uploadErr, "error uploading files...")
 		if uploadErr != nil {
 			c.recordUpload(BackendFileUploadApi, false, time.Since(uploadStart))
-			c.logger.Debug().Msg("upload to file-upload-api failed")
 			return nil, "", nil, uploadErr
 		}
 		c.recordUpload(BackendFileUploadApi, true, time.Since(uploadStart))
@@ -441,6 +438,8 @@ func (c *codeScanner) UploadAndAnalyzeWithOptions(
 		revisionString := string(revision)
 		revisionId = &revisionString
 		scanIdentifier = revisionString
+
+		c.logger.Info().Str("revisionId", revisionString).Msg("Snyk Code upload revision created")
 	} else {
 		uploadedBundle, err = c.Upload(ctx, requestId, target, files, changedFiles)
 		if err != nil || uploadedBundle == nil || uploadedBundle.GetBundleHash() == "" {
@@ -451,6 +450,11 @@ func (c *codeScanner) UploadAndAnalyzeWithOptions(
 		c.recordUpload(BackendFilesBundleStore, true, time.Since(uploadStart))
 
 		scanIdentifier = uploadedBundle.GetBundleHash()
+	}
+
+	err = c.checkCancellationOrLogError(ctx, target.GetPath(), err, "error running analysis...")
+	if err != nil {
+		return nil, "", nil, err
 	}
 
 	response, metadata, err := c.analysisOrchestrator.RunTest(ctx, c.config.Organization(), uploadedBundle, revisionId, target, cfg)

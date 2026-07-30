@@ -25,6 +25,7 @@ import (
 
 	"github.com/golang/mock/gomock"
 	"github.com/rs/zerolog"
+	"github.com/snyk/go-application-framework/pkg/analytics"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
@@ -35,6 +36,20 @@ import (
 	"github.com/snyk/code-client-go/observability/mocks"
 	trackerMocks "github.com/snyk/code-client-go/scan/mocks"
 )
+
+// recordedExtensions returns the analytics extension values the bundle manager recorded.
+// Integers come back as float64 because the collector round-trips the extension map through JSON.
+func recordedExtensions(t *testing.T, a analytics.Analytics) map[string]interface{} {
+	t.Helper()
+
+	body, err := analytics.GetV2InstrumentationObject(a.GetInstrumentation())
+	require.NoError(t, err)
+
+	if body.Data.Attributes.Interaction.Extension == nil {
+		return map[string]interface{}{}
+	}
+	return *body.Data.Attributes.Interaction.Extension
+}
 
 func Test_Create(t *testing.T) {
 	t.Run(
@@ -67,7 +82,7 @@ func Test_Create(t *testing.T) {
 			err := os.WriteFile(file, []byte(data), 0600)
 			require.NoError(t, err)
 
-			var bundleManager = bundle.NewBundleManager(mockSnykCodeClient, newLogger(t), mockInstrumentor, mockErrorReporter, mockTrackerFactory)
+			var bundleManager = bundle.NewBundleManager(mockSnykCodeClient, newLogger(t), mockInstrumentor, mockErrorReporter, mockTrackerFactory, analytics.New())
 			bundle, err := bundleManager.Create(t.Context(),
 				"testRequestId",
 				dir,
@@ -107,7 +122,7 @@ func Test_Create(t *testing.T) {
 			err := os.WriteFile(file, []byte(data), 0600)
 			require.NoError(t, err)
 
-			var bundleManager = bundle.NewBundleManager(mockSnykCodeClient, newLogger(t), mockInstrumentor, mockErrorReporter, mockTrackerFactory)
+			var bundleManager = bundle.NewBundleManager(mockSnykCodeClient, newLogger(t), mockInstrumentor, mockErrorReporter, mockTrackerFactory, analytics.New())
 			bundle, err := bundleManager.Create(t.Context(),
 				"testRequestId",
 				dir,
@@ -151,7 +166,7 @@ func Test_Create(t *testing.T) {
 			)
 			require.NoError(t, err)
 
-			var bundleManager = bundle.NewBundleManager(mockSnykCodeClient, newLogger(t), mockInstrumentor, mockErrorReporter, mockTrackerFactory)
+			var bundleManager = bundle.NewBundleManager(mockSnykCodeClient, newLogger(t), mockInstrumentor, mockErrorReporter, mockTrackerFactory, analytics.New())
 			bundle, err := bundleManager.Create(t.Context(),
 				"testRequestId",
 				dir,
@@ -194,7 +209,7 @@ func Test_Create(t *testing.T) {
 				},
 			)
 			require.NoError(t, err)
-			var bundleManager = bundle.NewBundleManager(mockSnykCodeClient, newLogger(t), mockInstrumentor, mockErrorReporter, mockTrackerFactory)
+			var bundleManager = bundle.NewBundleManager(mockSnykCodeClient, newLogger(t), mockInstrumentor, mockErrorReporter, mockTrackerFactory, analytics.New())
 			bundle, err := bundleManager.Create(t.Context(),
 				"testRequestId",
 				dir,
@@ -204,6 +219,48 @@ func Test_Create(t *testing.T) {
 			assert.Len(t, bundle.GetFiles(), 0, "deepCodeBundle should not have deepCodeBundle files")
 		},
 	)
+
+	t.Run("records the file counts before and after filtering", func(t *testing.T) {
+		ctrl := gomock.NewController(t)
+		mockSpan := mocks.NewMockSpan(ctrl)
+		mockSpan.EXPECT().Context().AnyTimes()
+		mockSnykCodeClient := deepcodeMocks.NewMockDeepcodeClient(ctrl)
+		mockSnykCodeClient.EXPECT().GetFilters(gomock.Any()).Return(deepcode.FiltersResponse{
+			ConfigFiles: []string{},
+			Extensions:  []string{".java"},
+		}, nil)
+		mockSnykCodeClient.EXPECT().CreateBundle(gomock.Any(), gomock.Any()).Return("test-bundle-hash-789", []string{}, nil).Times(1)
+		mockInstrumentor := mocks.NewMockInstrumentor(ctrl)
+		mockInstrumentor.EXPECT().StartSpan(gomock.Any(), gomock.Any()).Return(mockSpan).AnyTimes()
+		mockInstrumentor.EXPECT().Finish(gomock.Any()).AnyTimes()
+		mockErrorReporter := mocks.NewMockErrorReporter(ctrl)
+		mockTracker := trackerMocks.NewMockTracker(ctrl)
+		mockTracker.EXPECT().Begin(gomock.Eq("Creating file bundle"), gomock.Eq("Checking and adding files for analysis")).Return()
+		mockTracker.EXPECT().End(gomock.Eq("")).Return()
+		mockTrackerFactory := trackerMocks.NewMockTrackerFactory(ctrl)
+		mockTrackerFactory.EXPECT().GenerateTracker().Return(mockTracker)
+
+		dir := t.TempDir()
+		supportedFile := filepath.Join(dir, "supported.java")
+		require.NoError(t, os.WriteFile(supportedFile, []byte("supported"), 0600))
+		unsupportedFile := filepath.Join(dir, "unsupported.rb")
+		require.NoError(t, os.WriteFile(unsupportedFile, []byte("unsupported"), 0600))
+		tooBigFile := filepath.Join(dir, "too-big.java")
+		require.NoError(t, os.WriteFile(tooBigFile, []byte(strings.Repeat("a", 1024*1024+1)), 0600))
+
+		analyticsClient := analytics.New()
+		var bundleManager = bundle.NewBundleManager(mockSnykCodeClient, newLogger(t), mockInstrumentor, mockErrorReporter, mockTrackerFactory, analyticsClient)
+		_, err := bundleManager.Create(t.Context(),
+			"testRequestId",
+			dir,
+			sliceToChannel([]string{supportedFile, unsupportedFile, tooBigFile}),
+			map[string]bool{})
+		require.NoError(t, err)
+
+		extensions := recordedExtensions(t, analyticsClient)
+		assert.Equal(t, float64(3), extensions["files_to_upload_before_filtering"])
+		assert.Equal(t, float64(1), extensions["files_to_upload_after_filtering"])
+	})
 
 	t.Run("includes config files", func(t *testing.T) {
 		ctrl := gomock.NewController(t)
@@ -232,7 +289,7 @@ func Test_Create(t *testing.T) {
 		err := os.WriteFile(file, []byte("some content so the file won't be skipped"), 0600)
 		assert.Nil(t, err)
 
-		var bundleManager = bundle.NewBundleManager(mockSnykCodeClient, newLogger(t), mockInstrumentor, mockErrorReporter, mockTrackerFactory)
+		var bundleManager = bundle.NewBundleManager(mockSnykCodeClient, newLogger(t), mockInstrumentor, mockErrorReporter, mockTrackerFactory, analytics.New())
 		bundle, err := bundleManager.Create(t.Context(),
 			"testRequestId",
 			tempDir,
@@ -285,7 +342,7 @@ func Test_Create(t *testing.T) {
 			require.NoError(t, err)
 		}
 
-		var bundleManager = bundle.NewBundleManager(mockSnykCodeClient, newLogger(t), mockInstrumentor, mockErrorReporter, mockTrackerFactory)
+		var bundleManager = bundle.NewBundleManager(mockSnykCodeClient, newLogger(t), mockInstrumentor, mockErrorReporter, mockTrackerFactory, analytics.New())
 		bundle, err := bundleManager.Create(t.Context(),
 			"testRequestId",
 			tempDir,
@@ -338,7 +395,7 @@ func Test_Create(t *testing.T) {
 			require.NoError(t, err)
 		}
 
-		var bundleManager = bundle.NewBundleManager(mockSnykCodeClient, newLogger(t), mockInstrumentor, mockErrorReporter, mockTrackerFactory)
+		var bundleManager = bundle.NewBundleManager(mockSnykCodeClient, newLogger(t), mockInstrumentor, mockErrorReporter, mockTrackerFactory, analytics.New())
 		bundle, err := bundleManager.Create(t.Context(),
 			"testRequestId",
 			tempDir,
@@ -384,7 +441,7 @@ func Test_Upload(t *testing.T) {
 		mockTrackerFactory.EXPECT().GenerateTracker().Times(1).Return(mockTracker1)
 		mockTrackerFactory.EXPECT().GenerateTracker().Times(1).Return(mockTracker2)
 
-		var bundleManager = bundle.NewBundleManager(mockSnykCodeClient, newLogger(t), mockInstrumentor, mockErrorReporter, mockTrackerFactory)
+		var bundleManager = bundle.NewBundleManager(mockSnykCodeClient, newLogger(t), mockInstrumentor, mockErrorReporter, mockTrackerFactory, analytics.New())
 		documentURI, bundleFile := createTempFileInDir(t, "bundleDoc.java", 10, temporaryDir)
 		bundleFileMap := map[string]deepcode.BundleFile{}
 		bundleFileMap[documentURI] = bundleFile
@@ -418,7 +475,7 @@ func Test_Upload(t *testing.T) {
 		mockTrackerFactory.EXPECT().GenerateTracker().Times(1).Return(mockTracker1)
 		mockTrackerFactory.EXPECT().GenerateTracker().Times(1).Return(mockTracker2)
 
-		var bundleManager = bundle.NewBundleManager(mockSnykCodeClient, newLogger(t), mockInstrumentor, mockErrorReporter, mockTrackerFactory)
+		var bundleManager = bundle.NewBundleManager(mockSnykCodeClient, newLogger(t), mockInstrumentor, mockErrorReporter, mockTrackerFactory, analytics.New())
 
 		bundleFileMap := map[string]deepcode.BundleFile{}
 		var missingFiles []string

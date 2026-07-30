@@ -22,6 +22,8 @@ import (
 
 	"github.com/puzpuzpuz/xsync"
 	"github.com/rs/zerolog"
+	"github.com/snyk/go-application-framework/pkg/analytics"
+
 	"github.com/snyk/code-client-go/internal/deepcode"
 )
 
@@ -91,4 +93,20 @@ func (s *SupportedFilesFilter) IsFileSupported(ctx context.Context, path string)
 		return false, nil
 	}
 	return true, nil
+}
+
+// RecordFileFiltering records the file counts before and after filtering in analytics and the log.
+func RecordFileFiltering(
+	analyticsClient analytics.Analytics,
+	logger *zerolog.Logger,
+	beforeFiltering int,
+	afterFiltering int,
+) {
+	analyticsClient.AddExtensionIntegerValue("files_to_upload_before_filtering", beforeFiltering)
+	analyticsClient.AddExtensionIntegerValue("files_to_upload_after_filtering", afterFiltering)
+
+	logger.Info().
+		Int("beforeFiltering", beforeFiltering).
+		Int("afterFiltering", afterFiltering).
+		Msg("Snyk Code file filtering")
 }

@@ -22,6 +22,7 @@ import (
 	"net/http"
 
 	"github.com/rs/zerolog"
+	"github.com/snyk/go-application-framework/pkg/analytics"
 	"github.com/snyk/go-application-framework/pkg/apiclients/fileupload"
 
 	"github.com/snyk/code-client-go/bundle"
@@ -43,14 +44,17 @@ type uploadRevision struct {
 	client               fileupload.Client
 	supportedFilesFilter *supportedfiles.SupportedFilesFilter
 	logger               *zerolog.Logger
+	analytics            analytics.Analytics
+	trackerFactory       scan.TrackerFactory
 }
 
 var _ UploadRevision = (*uploadRevision)(nil)
 
-func NewUploadRevision(httpClient *http.Client, cfg fileupload.Config, deepcodeClient deepcode.DeepcodeClient, logger *zerolog.Logger) *uploadRevision {
+func NewUploadRevision(httpClient *http.Client, cfg fileupload.Config, deepcodeClient deepcode.DeepcodeClient, logger *zerolog.Logger, analyticsClient analytics.Analytics, trackerFactory scan.TrackerFactory) *uploadRevision {
 	client := fileupload.NewClient(
 		httpClient,
 		cfg,
+		fileupload.WithLogger(logger),
 		fileupload.WithPathEncoder(util.EncodePath),
 		fileupload.WithContentTranscoder(toUTF8),
 	)
@@ -58,6 +62,8 @@ func NewUploadRevision(httpClient *http.Client, cfg fileupload.Config, deepcodeC
 		client:               client,
 		supportedFilesFilter: supportedfiles.NewSupportedFilesFilter(deepcodeClient, logger),
 		logger:               logger,
+		analytics:            analyticsClient,
+		trackerFactory:       trackerFactory,
 	}
 }
 
@@ -73,10 +79,18 @@ func toUTF8(content []byte) ([]byte, error) {
 }
 
 func (u *uploadRevision) Upload(ctx context.Context, requestId string, target scan.Target, files <-chan string) (RevisionID, error) {
+	tracker := u.trackerFactory.GenerateTracker()
+	tracker.Begin("Snyk Code analysis for "+target.GetPath(), "Checking files for analysis")
+	defer tracker.End("")
+
 	var supported []string
-	noFiles := true
+	filesBeforeFiltering := 0
 	for path := range files {
-		noFiles = false
+		filesBeforeFiltering++
+		if ctx.Err() != nil {
+			return "", ctx.Err() // The cancellation error should be handled by the calling function
+		}
+
 		isSupported, err := u.supportedFilesFilter.IsFileSupported(ctx, path)
 		if err != nil {
 			return "", err
@@ -86,7 +100,9 @@ func (u *uploadRevision) Upload(ctx context.Context, requestId string, target sc
 		}
 	}
 
-	if noFiles {
+	supportedfiles.RecordFileFiltering(u.analytics, u.logger, filesBeforeFiltering, len(supported))
+
+	if filesBeforeFiltering == 0 {
 		return "", bundle.NoFilesError{}
 	}
 
@@ -96,7 +112,10 @@ func (u *uploadRevision) Upload(ctx context.Context, requestId string, target sc
 	}
 	close(supportedFiles)
 
+	tracker.Begin("Snyk Code analysis for "+target.GetPath(), "Uploading files...")
+
 	res, err := u.client.CreateRevisionFromChan(ctx, supportedFiles, target.GetPath())
+	u.recordUploadOutcome(res)
 	if err != nil {
 		if errors.Is(err, fileupload.ErrNoFilesProvided) {
 			return "", bundle.NoFilesError{}
@@ -105,4 +124,22 @@ func (u *uploadRevision) Upload(ctx context.Context, requestId string, target sc
 	}
 
 	return RevisionID(res.RevisionID.String()), nil
+}
+
+// recordUploadOutcome reports how many files the upload client sent and how many it skipped,
+// with each skipped file's reason so that a file missing from a scan can be explained.
+func (u *uploadRevision) recordUploadOutcome(res fileupload.UploadResult) {
+	u.analytics.AddExtensionIntegerValue("files_excluded_during_upload", len(res.SkippedFiles))
+
+	u.logger.Info().
+		Int("uploadedFiles", res.UploadedFilesCount).
+		Int("excludedFiles", len(res.SkippedFiles)).
+		Msg("Snyk Code upload file counts")
+
+	for _, skippedFile := range res.SkippedFiles {
+		u.logger.Debug().
+			Err(skippedFile.Reason).
+			Str("filePath", skippedFile.Path).
+			Msg("File excluded from upload")
+	}
 }
