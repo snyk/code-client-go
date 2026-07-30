@@ -226,6 +226,7 @@ func NewCodeScanner(
 		deepcodeClient,
 		scanner.logger,
 		scanner.analytics,
+		scanner.trackerFactory,
 	)
 
 	return scanner

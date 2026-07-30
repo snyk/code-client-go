@@ -55,6 +55,24 @@ func response(status int, body string) *http.Response {
 	}
 }
 
+// recordingTracker captures the progress calls the upload makes.
+type recordingTracker struct {
+	begun []string
+	ended []string
+}
+
+func (t *recordingTracker) Begin(title, message string) {
+	t.begun = append(t.begun, title+" - "+message)
+}
+
+func (t *recordingTracker) End(message string) {
+	t.ended = append(t.ended, message)
+}
+
+func (t *recordingTracker) GenerateTracker() scan.Tracker {
+	return t
+}
+
 type uploadRevisionSuite struct {
 	suite.Suite
 	deepcodeClient  *deepcodeMocks.MockDeepcodeClient
@@ -63,6 +81,7 @@ type uploadRevisionSuite struct {
 	uploadCall      map[string]int
 	revID           uuid.UUID
 	analyticsClient analytics.Analytics
+	tracker         *recordingTracker
 }
 
 // recordedExtensions returns the analytics extension values the upload recorded. Integers come
@@ -129,12 +148,14 @@ func (s *uploadRevisionSuite) SetupTest() {
 
 	logger := zerolog.Nop()
 	s.analyticsClient = analytics.New()
+	s.tracker = &recordingTracker{}
 	s.uploader = uploadrevision.NewUploadRevision(
 		&http.Client{Transport: transport},
 		fileupload.Config{BaseURL: "https://example.com", OrgID: uuid.New()},
 		s.deepcodeClient,
 		&logger,
 		s.analyticsClient,
+		s.tracker,
 	)
 }
 
@@ -209,6 +230,45 @@ func (s *uploadRevisionSuite) TestUpload_RecordsFileCountsBeforeAndAfterFilterin
 	extensions := s.recordedExtensions()
 	s.Equal(float64(2), extensions["files_to_upload_before_filtering"])
 	s.Equal(float64(1), extensions["files_to_upload_after_filtering"])
+}
+
+func (s *uploadRevisionSuite) TestUpload_ReportsProgress() {
+	s.deepcodeClient.EXPECT().GetFilters(gomock.Any()).Return(deepcode.FiltersResponse{
+		ConfigFiles: []string{},
+		Extensions:  []string{".go"},
+	}, nil)
+
+	dir := s.T().TempDir()
+	s.writeFile(dir, "main.go", []byte("package main"))
+
+	files := make(chan string, 1)
+	files <- filepath.Join(dir, "main.go")
+	close(files)
+
+	_, err := s.uploader.Upload(context.Background(), "requestId", scan.RepositoryTarget{LocalFilePath: dir}, files)
+	s.Require().NoError(err)
+
+	s.Equal([]string{
+		"Snyk Code analysis for " + dir + " - Checking files for analysis",
+		"Snyk Code analysis for " + dir + " - Uploading files...",
+	}, s.tracker.begun)
+	s.Equal([]string{""}, s.tracker.ended)
+}
+
+func (s *uploadRevisionSuite) TestUpload_EndsProgressWhenNoFilesAreSupported() {
+	s.deepcodeClient.EXPECT().GetFilters(gomock.Any()).Return(deepcode.FiltersResponse{
+		ConfigFiles: []string{},
+		Extensions:  []string{".java"},
+	}, nil)
+
+	files := make(chan string, 1)
+	files <- "/path/file.txt"
+	close(files)
+
+	_, err := s.uploader.Upload(context.Background(), "requestId", scan.RepositoryTarget{LocalFilePath: "/path"}, files)
+	s.Require().Error(err)
+
+	s.Equal([]string{""}, s.tracker.ended)
 }
 
 func (s *uploadRevisionSuite) TestUpload_RecordsFilesExcludedDuringUpload() {

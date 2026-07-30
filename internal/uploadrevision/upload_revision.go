@@ -45,11 +45,12 @@ type uploadRevision struct {
 	supportedFilesFilter *supportedfiles.SupportedFilesFilter
 	logger               *zerolog.Logger
 	analytics            analytics.Analytics
+	trackerFactory       scan.TrackerFactory
 }
 
 var _ UploadRevision = (*uploadRevision)(nil)
 
-func NewUploadRevision(httpClient *http.Client, cfg fileupload.Config, deepcodeClient deepcode.DeepcodeClient, logger *zerolog.Logger, analyticsClient analytics.Analytics) *uploadRevision {
+func NewUploadRevision(httpClient *http.Client, cfg fileupload.Config, deepcodeClient deepcode.DeepcodeClient, logger *zerolog.Logger, analyticsClient analytics.Analytics, trackerFactory scan.TrackerFactory) *uploadRevision {
 	client := fileupload.NewClient(
 		httpClient,
 		cfg,
@@ -61,6 +62,7 @@ func NewUploadRevision(httpClient *http.Client, cfg fileupload.Config, deepcodeC
 		supportedFilesFilter: supportedfiles.NewSupportedFilesFilter(deepcodeClient, logger),
 		logger:               logger,
 		analytics:            analyticsClient,
+		trackerFactory:       trackerFactory,
 	}
 }
 
@@ -76,6 +78,10 @@ func toUTF8(content []byte) ([]byte, error) {
 }
 
 func (u *uploadRevision) Upload(ctx context.Context, requestId string, target scan.Target, files <-chan string) (RevisionID, error) {
+	tracker := u.trackerFactory.GenerateTracker()
+	tracker.Begin("Snyk Code analysis for "+target.GetPath(), "Checking files for analysis")
+	defer tracker.End("")
+
 	var supported []string
 	filesBeforeFiltering := 0
 	for path := range files {
@@ -100,6 +106,8 @@ func (u *uploadRevision) Upload(ctx context.Context, requestId string, target sc
 		supportedFiles <- path
 	}
 	close(supportedFiles)
+
+	tracker.Begin("Snyk Code analysis for "+target.GetPath(), "Uploading files...")
 
 	res, err := u.client.CreateRevisionFromChan(ctx, supportedFiles, target.GetPath())
 	u.recordUploadExclusions(res.SkippedFiles)
