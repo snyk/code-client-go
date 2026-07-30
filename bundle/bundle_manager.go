@@ -19,10 +19,9 @@ package bundle
 import (
 	"context"
 	"os"
-	"path/filepath"
 
-	"github.com/puzpuzpuz/xsync"
 	"github.com/rs/zerolog"
+	"github.com/snyk/code-client-go/internal/util/supportedfiles"
 
 	"github.com/snyk/code-client-go/internal/deepcode"
 	"github.com/snyk/code-client-go/internal/util"
@@ -38,8 +37,7 @@ type bundleManager struct {
 	errorReporter        observability.ErrorReporter
 	logger               *zerolog.Logger
 	trackerFactory       scan.TrackerFactory
-	supportedExtensions  *xsync.MapOf[string, bool]
-	supportedConfigFiles *xsync.MapOf[string, bool]
+	supportedFilesFilter *supportedfiles.SupportedFilesFilter
 }
 
 type BundleManager interface {
@@ -78,8 +76,7 @@ func NewBundleManager(
 		errorReporter:        errorReporter,
 		logger:               logger,
 		trackerFactory:       trackerFactory,
-		supportedExtensions:  xsync.NewMapOf[bool](),
-		supportedConfigFiles: xsync.NewMapOf[bool](),
+		supportedFilesFilter: supportedfiles.NewSupportedFilesFilter(deepcodeClient, logger),
 	}
 }
 
@@ -125,22 +122,12 @@ func (b *bundleManager) create(
 		if ctx.Err() != nil {
 			return bundle, err // The cancellation error should be handled by the calling function
 		}
-		var supported bool
-		supported, err = b.IsSupported(span.Context(), absoluteFilePath)
-		if err != nil {
-			return bundle, err
+
+		supported, filterErr := b.supportedFilesFilter.IsFileSupported(span.Context(), absoluteFilePath)
+		if filterErr != nil {
+			return bundle, filterErr
 		}
 		if !supported {
-			continue
-		}
-
-		fileInfo, fileErr := os.Stat(absoluteFilePath)
-		if fileErr != nil {
-			b.logger.Error().Err(err).Str("filePath", absoluteFilePath).Msg("Failed to read file info")
-			continue
-		}
-
-		if fileInfo.Size() == 0 || fileInfo.Size() > maxFileSize {
 			continue
 		}
 
@@ -289,33 +276,4 @@ func (b *bundleManager) groupInBatches(
 		}
 	}
 	return batches
-}
-
-func (b *bundleManager) IsSupported(ctx context.Context, file string) (bool, error) {
-	if b.supportedExtensions.Size() == 0 && b.supportedConfigFiles.Size() == 0 {
-		filters, err := b.deepcodeClient.GetFilters(ctx)
-		if err != nil {
-			b.logger.Error().Err(err).Msg("could not get filters")
-			return false, err
-		}
-
-		for _, ext := range filters.Extensions {
-			b.supportedExtensions.Store(ext, true)
-		}
-		for _, configFile := range filters.ConfigFiles {
-			// .gitignore and .dcignore should not be uploaded
-			// (https://github.com/snyk/code-client/blob/d6f6a2ce4c14cb4b05aa03fb9f03533d8cf6ca4a/src/files.ts#L138)
-			if configFile == ".gitignore" || configFile == ".dcignore" {
-				continue
-			}
-			b.supportedConfigFiles.Store(configFile, true)
-		}
-	}
-
-	fileExtension := filepath.Ext(file)
-	fileName := filepath.Base(file) // Config files are compared to the file name, not just the extensions
-	_, isSupportedExtension := b.supportedExtensions.Load(fileExtension)
-	_, isSupportedConfigFile := b.supportedConfigFiles.Load(fileName)
-
-	return isSupportedExtension || isSupportedConfigFile, nil
 }

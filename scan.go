@@ -20,11 +20,13 @@ package codeclient
 import (
 	"context"
 	"fmt"
+	"net/http"
 	"time"
 
 	"github.com/google/uuid"
 	"github.com/pkg/errors"
 	"github.com/rs/zerolog"
+	"github.com/snyk/go-application-framework/pkg/apiclients/fileupload"
 
 	"github.com/snyk/code-client-go/bundle"
 	"github.com/snyk/code-client-go/config"
@@ -32,6 +34,7 @@ import (
 	"github.com/snyk/code-client-go/internal/analysis"
 	testModels "github.com/snyk/code-client-go/internal/api/test/2025-04-07/models"
 	"github.com/snyk/code-client-go/internal/deepcode"
+	"github.com/snyk/code-client-go/internal/uploadrevision"
 	"github.com/snyk/code-client-go/observability"
 	"github.com/snyk/code-client-go/sarif"
 	"github.com/snyk/code-client-go/scan"
@@ -41,12 +44,21 @@ type codeScanner struct {
 	httpClient           codeClientHTTP.HTTPClient
 	bundleManager        bundle.BundleManager
 	analysisOrchestrator analysis.AnalysisOrchestrator
+	uploadRevision       uploadrevision.UploadRevision
 	instrumentor         observability.Instrumentor
 	errorReporter        observability.ErrorReporter
 	trackerFactory       scan.TrackerFactory
 	logger               *zerolog.Logger
 	config               config.Config
 	resultTypes          testModels.ResultType
+}
+
+type httpClientRoundTripper struct {
+	httpClient codeClientHTTP.HTTPClient
+}
+
+func (rt httpClientRoundTripper) RoundTrip(req *http.Request) (*http.Response, error) {
+	return rt.httpClient.Do(req)
 }
 
 type CodeScanner interface {
@@ -143,6 +155,12 @@ func ReportRemoteTest(projectId uuid.UUID, commitId string) AnalysisOption {
 	}
 }
 
+func WithUploadToFileUploadApi() AnalysisOption {
+	return func(c *analysis.AnalysisConfig) {
+		c.UploadFileContentToFileUploadApi = true
+	}
+}
+
 // NewCodeScanner creates a Code Scanner which can be used to trigger Snyk Code on a folder.
 func NewCodeScanner(
 	config config.Config,
@@ -182,6 +200,14 @@ func NewCodeScanner(
 		analysis.WithResultType(scanner.resultTypes),
 	)
 	scanner.analysisOrchestrator = analysisOrchestrator
+
+	orgID := uuid.MustParse(scanner.config.Organization())
+	scanner.uploadRevision = uploadrevision.NewUploadRevision(
+		&http.Client{Transport: httpClientRoundTripper{httpClient: httpClient}},
+		fileupload.Config{BaseURL: scanner.config.SnykApi(), OrgID: orgID},
+		deepcodeClient,
+		scanner.logger,
+	)
 
 	return scanner
 }
@@ -338,25 +364,40 @@ func (c *codeScanner) UploadAndAnalyzeWithOptions(
 	changedFiles map[string]bool,
 	options ...AnalysisOption,
 ) (*sarif.SarifResponse, string, *scan.ResultMetaData, error) {
-	uploadedBundle, err := c.Upload(ctx, requestId, target, files, changedFiles)
-
-	if err != nil || uploadedBundle == nil || uploadedBundle.GetBundleHash() == "" {
-		c.logger.Debug().Msg("empty bundle, no Snyk Code analysis")
-		return nil, "", nil, err
-	}
-
 	cfg := analysis.AnalysisConfig{}
 	for _, opt := range options {
 		opt(&cfg)
 	}
 
-	response, metadata, err := c.analysisOrchestrator.RunTest(ctx, c.config.Organization(), uploadedBundle, target, cfg)
+	var uploadedBundle bundle.Bundle
+	var revisionId *string
+	var scanIdentifier string
+	var err error
+	if cfg.UploadFileContentToFileUploadApi {
+		revision, uploadErr := c.uploadRevision.Upload(ctx, requestId, target, files)
+		if uploadErr != nil {
+			c.logger.Debug().Msg("upload to file-upload-api failed")
+			return nil, "", nil, uploadErr
+		}
+		revisionString := string(revision)
+		revisionId = &revisionString
+		scanIdentifier = revisionString
+	} else {
+		uploadedBundle, err = c.Upload(ctx, requestId, target, files, changedFiles)
+		if err != nil || uploadedBundle == nil || uploadedBundle.GetBundleHash() == "" {
+			c.logger.Debug().Msg("empty bundle, no Snyk Code analysis")
+			return nil, "", nil, err
+		}
+		scanIdentifier = uploadedBundle.GetBundleHash()
+	}
+
+	response, metadata, err := c.analysisOrchestrator.RunTest(ctx, c.config.Organization(), uploadedBundle, revisionId, target, cfg)
 	err = c.checkCancellationOrLogError(ctx, target.GetPath(), err, "error running analysis...")
 	if err != nil {
 		return nil, "", nil, err
 	}
 
-	return response, uploadedBundle.GetBundleHash(), metadata, err
+	return response, scanIdentifier, metadata, err
 }
 
 func (c *codeScanner) AnalyzeRemote(ctx context.Context, options ...AnalysisOption) (*sarif.SarifResponse, *scan.ResultMetaData, error) {

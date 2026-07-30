@@ -13,6 +13,22 @@ import (
 	externalRef0 "github.com/snyk/code-client-go/internal/api/test/2025-04-07/common"
 )
 
+// Defines values for CreateBatchTestAttributesInitiator.
+const (
+	CreateBatchTestAttributesInitiatorRecurringTest CreateBatchTestAttributesInitiator = "recurring_test"
+)
+
+// Defines values for CreateBatchTestAttributesScanner.
+const (
+	CreateBatchTestAttributesScannerSca     CreateBatchTestAttributesScanner = "sca"
+	CreateBatchTestAttributesScannerSecrets CreateBatchTestAttributesScanner = "secrets"
+)
+
+// Defines values for CreateBatchTestRequestBodyDataType.
+const (
+	BatchTest CreateBatchTestRequestBodyDataType = "batch_test"
+)
+
 // Defines values for CreateTestRequestBodyDataType.
 const (
 	CreateTestRequestBodyDataTypeTest CreateTestRequestBodyDataType = "test"
@@ -20,15 +36,47 @@ const (
 
 // Defines values for OutputConfigInitiator.
 const (
-	ApiTest          OutputConfigInitiator = "api_test"
-	AutoImport       OutputConfigInitiator = "auto_import"
-	CliTest          OutputConfigInitiator = "cli_test"
-	EssentialsImport OutputConfigInitiator = "essentials_import"
-	IdeTest          OutputConfigInitiator = "ide_test"
-	Import           OutputConfigInitiator = "import"
-	ManualTest       OutputConfigInitiator = "manual_test"
-	PrCheck          OutputConfigInitiator = "pr_check"
-	RecurringTest    OutputConfigInitiator = "recurring_test"
+	OutputConfigInitiatorApiImport        OutputConfigInitiator = "api_import"
+	OutputConfigInitiatorApiTest          OutputConfigInitiator = "api_test"
+	OutputConfigInitiatorAutoImport       OutputConfigInitiator = "auto_import"
+	OutputConfigInitiatorCliTest          OutputConfigInitiator = "cli_test"
+	OutputConfigInitiatorContainerImport  OutputConfigInitiator = "container_import"
+	OutputConfigInitiatorEssentialsImport OutputConfigInitiator = "essentials_import"
+	OutputConfigInitiatorIdeTest          OutputConfigInitiator = "ide_test"
+	OutputConfigInitiatorImport           OutputConfigInitiator = "import"
+	OutputConfigInitiatorManualRetest     OutputConfigInitiator = "manual_retest"
+	OutputConfigInitiatorManualTest       OutputConfigInitiator = "manual_test"
+	OutputConfigInitiatorPrCheck          OutputConfigInitiator = "pr_check"
+	OutputConfigInitiatorPushTest         OutputConfigInitiator = "push_test"
+	OutputConfigInitiatorRecurringTest    OutputConfigInitiator = "recurring_test"
+)
+
+// Defines values for OutputConfigProjectBusinessCriticality.
+const (
+	Critical OutputConfigProjectBusinessCriticality = "critical"
+	High     OutputConfigProjectBusinessCriticality = "high"
+	Low      OutputConfigProjectBusinessCriticality = "low"
+	Medium   OutputConfigProjectBusinessCriticality = "medium"
+)
+
+// Defines values for OutputConfigProjectEnvironment.
+const (
+	Backend     OutputConfigProjectEnvironment = "backend"
+	Distributed OutputConfigProjectEnvironment = "distributed"
+	External    OutputConfigProjectEnvironment = "external"
+	Frontend    OutputConfigProjectEnvironment = "frontend"
+	Hosted      OutputConfigProjectEnvironment = "hosted"
+	Internal    OutputConfigProjectEnvironment = "internal"
+	Mobile      OutputConfigProjectEnvironment = "mobile"
+	Onprem      OutputConfigProjectEnvironment = "onprem"
+	Saas        OutputConfigProjectEnvironment = "saas"
+)
+
+// Defines values for OutputConfigProjectLifecycle.
+const (
+	Development OutputConfigProjectLifecycle = "development"
+	Production  OutputConfigProjectLifecycle = "production"
+	Sandbox     OutputConfigProjectLifecycle = "sandbox"
 )
 
 // Defines values for ResultType.
@@ -39,10 +87,12 @@ const (
 
 // Defines values for ScanConfigScanners.
 const (
-	LegacyScanners ScanConfigScanners = "legacy_scanners"
-	Sast           ScanConfigScanners = "sast"
-	Sca            ScanConfigScanners = "sca"
-	Secrets        ScanConfigScanners = "secrets"
+	ScanConfigScannersAllScanners    ScanConfigScanners = "all_scanners"
+	ScanConfigScannersContainer      ScanConfigScanners = "container"
+	ScanConfigScannersLegacyScanners ScanConfigScanners = "legacy_scanners"
+	ScanConfigScannersSast           ScanConfigScanners = "sast"
+	ScanConfigScannersSca            ScanConfigScanners = "sca"
+	ScanConfigScannersSecrets        ScanConfigScanners = "secrets"
 )
 
 // Defines values for TestAcceptedStateStatus.
@@ -74,6 +124,11 @@ const (
 // Defines values for TestInitialConfigurationResponseDataType.
 const (
 	TestInitialConfigurationResponseDataTypeTest TestInitialConfigurationResponseDataType = "test"
+)
+
+// Defines values for TestInputContainerAnalysisRevisionType.
+const (
+	ContainerAnalysisRevision TestInputContainerAnalysisRevisionType = "container_analysis_revision"
 )
 
 // Defines values for TestInputDiffTargetType.
@@ -146,6 +201,44 @@ const (
 	TestResultDataTypeTest TestResultDataType = "test"
 )
 
+// BatchInput Reference to the batch file in object storage
+type BatchInput struct {
+	// Bucket Name of the bucket where the batch file is stored
+	Bucket string `json:"bucket"`
+
+	// Path Path to the batch file within the bucket
+	Path string `json:"path"`
+}
+
+// CreateBatchTestAttributes defines model for CreateBatchTestAttributes.
+type CreateBatchTestAttributes struct {
+	// Initiator The type of test flow that initiated the batch
+	Initiator CreateBatchTestAttributesInitiator `json:"initiator"`
+
+	// Input Reference to the batch file in object storage
+	Input BatchInput `json:"input"`
+
+	// Scanner The scanner type to use for all tests in the batch
+	Scanner CreateBatchTestAttributesScanner `json:"scanner"`
+}
+
+// CreateBatchTestAttributesInitiator The type of test flow that initiated the batch
+type CreateBatchTestAttributesInitiator string
+
+// CreateBatchTestAttributesScanner The scanner type to use for all tests in the batch
+type CreateBatchTestAttributesScanner string
+
+// CreateBatchTestRequestBody defines model for CreateBatchTestRequestBody.
+type CreateBatchTestRequestBody struct {
+	Data struct {
+		Attributes CreateBatchTestAttributes          `json:"attributes"`
+		Type       CreateBatchTestRequestBodyDataType `json:"type"`
+	} `json:"data"`
+}
+
+// CreateBatchTestRequestBodyDataType defines model for CreateBatchTestRequestBody.Data.Type.
+type CreateBatchTestRequestBodyDataType string
+
 // CreateTestRequestBody defines model for CreateTestRequestBody.
 type CreateTestRequestBody struct {
 	Data struct {
@@ -162,21 +255,40 @@ type CreateTestRequestBodyDataType string
 
 // OutputConfig defines model for OutputConfig.
 type OutputConfig struct {
+	// AssetId The id of the asset to associate with the test.
+	AssetId *openapi_types.UUID `json:"asset_id,omitempty"`
+
+	// AssetName The name used for the asset.
+	AssetName *string `json:"asset_name,omitempty"`
+
 	// Initiator The type of test flow or system that initiated the test
 	Initiator *OutputConfigInitiator `json:"initiator,omitempty"`
 
-	// Label Arbitrary value up to the user
+	// Label Arbitrary value up to the user. Deprecated: use `labels` instead.
+	// Deprecated:
 	Label *string `json:"label,omitempty"`
 
 	// Labels Arbitrary string values up to the user, up to 10 keys
 	Labels *map[string]string `json:"labels,omitempty"`
 
-	// Origin The source control management system or platform origin
-	Origin      *string             `json:"origin,omitempty"`
-	ProjectId   *openapi_types.UUID `json:"project_id,omitempty"`
-	ProjectName *string             `json:"project_name,omitempty"`
+	// Monitor Determines if a project should be created (true) or not (false).
+	Monitor *bool `json:"monitor,omitempty"`
 
-	// ProjectTags Project tags to assign when reporting. Each entry is a key=value string.
+	// Origin The source control management system or platform origin
+	Origin *string `json:"origin,omitempty"`
+
+	// ProjectBusinessCriticality Project business criticality attributes
+	ProjectBusinessCriticality *[]OutputConfigProjectBusinessCriticality `json:"project_business_criticality,omitempty"`
+
+	// ProjectEnvironment Project environment attributes
+	ProjectEnvironment *[]OutputConfigProjectEnvironment `json:"project_environment,omitempty"`
+	ProjectId          *openapi_types.UUID               `json:"project_id,omitempty"`
+
+	// ProjectLifecycle Project lifecycle attributes
+	ProjectLifecycle *[]OutputConfigProjectLifecycle `json:"project_lifecycle,omitempty"`
+	ProjectName      *string                         `json:"project_name,omitempty"`
+
+	// ProjectTags Project tags as an array of key=value pairs. Each tag must be in the format 'key=value'. Example: ["department=finance", "team=alpha"]
 	ProjectTags *[]string `json:"project_tags,omitempty"`
 
 	// Report Determines if the test is stateless (false) or stateful (true)
@@ -190,6 +302,15 @@ type OutputConfig struct {
 // OutputConfigInitiator The type of test flow or system that initiated the test
 type OutputConfigInitiator string
 
+// OutputConfigProjectBusinessCriticality defines model for OutputConfig.ProjectBusinessCriticality.
+type OutputConfigProjectBusinessCriticality string
+
+// OutputConfigProjectEnvironment defines model for OutputConfig.ProjectEnvironment.
+type OutputConfigProjectEnvironment string
+
+// OutputConfigProjectLifecycle defines model for OutputConfig.ProjectLifecycle.
+type OutputConfigProjectLifecycle string
+
 // ResultType defines model for ResultType.
 type ResultType string
 
@@ -198,10 +319,16 @@ type ScanConfig struct {
 	// ExclusionGlobs A list of file paths and directories to exclude from the workspace. If empty default exclusion globs apply, according to the coordinate type.
 	ExclusionGlobs *[]string `json:"exclusion_globs,omitempty"`
 
+	// InclusionGlobs A list of file paths to include in the workspace. If empty, all files are included (subject to exclusion globs).
+	InclusionGlobs *[]string `json:"inclusion_globs,omitempty"`
+
 	// LimitTestToFiles A list of file paths to use in the scan. If empty the whole target is tested.
-	LimitTestToFiles *[]string             `json:"limit_test_to_files,omitempty"`
-	ResultType       *ResultType           `json:"result_type,omitempty"`
-	Scanners         *[]ScanConfigScanners `json:"scanners,omitempty"`
+	LimitTestToFiles *[]string `json:"limit_test_to_files,omitempty"`
+
+	// LimitTestToProjects A list of project IDs to limit the test to. If empty, all projects are tested.
+	LimitTestToProjects *[]openapi_types.UUID `json:"limit_test_to_projects,omitempty"`
+	ResultType          *ResultType           `json:"result_type,omitempty"`
+	Scanners            *[]ScanConfigScanners `json:"scanners,omitempty"`
 }
 
 // ScanConfigScanners defines model for ScanConfig.Scanners.
@@ -300,6 +427,16 @@ type TestInitialConfigurationResponse struct {
 // TestInitialConfigurationResponseDataType defines model for TestInitialConfigurationResponse.Data.Type.
 type TestInitialConfigurationResponseDataType string
 
+// TestInputContainerAnalysisRevision defines model for TestInputContainerAnalysisRevision.
+type TestInputContainerAnalysisRevision struct {
+	// RevisionId A Snyk revision id referencing the uploaded container analysis
+	RevisionId string                                 `json:"revision_id"`
+	Type       TestInputContainerAnalysisRevisionType `json:"type"`
+}
+
+// TestInputContainerAnalysisRevisionType defines model for TestInputContainerAnalysisRevision.Type.
+type TestInputContainerAnalysisRevisionType string
+
 // TestInputDiffTarget defines model for TestInputDiffTarget.
 type TestInputDiffTarget struct {
 	// BaseVersion SHA of the last commit existing in base branch
@@ -307,6 +444,9 @@ type TestInputDiffTarget struct {
 
 	// HeadVersion SHA of the commit to be tested
 	HeadVersion string `json:"head_version"`
+
+	// IntegrationId A Snyk integration id that has access to the target's repository.
+	IntegrationId *openapi_types.UUID `json:"integration_id,omitempty"`
 
 	// TargetId Id of the target to be tested
 	TargetId openapi_types.UUID      `json:"target_id"`
@@ -492,6 +632,12 @@ type TestInputTargetType string
 type TestInputUploadRevision struct {
 	// Metadata Metadata of the input to be tested
 	Metadata *struct {
+		// Branch The name of the branch being tested
+		Branch *string `json:"branch,omitempty"`
+
+		// CommitId SHA of the commit being tested
+		CommitId *string `json:"commit_id,omitempty"`
+
 		// LocalFilePath This can be a file path or a folder id for IDE
 		LocalFilePath *string `json:"local_file_path,omitempty"`
 
@@ -856,6 +1002,32 @@ func (t *TestAttributes_Input) FromTestInputSBOMSourceRevisions(v TestInputSBOMS
 
 // MergeTestInputSBOMSourceRevisions performs a merge with any union data inside the TestAttributes_Input, using the provided TestInputSBOMSourceRevisions
 func (t *TestAttributes_Input) MergeTestInputSBOMSourceRevisions(v TestInputSBOMSourceRevisions) error {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+// AsTestInputContainerAnalysisRevision returns the union data inside the TestAttributes_Input as a TestInputContainerAnalysisRevision
+func (t TestAttributes_Input) AsTestInputContainerAnalysisRevision() (TestInputContainerAnalysisRevision, error) {
+	var body TestInputContainerAnalysisRevision
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromTestInputContainerAnalysisRevision overwrites any union data inside the TestAttributes_Input as the provided TestInputContainerAnalysisRevision
+func (t *TestAttributes_Input) FromTestInputContainerAnalysisRevision(v TestInputContainerAnalysisRevision) error {
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeTestInputContainerAnalysisRevision performs a merge with any union data inside the TestAttributes_Input, using the provided TestInputContainerAnalysisRevision
+func (t *TestAttributes_Input) MergeTestInputContainerAnalysisRevision(v TestInputContainerAnalysisRevision) error {
 	b, err := json.Marshal(v)
 	if err != nil {
 		return err
