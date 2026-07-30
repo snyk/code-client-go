@@ -102,6 +102,7 @@ func (u *uploadRevision) Upload(ctx context.Context, requestId string, target sc
 	close(supportedFiles)
 
 	res, err := u.client.CreateRevisionFromChan(ctx, supportedFiles, target.GetPath())
+	u.recordUploadExclusions(res.SkippedFiles)
 	if err != nil {
 		if errors.Is(err, fileupload.ErrNoFilesProvided) {
 			return "", bundle.NoFilesError{}
@@ -110,4 +111,21 @@ func (u *uploadRevision) Upload(ctx context.Context, requestId string, target sc
 	}
 
 	return RevisionID(res.RevisionID.String()), nil
+}
+
+// recordUploadExclusions reports the files the upload client skipped, with each file's reason so
+// that a file missing from a scan can be explained.
+func (u *uploadRevision) recordUploadExclusions(skippedFiles []fileupload.SkippedFile) {
+	u.analytics.AddExtensionIntegerValue("files_excluded_during_upload", len(skippedFiles))
+
+	u.logger.Info().
+		Int("excludedFiles", len(skippedFiles)).
+		Msg("Snyk Code upload exclusions")
+
+	for _, skippedFile := range skippedFiles {
+		u.logger.Debug().
+			Err(skippedFile.Reason).
+			Str("filePath", skippedFile.Path).
+			Msg("File excluded from upload")
+	}
 }

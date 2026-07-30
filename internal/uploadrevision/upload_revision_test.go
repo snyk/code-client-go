@@ -211,6 +211,30 @@ func (s *uploadRevisionSuite) TestUpload_RecordsFileCountsBeforeAndAfterFilterin
 	s.Equal(float64(1), extensions["files_to_upload_after_filtering"])
 }
 
+func (s *uploadRevisionSuite) TestUpload_RecordsFilesExcludedDuringUpload() {
+	s.deepcodeClient.EXPECT().GetFilters(gomock.Any()).Return(deepcode.FiltersResponse{
+		ConfigFiles: []string{},
+		Extensions:  []string{".go"},
+	}, nil)
+
+	dir := s.T().TempDir()
+	s.writeFile(dir, "main.go", []byte("package main"))
+	// A path over the client's 256 character limit is the simplest exclusion to trigger here.
+	excludedRelPath := filepath.Join(strings.Repeat("a", 250), "excluded.go")
+	s.writeFile(dir, excludedRelPath, []byte("package excluded"))
+
+	files := make(chan string, 2)
+	files <- filepath.Join(dir, "main.go")
+	files <- filepath.Join(dir, excludedRelPath)
+	close(files)
+
+	_, err := s.uploader.Upload(context.Background(), "requestId", scan.RepositoryTarget{LocalFilePath: dir}, files)
+	s.Require().NoError(err)
+
+	s.Equal(float64(1), s.recordedExtensions()["files_excluded_during_upload"])
+	s.Equal("package main", s.uploaded["main.go"])
+}
+
 func (s *uploadRevisionSuite) TestUpload_EncodesPaths() {
 	s.deepcodeClient.EXPECT().GetFilters(gomock.Any()).Return(deepcode.FiltersResponse{
 		ConfigFiles: []string{},
