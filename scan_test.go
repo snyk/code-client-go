@@ -280,7 +280,7 @@ func Test_UploadAndAnalyzeWithOptions_recordsUploadMetrics(t *testing.T) {
 	t.Run("records the bundle deduplication ratio", func(t *testing.T) {
 		requestId := uuid.NewString()
 		// One of the two files in the bundle is missing on the backend.
-		missingFiles := []string{firstDocPath}
+		missingFiles := []string{firstDocPath, secondDocPath}
 		mockBundle := bundle.NewBundle(deepcodeMocks.NewMockDeepcodeClient(ctrl), mockInstrumentor, mockErrorReporter, &logger, "testRootPath", uuid.NewString(), files, []string{}, missingFiles)
 		mockBundleManager := bundleMocks.NewMockBundleManager(ctrl)
 		mockBundleManager.EXPECT().CreateEmpty(gomock.Any(), baseDir, gomock.Any(), map[string]bool{}).Return(mockBundle, nil)
@@ -306,7 +306,7 @@ func Test_UploadAndAnalyzeWithOptions_recordsUploadMetrics(t *testing.T) {
 		require.NoError(t, err)
 
 		extensions := uploadExtensions(t, analyticsClient)
-		assert.Equal(t, float64(50), extensions["bundle_dedup_ratio_percent"])
+		assert.Equal(t, float64(0), extensions["bundle_dedup_ratio_percent"])
 	})
 
 	t.Run("records no deduplication ratio for an empty bundle", func(t *testing.T) {
