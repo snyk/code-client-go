@@ -25,6 +25,12 @@ type CreateTestParams struct {
 	Version externalRef0.Version `form:"version" json:"version"`
 }
 
+// CreateBatchTestsParams defines parameters for CreateBatchTests.
+type CreateBatchTestsParams struct {
+	// Version The requested version of the endpoint to process the request
+	Version externalRef0.Version `form:"version" json:"version"`
+}
+
 // GetTestResultParams defines parameters for GetTestResult.
 type GetTestResultParams struct {
 	// Version The requested version of the endpoint to process the request
@@ -54,6 +60,9 @@ type GetTestInitialConfigurationParams struct {
 
 // CreateTestApplicationVndAPIPlusJSONRequestBody defines body for CreateTest for application/vnd.api+json ContentType.
 type CreateTestApplicationVndAPIPlusJSONRequestBody = externalRef1.CreateTestRequestBody
+
+// CreateBatchTestsJSONRequestBody defines body for CreateBatchTests for application/json ContentType.
+type CreateBatchTestsJSONRequestBody = externalRef1.CreateBatchTestRequestBody
 
 // RequestEditorFn  is the function signature for the RequestEditor callback function
 type RequestEditorFn func(ctx context.Context, req *http.Request) error
@@ -133,6 +142,11 @@ type ClientInterface interface {
 
 	CreateTestWithApplicationVndAPIPlusJSONBody(ctx context.Context, orgId externalRef2.OrgId, params *CreateTestParams, body CreateTestApplicationVndAPIPlusJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
+	// CreateBatchTestsWithBody request with any body
+	CreateBatchTestsWithBody(ctx context.Context, orgId externalRef2.OrgId, params *CreateBatchTestsParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	CreateBatchTests(ctx context.Context, orgId externalRef2.OrgId, params *CreateBatchTestsParams, body CreateBatchTestsJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
 	// GetTestResult request
 	GetTestResult(ctx context.Context, orgId externalRef2.OrgId, testId externalRef2.TestId, params *GetTestResultParams, reqEditors ...RequestEditorFn) (*http.Response, error)
 
@@ -157,6 +171,30 @@ func (c *Client) CreateTestWithBody(ctx context.Context, orgId externalRef2.OrgI
 
 func (c *Client) CreateTestWithApplicationVndAPIPlusJSONBody(ctx context.Context, orgId externalRef2.OrgId, params *CreateTestParams, body CreateTestApplicationVndAPIPlusJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewCreateTestRequestWithApplicationVndAPIPlusJSONBody(c.Server, orgId, params, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) CreateBatchTestsWithBody(ctx context.Context, orgId externalRef2.OrgId, params *CreateBatchTestsParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewCreateBatchTestsRequestWithBody(c.Server, orgId, params, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) CreateBatchTests(ctx context.Context, orgId externalRef2.OrgId, params *CreateBatchTestsParams, body CreateBatchTestsJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewCreateBatchTestsRequest(c.Server, orgId, params, body)
 	if err != nil {
 		return nil, err
 	}
@@ -231,6 +269,71 @@ func NewCreateTestRequestWithBody(server string, orgId externalRef2.OrgId, param
 	}
 
 	operationPath := fmt.Sprintf("/orgs/%s/tests", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	if params != nil {
+		queryValues := queryURL.Query()
+
+		if queryFrag, err := runtime.StyleParamWithLocation("form", true, "version", runtime.ParamLocationQuery, params.Version); err != nil {
+			return nil, err
+		} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
+			return nil, err
+		} else {
+			for k, v := range parsed {
+				for _, v2 := range v {
+					queryValues.Add(k, v2)
+				}
+			}
+		}
+
+		queryURL.RawQuery = queryValues.Encode()
+	}
+
+	req, err := http.NewRequest("POST", queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
+// NewCreateBatchTestsRequest calls the generic CreateBatchTests builder with application/json body
+func NewCreateBatchTestsRequest(server string, orgId externalRef2.OrgId, params *CreateBatchTestsParams, body CreateBatchTestsJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewCreateBatchTestsRequestWithBody(server, orgId, params, "application/json", bodyReader)
+}
+
+// NewCreateBatchTestsRequestWithBody generates requests for CreateBatchTests with any type of body
+func NewCreateBatchTestsRequestWithBody(server string, orgId externalRef2.OrgId, params *CreateBatchTestsParams, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithLocation("simple", false, "org_id", runtime.ParamLocationPath, orgId)
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/orgs/%s/tests/batch", pathParam0)
 	if operationPath[0] == '/' {
 		operationPath = "." + operationPath
 	}
@@ -541,6 +644,11 @@ type ClientWithResponsesInterface interface {
 
 	CreateTestWithApplicationVndAPIPlusJSONBodyWithResponse(ctx context.Context, orgId externalRef2.OrgId, params *CreateTestParams, body CreateTestApplicationVndAPIPlusJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateTestResponse, error)
 
+	// CreateBatchTestsWithBodyWithResponse request with any body
+	CreateBatchTestsWithBodyWithResponse(ctx context.Context, orgId externalRef2.OrgId, params *CreateBatchTestsParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateBatchTestsResponse, error)
+
+	CreateBatchTestsWithResponse(ctx context.Context, orgId externalRef2.OrgId, params *CreateBatchTestsParams, body CreateBatchTestsJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateBatchTestsResponse, error)
+
 	// GetTestResultWithResponse request
 	GetTestResultWithResponse(ctx context.Context, orgId externalRef2.OrgId, testId externalRef2.TestId, params *GetTestResultParams, reqEditors ...RequestEditorFn) (*GetTestResultResponse, error)
 
@@ -573,6 +681,31 @@ func (r CreateTestResponse) Status() string {
 
 // StatusCode returns HTTPResponse.StatusCode
 func (r CreateTestResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type CreateBatchTestsResponse struct {
+	Body                     []byte
+	HTTPResponse             *http.Response
+	ApplicationvndApiJSON400 *externalRef0.N400
+	ApplicationvndApiJSON401 *externalRef0.N401
+	ApplicationvndApiJSON403 *externalRef0.N403
+	ApplicationvndApiJSON500 *externalRef0.N500
+}
+
+// Status returns HTTPResponse.Status
+func (r CreateBatchTestsResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r CreateBatchTestsResponse) StatusCode() int {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.StatusCode
 	}
@@ -679,6 +812,23 @@ func (c *ClientWithResponses) CreateTestWithApplicationVndAPIPlusJSONBodyWithRes
 	return ParseCreateTestResponse(rsp)
 }
 
+// CreateBatchTestsWithBodyWithResponse request with arbitrary body returning *CreateBatchTestsResponse
+func (c *ClientWithResponses) CreateBatchTestsWithBodyWithResponse(ctx context.Context, orgId externalRef2.OrgId, params *CreateBatchTestsParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateBatchTestsResponse, error) {
+	rsp, err := c.CreateBatchTestsWithBody(ctx, orgId, params, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseCreateBatchTestsResponse(rsp)
+}
+
+func (c *ClientWithResponses) CreateBatchTestsWithResponse(ctx context.Context, orgId externalRef2.OrgId, params *CreateBatchTestsParams, body CreateBatchTestsJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateBatchTestsResponse, error) {
+	rsp, err := c.CreateBatchTests(ctx, orgId, params, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseCreateBatchTestsResponse(rsp)
+}
+
 // GetTestResultWithResponse request returning *GetTestResultResponse
 func (c *ClientWithResponses) GetTestResultWithResponse(ctx context.Context, orgId externalRef2.OrgId, testId externalRef2.TestId, params *GetTestResultParams, reqEditors ...RequestEditorFn) (*GetTestResultResponse, error) {
 	rsp, err := c.GetTestResult(ctx, orgId, testId, params, reqEditors...)
@@ -761,6 +911,53 @@ func ParseCreateTestResponse(rsp *http.Response) (*CreateTestResponse, error) {
 			return nil, err
 		}
 		response.ApplicationvndApiJSON429 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest externalRef0.N500
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationvndApiJSON500 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseCreateBatchTestsResponse parses an HTTP response from a CreateBatchTestsWithResponse call
+func ParseCreateBatchTestsResponse(rsp *http.Response) (*CreateBatchTestsResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &CreateBatchTestsResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest externalRef0.N400
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationvndApiJSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest externalRef0.N401
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationvndApiJSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest externalRef0.N403
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationvndApiJSON403 = &dest
 
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
 		var dest externalRef0.N500

@@ -20,11 +20,14 @@ package codeclient
 import (
 	"context"
 	"fmt"
+	"net/http"
 	"time"
 
 	"github.com/google/uuid"
 	"github.com/pkg/errors"
 	"github.com/rs/zerolog"
+	"github.com/snyk/go-application-framework/pkg/analytics"
+	"github.com/snyk/go-application-framework/pkg/apiclients/fileupload"
 
 	"github.com/snyk/code-client-go/bundle"
 	"github.com/snyk/code-client-go/config"
@@ -32,6 +35,7 @@ import (
 	"github.com/snyk/code-client-go/internal/analysis"
 	testModels "github.com/snyk/code-client-go/internal/api/test/2025-04-07/models"
 	"github.com/snyk/code-client-go/internal/deepcode"
+	"github.com/snyk/code-client-go/internal/uploadrevision"
 	"github.com/snyk/code-client-go/observability"
 	"github.com/snyk/code-client-go/sarif"
 	"github.com/snyk/code-client-go/scan"
@@ -41,12 +45,29 @@ type codeScanner struct {
 	httpClient           codeClientHTTP.HTTPClient
 	bundleManager        bundle.BundleManager
 	analysisOrchestrator analysis.AnalysisOrchestrator
+	uploadRevision       uploadrevision.UploadRevision
 	instrumentor         observability.Instrumentor
 	errorReporter        observability.ErrorReporter
 	trackerFactory       scan.TrackerFactory
 	logger               *zerolog.Logger
 	config               config.Config
 	resultTypes          testModels.ResultType
+	analytics            analytics.Analytics
+}
+
+// Labels for the two upload backends, shared by the upload metrics recorded here and the
+// file_upload_backend analytics value recorded by the code workflow.
+const (
+	BackendFilesBundleStore = "files-bundle-store"
+	BackendFileUploadApi    = "file-upload-api"
+)
+
+type httpClientRoundTripper struct {
+	httpClient codeClientHTTP.HTTPClient
+}
+
+func (rt httpClientRoundTripper) RoundTrip(req *http.Request) (*http.Response, error) {
+	return rt.httpClient.Do(req)
 }
 
 type CodeScanner interface {
@@ -118,6 +139,12 @@ func WithTrackerFactory(trackerFactory scan.TrackerFactory) OptionFunc {
 	}
 }
 
+func WithAnalytics(a analytics.Analytics) OptionFunc {
+	return func(c *codeScanner) {
+		c.analytics = a
+	}
+}
+
 type AnalysisOption func(*analysis.AnalysisConfig)
 
 func ReportLocalTest(projectName string, targetName string, targetReference string) AnalysisOption {
@@ -143,6 +170,12 @@ func ReportRemoteTest(projectId uuid.UUID, commitId string) AnalysisOption {
 	}
 }
 
+func WithUploadToFileUploadApi() AnalysisOption {
+	return func(c *analysis.AnalysisConfig) {
+		c.UploadFileContentToFileUploadApi = true
+	}
+}
+
 // NewCodeScanner creates a Code Scanner which can be used to trigger Snyk Code on a folder.
 func NewCodeScanner(
 	config config.Config,
@@ -162,6 +195,9 @@ func NewCodeScanner(
 		instrumentor:   instrumentor,
 		trackerFactory: trackerFactory,
 		resultTypes:    testModels.CodeSecurityCodeQuality,
+		// Consumers that do not report analytics (e.g. the language server) leave this
+		// collector unsent, which makes it the no-op default.
+		analytics: analytics.New(),
 	}
 
 	for _, option := range options {
@@ -170,7 +206,7 @@ func NewCodeScanner(
 
 	// initialize other dependencies
 	deepcodeClient := deepcode.NewDeepcodeClient(scanner.config, httpClient, scanner.logger, scanner.instrumentor, scanner.errorReporter)
-	bundleManager := bundle.NewBundleManager(deepcodeClient, scanner.logger, scanner.instrumentor, scanner.errorReporter, scanner.trackerFactory)
+	bundleManager := bundle.NewBundleManager(deepcodeClient, scanner.logger, scanner.instrumentor, scanner.errorReporter, scanner.trackerFactory, scanner.analytics)
 	scanner.bundleManager = bundleManager
 	analysisOrchestrator := analysis.NewAnalysisOrchestrator(
 		scanner.config,
@@ -182,6 +218,16 @@ func NewCodeScanner(
 		analysis.WithResultType(scanner.resultTypes),
 	)
 	scanner.analysisOrchestrator = analysisOrchestrator
+
+	orgID := uuid.MustParse(scanner.config.Organization())
+	scanner.uploadRevision = uploadrevision.NewUploadRevision(
+		&http.Client{Transport: httpClientRoundTripper{httpClient: httpClient}},
+		fileupload.Config{BaseURL: scanner.config.SnykApi(), OrgID: orgID},
+		deepcodeClient,
+		scanner.logger,
+		scanner.analytics,
+		scanner.trackerFactory,
+	)
 
 	return scanner
 }
@@ -195,6 +241,7 @@ func (c *codeScanner) WithBundleManager(bundleManager bundle.BundleManager) *cod
 		errorReporter:        c.errorReporter,
 		logger:               c.logger,
 		config:               c.config,
+		analytics:            c.analytics,
 	}
 }
 
@@ -207,6 +254,7 @@ func (c *codeScanner) WithAnalysisOrchestrator(analysisOrchestrator analysis.Ana
 		errorReporter:        c.errorReporter,
 		logger:               c.logger,
 		config:               c.config,
+		analytics:            c.analytics,
 	}
 }
 
@@ -230,6 +278,8 @@ func (c *codeScanner) Upload(
 	}
 
 	filesToUpload := originalBundle.GetFiles()
+	c.recordBundleDeduplication(len(originalBundle.GetMissingFiles()), len(filesToUpload))
+
 	uploadedBundle, err := c.bundleManager.Upload(ctx, requestId, originalBundle, filesToUpload)
 	err = c.checkCancellationOrLogError(ctx, target.GetPath(), err, "error uploading bundle...")
 	if err != nil {
@@ -330,6 +380,33 @@ func (c *codeScanner) analyzeLegacy(
 	}
 }
 
+func (c *codeScanner) recordBundleDeduplication(missingFiles int, totalFiles int) {
+	if totalFiles == 0 {
+		return
+	}
+
+	ratio := missingFiles * 100 / totalFiles
+	c.analytics.AddExtensionIntegerValue("bundle_dedup_ratio_percent", ratio)
+
+	c.logger.Info().
+		Int("missingFiles", missingFiles).
+		Int("totalFiles", totalFiles).
+		Int("ratioPercent", ratio).
+		Msg("Snyk Code bundle deduplication")
+}
+
+// recordUpload reports the outcome of an upload to analytics and the log.
+func (c *codeScanner) recordUpload(backend string, success bool, duration time.Duration) {
+	c.analytics.AddExtensionBoolValue("upload_success", success)
+	c.analytics.AddExtensionIntegerValue("upload_duration_ms", int(duration.Milliseconds()))
+
+	c.logger.Info().
+		Str("backend", backend).
+		Bool("success", success).
+		Dur("duration", duration).
+		Msg("Snyk Code upload finished")
+}
+
 func (c *codeScanner) UploadAndAnalyzeWithOptions(
 	ctx context.Context,
 	requestId string,
@@ -338,25 +415,55 @@ func (c *codeScanner) UploadAndAnalyzeWithOptions(
 	changedFiles map[string]bool,
 	options ...AnalysisOption,
 ) (*sarif.SarifResponse, string, *scan.ResultMetaData, error) {
-	uploadedBundle, err := c.Upload(ctx, requestId, target, files, changedFiles)
-
-	if err != nil || uploadedBundle == nil || uploadedBundle.GetBundleHash() == "" {
-		c.logger.Debug().Msg("empty bundle, no Snyk Code analysis")
-		return nil, "", nil, err
-	}
-
 	cfg := analysis.AnalysisConfig{}
 	for _, opt := range options {
 		opt(&cfg)
 	}
 
-	response, metadata, err := c.analysisOrchestrator.RunTest(ctx, c.config.Organization(), uploadedBundle, target, cfg)
+	var uploadedBundle bundle.Bundle
+	var revisionId *string
+	var scanIdentifier string
+	var err error
+	uploadStart := time.Now()
+
+	if cfg.UploadFileContentToFileUploadApi {
+		revision, uploadErr := c.uploadRevision.Upload(ctx, requestId, target, files)
+		uploadErr = c.checkCancellationOrLogError(ctx, target.GetPath(), uploadErr, "error uploading files...")
+		if uploadErr != nil {
+			c.recordUpload(BackendFileUploadApi, false, time.Since(uploadStart))
+			return nil, "", nil, uploadErr
+		}
+		c.recordUpload(BackendFileUploadApi, true, time.Since(uploadStart))
+
+		revisionString := string(revision)
+		revisionId = &revisionString
+		scanIdentifier = revisionString
+
+		c.logger.Info().Str("revisionId", revisionString).Msg("Snyk Code upload revision created")
+	} else {
+		uploadedBundle, err = c.Upload(ctx, requestId, target, files, changedFiles)
+		if err != nil || uploadedBundle == nil || uploadedBundle.GetBundleHash() == "" {
+			c.recordUpload(BackendFilesBundleStore, false, time.Since(uploadStart))
+			c.logger.Debug().Msg("empty bundle, no Snyk Code analysis")
+			return nil, "", nil, err
+		}
+		c.recordUpload(BackendFilesBundleStore, true, time.Since(uploadStart))
+
+		scanIdentifier = uploadedBundle.GetBundleHash()
+	}
+
 	err = c.checkCancellationOrLogError(ctx, target.GetPath(), err, "error running analysis...")
 	if err != nil {
 		return nil, "", nil, err
 	}
 
-	return response, uploadedBundle.GetBundleHash(), metadata, err
+	response, metadata, err := c.analysisOrchestrator.RunTest(ctx, c.config.Organization(), uploadedBundle, revisionId, target, cfg)
+	err = c.checkCancellationOrLogError(ctx, target.GetPath(), err, "error running analysis...")
+	if err != nil {
+		return nil, "", nil, err
+	}
+
+	return response, scanIdentifier, metadata, err
 }
 
 func (c *codeScanner) AnalyzeRemote(ctx context.Context, options ...AnalysisOption) (*sarif.SarifResponse, *scan.ResultMetaData, error) {

@@ -2,9 +2,10 @@ package testutil
 
 import (
 	"fmt"
-	"github.com/google/uuid"
 	"net/http"
 	"os"
+
+	"github.com/google/uuid"
 )
 
 type TestAuthRoundTripper struct {
@@ -12,7 +13,7 @@ type TestAuthRoundTripper struct {
 }
 
 func (tart TestAuthRoundTripper) RoundTrip(req *http.Request) (res *http.Response, e error) {
-	token := os.Getenv("SMOKE_TEST_TOKEN")
+	token := os.Getenv("SNYK_TOKEN")
 	if token == "" {
 		req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", uuid.New().String()))
 	} else {

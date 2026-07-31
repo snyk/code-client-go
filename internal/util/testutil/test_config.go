@@ -16,15 +16,16 @@
 package testutil
 
 import (
-	"github.com/snyk/code-client-go/config"
 	"time"
+
+	"github.com/snyk/code-client-go/config"
 )
 
 type localConfig struct {
 }
 
 func (l localConfig) Organization() string {
-	return "3964634d-2142-4ae5-ba98-c414620609b4"
+	return "81c4528c-665a-43da-a0a7-581277288bf3"
 }
 
 func (l localConfig) IsFedramp() bool {

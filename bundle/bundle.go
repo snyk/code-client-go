@@ -120,7 +120,6 @@ func (b *deepCodeBundle) extendBundle(ctx context.Context, requestId string, upl
 }
 
 const (
-	maxFileSize               = 1024 * 1024
 	maxUploadBatchSize        = 1024*1024*4 - 1024 // subtract 1k for potential headers
 	jsonOverheadRequest       = "{\"files\":{}}"
 	jsonOverHeadRequestLength = len(jsonOverheadRequest)

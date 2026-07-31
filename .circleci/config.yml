@@ -126,20 +126,23 @@ workflows:
           name: Scan repository for secrets
           context:
             - snyk-bot-slack
-          channel: dx-local-alerts
+          channel: team-code-integrations-alerts
       - security-scans:
           name: Security Scans
-          context: code-client-go
+          context:
+            - codesec_code-integrations
       - lint-and-format:
           name: Lint & Format
-          context: code-client-go
+          context:
+            - codesec_code-integrations
       - unit-test:
           name: Unit tests
-          context: code-client-go
+          context:
+            - codesec_code-integrations
       - smoke-test:
           name: Smoke tests
           context:
-            - code-client-go-smoke-tests-token # SMOKE_TEST_TOKEN
+            - codesec_code-integrations
       - contract-test:
           name: Contract tests
           context:
