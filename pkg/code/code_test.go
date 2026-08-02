@@ -261,7 +261,7 @@ func Test_Code_nativeImplementation_happyPath(t *testing.T) {
 			actualBundleHash, metaErr := v.GetMetaData(code_workflow.MetadataBundleHash)
 			assert.NoError(t, metaErr)
 			assert.Equal(t, expectedBundleHash, actualBundleHash)
-		} else if v.GetContentType() == content_type.LOCAL_FINDING_MODEL {
+		} else if v.GetContentType() == content_type.LOCAL_FINDING_MODEL || v.GetContentType() == content_type.UFM_RESULT {
 			_, ok := v.GetPayload().([]byte)
 			assert.True(t, ok)
 		} else {
