@@ -126,10 +126,13 @@ workflows:
           name: Scan repository for secrets
           context:
             - snyk-bot-slack
-          channel: dx-local-alerts
+            - prodsec-orb-runtime
+          channel: team-code-integrations-alerts
       - security-scans:
           name: Security Scans
-          context: code-client-go
+          context:
+            - codesec_code-integrations
+            - prodsec-orb-runtime
       - lint-and-format:
           name: Lint & Format
           context: code-client-go
