@@ -12,6 +12,7 @@ import (
 	"sync"
 	"testing"
 
+	"github.com/golang/mock/gomock"
 	"github.com/google/uuid"
 	"github.com/rs/zerolog"
 	"github.com/stretchr/testify/assert"
@@ -24,9 +25,49 @@ import (
 	"github.com/snyk/code-client-go/scan"
 	"github.com/snyk/go-application-framework/pkg/analytics"
 	"github.com/snyk/go-application-framework/pkg/configuration"
+	gafmocks "github.com/snyk/go-application-framework/pkg/mocks"
 	"github.com/snyk/go-application-framework/pkg/networking"
 	"github.com/snyk/go-application-framework/pkg/ui"
+	"github.com/snyk/go-application-framework/pkg/utils"
+	"github.com/snyk/go-application-framework/pkg/workflow"
 )
+
+// testInvocationContext builds the InvocationContext the analyze function pulls its dependencies
+// out of. GetFileFilter mirrors the framework implementation, so file filtering is exercised for
+// real rather than stubbed.
+func testInvocationContext(
+	t *testing.T,
+	config configuration.Configuration,
+	logger *zerolog.Logger,
+	httpClientFunc func() *http.Client,
+	userInterface ui.UserInterface,
+	analyticsClient analytics.Analytics,
+) workflow.InvocationContext {
+	t.Helper()
+	ctrl := gomock.NewController(t)
+
+	networkAccess := gafmocks.NewMockNetworkAccess(ctrl)
+	networkAccess.EXPECT().GetHttpClient().DoAndReturn(func() *http.Client {
+		if httpClientFunc == nil {
+			return nil
+		}
+		return httpClientFunc()
+	}).AnyTimes()
+
+	ictx := gafmocks.NewMockInvocationContext(ctrl)
+	ictx.EXPECT().Context().Return(context.Background()).AnyTimes()
+	ictx.EXPECT().GetConfiguration().Return(config).AnyTimes()
+	ictx.EXPECT().GetEnhancedLogger().Return(logger).AnyTimes()
+	ictx.EXPECT().GetNetworkAccess().Return(networkAccess).AnyTimes()
+	ictx.EXPECT().GetUserInterface().Return(userInterface).AnyTimes()
+	ictx.EXPECT().GetAnalytics().Return(analyticsClient).AnyTimes()
+	ictx.EXPECT().GetFileFilter(gomock.Any(), gomock.Any()).DoAndReturn(
+		func(path string, options ...utils.FileFilterOption) *utils.FileFilter {
+			return utils.NewFileFilter(path, logger, append([]utils.FileFilterOption{utils.WithConfig(config)}, options...)...)
+		}).AnyTimes()
+
+	return ictx
+}
 
 func Test_defaultAnalyzeFunction_reportNotSupportedWithSCLE(t *testing.T) {
 	logger := zerolog.Nop()
@@ -37,7 +78,9 @@ func Test_defaultAnalyzeFunction_reportNotSupportedWithSCLE(t *testing.T) {
 		config.Set(ConfigurationProjectName, "my-project") // makes report mode localCode
 		config.Set(ConfigurationSlceEnabled, true)
 
-		_, _, _, err := defaultAnalyzeFunction(context.Background(), t.TempDir(), nil, &logger, config, nil, analytics.New())
+		ictx := testInvocationContext(t, config, &logger, nil, nil, analytics.New())
+
+		_, _, _, err := defaultAnalyzeFunction(ictx, t.TempDir())
 
 		assert.Error(t, err)
 		assert.Contains(t, err.Error(), "Snyk Code Local Engine")
@@ -119,15 +162,9 @@ func Test_defaultAnalyzeFunction_usesLocalEngineLegacyEndpoints(t *testing.T) {
 
 	analyticsClient := analytics.New()
 
-	result, actualBundleHash, resultMetaData, err := defaultAnalyzeFunction(
-		context.Background(),
-		path,
-		func() *http.Client { return server.Client() },
-		&logger,
-		config,
-		ui.DefaultUi(),
-		analyticsClient,
-	)
+	ictx := testInvocationContext(t, config, &logger, func() *http.Client { return server.Client() }, ui.DefaultUi(), analyticsClient)
+
+	result, actualBundleHash, resultMetaData, err := defaultAnalyzeFunction(ictx, path)
 
 	require.NoError(t, err)
 	require.NotNil(t, result)
@@ -204,15 +241,9 @@ func Test_defaultAnalyzeFunction_usesFileUploadApi(t *testing.T) {
 
 	analyticsClient := analytics.New()
 
-	result, _, _, err := defaultAnalyzeFunction(
-		context.Background(),
-		path,
-		func() *http.Client { return server.Client() },
-		&logger,
-		config,
-		ui.DefaultUi(),
-		analyticsClient,
-	)
+	ictx := testInvocationContext(t, config, &logger, func() *http.Client { return server.Client() }, ui.DefaultUi(), analyticsClient)
+
+	result, _, _, err := defaultAnalyzeFunction(ictx, path)
 
 	require.NoError(t, err)
 	assert.Nil(t, result)
@@ -286,15 +317,9 @@ func Test_defaultAnalyzeFunction_recordsFailedFileUploadApiUpload(t *testing.T) 
 
 	analyticsClient := analytics.New()
 
-	result, _, _, err := defaultAnalyzeFunction(
-		context.Background(),
-		path,
-		func() *http.Client { return server.Client() },
-		&logger,
-		config,
-		ui.DefaultUi(),
-		analyticsClient,
-	)
+	ictx := testInvocationContext(t, config, &logger, func() *http.Client { return server.Client() }, ui.DefaultUi(), analyticsClient)
+
+	result, _, _, err := defaultAnalyzeFunction(ictx, path)
 
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "error uploading files")
@@ -405,7 +430,9 @@ func Test_determineAnalyzeInput(t *testing.T) {
 	t.Run("given a folder", func(t *testing.T) {
 		count := 0
 
-		target, files, err := determineAnalyzeInput(path, config, &logger)
+		ictx := testInvocationContext(t, config, &logger, nil, nil, analytics.New())
+
+		target, files, err := determineAnalyzeInput(ictx, path)
 		assert.NoError(t, err)
 		assert.NotNil(t, target)
 		assert.NotNil(t, files)
@@ -422,7 +449,9 @@ func Test_determineAnalyzeInput(t *testing.T) {
 	t.Run("given a file", func(t *testing.T) {
 		count := 0
 
-		target, files, err := determineAnalyzeInput(filenames[1], config, &logger)
+		ictx := testInvocationContext(t, config, &logger, nil, nil, analytics.New())
+
+		target, files, err := determineAnalyzeInput(ictx, filenames[1])
 		assert.NoError(t, err)
 		assert.NotNil(t, target)
 		assert.NotNil(t, files)
@@ -458,4 +487,38 @@ func Test_TrackUsage(t *testing.T) {
 	trackUsage(networkAccess, config)
 
 	assert.True(t, trackUsageCalled)
+}
+
+// Test_determineAnalyzeInput_usesInvocationContextFileFilter pins that filtering is obtained from
+// the invocation context. Constructing a FileFilter directly would still compile and still filter,
+// but would silently drop every configuration-gated behavior (the ignore-rule metacharacter fix,
+// tracked-file handling), so nothing else in the suite would fail.
+func Test_determineAnalyzeInput_usesInvocationContextFileFilter(t *testing.T) {
+	logger := zerolog.Nop()
+	config := configuration.NewWithOpts()
+	config.Set(configuration.MAX_THREADS, 1)
+
+	dir := t.TempDir()
+	writeFile(t, filepath.Join(dir, "app.js"))
+
+	ctrl := gomock.NewController(t)
+	ictx := gafmocks.NewMockInvocationContext(ctrl)
+	ictx.EXPECT().Context().Return(context.Background()).AnyTimes()
+	ictx.EXPECT().GetConfiguration().Return(config).AnyTimes()
+	ictx.EXPECT().GetEnhancedLogger().Return(&logger).AnyTimes()
+
+	// exactly once, rooted at the scanned directory
+	ictx.EXPECT().GetFileFilter(dir, gomock.Any()).Times(1).DoAndReturn(
+		func(path string, options ...utils.FileFilterOption) *utils.FileFilter {
+			return utils.NewFileFilter(path, &logger, options...)
+		})
+
+	_, files, err := determineAnalyzeInput(ictx, dir)
+	require.NoError(t, err)
+
+	var found []string
+	for f := range files {
+		found = append(found, filepath.Base(f))
+	}
+	assert.Equal(t, []string{"app.js"}, found)
 }

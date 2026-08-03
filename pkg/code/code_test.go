@@ -181,15 +181,15 @@ func Test_Code_nativeImplementation_happyPath(t *testing.T) {
 
 	mockController := gomock.NewController(t)
 	invocationContext := mocks.NewMockInvocationContext(mockController)
-	invocationContext.EXPECT().GetConfiguration().Return(config)
+	invocationContext.EXPECT().GetConfiguration().Return(config).AnyTimes()
 	invocationContext.EXPECT().GetNetworkAccess().Return(networkAccess).AnyTimes()
-	invocationContext.EXPECT().GetEnhancedLogger().Return(&zerolog.Logger{})
-	invocationContext.EXPECT().GetWorkflowIdentifier().Return(workflow.NewWorkflowIdentifier("code"))
-	invocationContext.EXPECT().GetUserInterface().Return(ui.DefaultUi())
+	invocationContext.EXPECT().GetEnhancedLogger().Return(&zerolog.Logger{}).AnyTimes()
+	invocationContext.EXPECT().GetWorkflowIdentifier().Return(workflow.NewWorkflowIdentifier("code")).AnyTimes()
+	invocationContext.EXPECT().GetUserInterface().Return(ui.DefaultUi()).AnyTimes()
 	invocationContext.EXPECT().Context().Return(context.Background()).AnyTimes()
-	invocationContext.EXPECT().GetAnalytics().Return(analytics.New())
+	invocationContext.EXPECT().GetAnalytics().Return(analytics.New()).AnyTimes()
 
-	analysisFunc := func(_ context.Context, path string, _ func() *http.Client, _ *zerolog.Logger, _ configuration.Configuration, _ ui.UserInterface, _ analytics.Analytics) (*sarif.SarifResponse, string, *scan.ResultMetaData, error) {
+	analysisFunc := func(_ workflow.InvocationContext, path string) (*sarif.SarifResponse, string, *scan.ResultMetaData, error) {
 		assert.Equal(t, expectedPath, path)
 		suppressions := []sarif.Suppression{
 			{
@@ -288,8 +288,8 @@ func Test_Code_entrypoint_recordsSCLEInAnalytics(t *testing.T) {
 			mockController := gomock.NewController(t)
 			invocationContext := mocks.NewMockInvocationContext(mockController)
 			invocationContext.EXPECT().GetConfiguration().Return(config).AnyTimes()
-			invocationContext.EXPECT().GetEnhancedLogger().Return(&zerolog.Logger{})
-			invocationContext.EXPECT().GetAnalytics().Return(analyticsClient)
+			invocationContext.EXPECT().GetEnhancedLogger().Return(&zerolog.Logger{}).AnyTimes()
+			invocationContext.EXPECT().GetAnalytics().Return(analyticsClient).AnyTimes()
 			// The legacy path dispatches to the legacycli workflow, which is not
 			// registered here, so the invocation fails after analytics are recorded.
 			invocationContext.EXPECT().GetEngine().Return(workflow.NewWorkFlowEngine(config))
@@ -312,15 +312,15 @@ func Test_Code_nativeImplementation_analysisFails(t *testing.T) {
 
 	mockController := gomock.NewController(t)
 	invocationContext := mocks.NewMockInvocationContext(mockController)
-	invocationContext.EXPECT().GetConfiguration().Return(config)
+	invocationContext.EXPECT().GetConfiguration().Return(config).AnyTimes()
 	invocationContext.EXPECT().GetNetworkAccess().Return(networkAccess).AnyTimes()
-	invocationContext.EXPECT().GetEnhancedLogger().Return(&zerolog.Logger{})
-	invocationContext.EXPECT().GetWorkflowIdentifier().Return(workflow.NewWorkflowIdentifier("code"))
-	invocationContext.EXPECT().GetUserInterface().Return(ui.DefaultUi())
+	invocationContext.EXPECT().GetEnhancedLogger().Return(&zerolog.Logger{}).AnyTimes()
+	invocationContext.EXPECT().GetWorkflowIdentifier().Return(workflow.NewWorkflowIdentifier("code")).AnyTimes()
+	invocationContext.EXPECT().GetUserInterface().Return(ui.DefaultUi()).AnyTimes()
 	invocationContext.EXPECT().Context().Return(context.Background()).AnyTimes()
-	invocationContext.EXPECT().GetAnalytics().Return(analytics.New())
+	invocationContext.EXPECT().GetAnalytics().Return(analytics.New()).AnyTimes()
 
-	analysisFunc := func(context.Context, string, func() *http.Client, *zerolog.Logger, configuration.Configuration, ui.UserInterface, analytics.Analytics) (*sarif.SarifResponse, string, *scan.ResultMetaData, error) {
+	analysisFunc := func(workflow.InvocationContext, string) (*sarif.SarifResponse, string, *scan.ResultMetaData, error) {
 		return nil, "", nil, fmt.Errorf("something went wrong")
 	}
 
@@ -335,15 +335,15 @@ func Test_Code_nativeImplementation_analysisNil(t *testing.T) {
 
 	mockController := gomock.NewController(t)
 	invocationContext := mocks.NewMockInvocationContext(mockController)
-	invocationContext.EXPECT().GetConfiguration().Return(config)
+	invocationContext.EXPECT().GetConfiguration().Return(config).AnyTimes()
 	invocationContext.EXPECT().GetNetworkAccess().Return(networkAccess).AnyTimes()
-	invocationContext.EXPECT().GetEnhancedLogger().Return(&zerolog.Logger{})
-	invocationContext.EXPECT().GetWorkflowIdentifier().Return(workflow.NewWorkflowIdentifier("code"))
-	invocationContext.EXPECT().GetUserInterface().Return(ui.DefaultUi())
+	invocationContext.EXPECT().GetEnhancedLogger().Return(&zerolog.Logger{}).AnyTimes()
+	invocationContext.EXPECT().GetWorkflowIdentifier().Return(workflow.NewWorkflowIdentifier("code")).AnyTimes()
+	invocationContext.EXPECT().GetUserInterface().Return(ui.DefaultUi()).AnyTimes()
 	invocationContext.EXPECT().Context().Return(context.Background()).AnyTimes()
-	invocationContext.EXPECT().GetAnalytics().Return(analytics.New())
+	invocationContext.EXPECT().GetAnalytics().Return(analytics.New()).AnyTimes()
 
-	analysisFunc := func(_ context.Context, path string, _ func() *http.Client, _ *zerolog.Logger, _ configuration.Configuration, _ ui.UserInterface, _ analytics.Analytics) (*sarif.SarifResponse, string, *scan.ResultMetaData, error) {
+	analysisFunc := func(_ workflow.InvocationContext, path string) (*sarif.SarifResponse, string, *scan.ResultMetaData, error) {
 		return nil, "", nil, nil
 	}
 
@@ -375,15 +375,15 @@ func Test_Code_nativeImplementation_analysisEmpty(t *testing.T) {
 
 	t.Run("returns UnsupportedProjectError when no supported files", func(t *testing.T) {
 		invocationContext := mocks.NewMockInvocationContext(mockController)
-		invocationContext.EXPECT().GetConfiguration().Return(config)
+		invocationContext.EXPECT().GetConfiguration().Return(config).AnyTimes()
 		invocationContext.EXPECT().GetNetworkAccess().Return(networkAccess).AnyTimes()
-		invocationContext.EXPECT().GetEnhancedLogger().Return(&zerolog.Logger{})
-		invocationContext.EXPECT().GetWorkflowIdentifier().Return(workflow.NewWorkflowIdentifier("code"))
-		invocationContext.EXPECT().GetUserInterface().Return(ui.DefaultUi())
+		invocationContext.EXPECT().GetEnhancedLogger().Return(&zerolog.Logger{}).AnyTimes()
+		invocationContext.EXPECT().GetWorkflowIdentifier().Return(workflow.NewWorkflowIdentifier("code")).AnyTimes()
+		invocationContext.EXPECT().GetUserInterface().Return(ui.DefaultUi()).AnyTimes()
 		invocationContext.EXPECT().Context().Return(context.Background()).AnyTimes()
-		invocationContext.EXPECT().GetAnalytics().Return(analytics.New())
+		invocationContext.EXPECT().GetAnalytics().Return(analytics.New()).AnyTimes()
 
-		analysisFunc := func(_ context.Context, path string, _ func() *http.Client, _ *zerolog.Logger, _ configuration.Configuration, _ ui.UserInterface, _ analytics.Analytics) (*sarif.SarifResponse, string, *scan.ResultMetaData, error) {
+		analysisFunc := func(_ workflow.InvocationContext, path string) (*sarif.SarifResponse, string, *scan.ResultMetaData, error) {
 			response := &sarif.SarifResponse{
 				Sarif: sarif.SarifDocument{
 					Runs: []sarif.Run{
@@ -420,15 +420,15 @@ func Test_Code_nativeImplementation_analysisEmpty(t *testing.T) {
 
 	t.Run("returns no error when supported files fail to parse", func(t *testing.T) {
 		invocationContext := mocks.NewMockInvocationContext(mockController)
-		invocationContext.EXPECT().GetConfiguration().Return(config)
+		invocationContext.EXPECT().GetConfiguration().Return(config).AnyTimes()
 		invocationContext.EXPECT().GetNetworkAccess().Return(networkAccess).AnyTimes()
-		invocationContext.EXPECT().GetEnhancedLogger().Return(&zerolog.Logger{})
-		invocationContext.EXPECT().GetWorkflowIdentifier().Return(workflow.NewWorkflowIdentifier("code"))
-		invocationContext.EXPECT().GetUserInterface().Return(ui.DefaultUi())
+		invocationContext.EXPECT().GetEnhancedLogger().Return(&zerolog.Logger{}).AnyTimes()
+		invocationContext.EXPECT().GetWorkflowIdentifier().Return(workflow.NewWorkflowIdentifier("code")).AnyTimes()
+		invocationContext.EXPECT().GetUserInterface().Return(ui.DefaultUi()).AnyTimes()
 		invocationContext.EXPECT().Context().Return(context.Background()).AnyTimes()
-		invocationContext.EXPECT().GetAnalytics().Return(analytics.New())
+		invocationContext.EXPECT().GetAnalytics().Return(analytics.New()).AnyTimes()
 
-		analysisFunc := func(_ context.Context, path string, _ func() *http.Client, _ *zerolog.Logger, _ configuration.Configuration, _ ui.UserInterface, _ analytics.Analytics) (*sarif.SarifResponse, string, *scan.ResultMetaData, error) {
+		analysisFunc := func(_ workflow.InvocationContext, path string) (*sarif.SarifResponse, string, *scan.ResultMetaData, error) {
 			response := &sarif.SarifResponse{
 				Sarif: sarif.SarifDocument{
 					Runs: []sarif.Run{
