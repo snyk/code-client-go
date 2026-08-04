@@ -522,3 +522,31 @@ func Test_determineAnalyzeInput_usesInvocationContextFileFilter(t *testing.T) {
 	}
 	assert.Equal(t, []string{"app.js"}, found)
 }
+
+// Test_defaultAnalyzeFunction_readsDependenciesFromInvocationContext pins that the analysis pulls
+// each dependency from the invocation context. EntryPointNative used to extract these and pass them
+// in, so this assertion lives here now that the analysis does it itself.
+func Test_defaultAnalyzeFunction_readsDependenciesFromInvocationContext(t *testing.T) {
+	logger := zerolog.Nop()
+	config := configuration.NewWithOpts()
+	config.Set(ConfigurationReportFlag, true)
+	config.Set(ConfigurationProjectName, "my-project")
+	config.Set(ConfigurationSlceEnabled, true) // errors out after the dependencies are read
+
+	ctrl := gomock.NewController(t)
+	networkAccess := gafmocks.NewMockNetworkAccess(ctrl)
+	networkAccess.EXPECT().GetHttpClient().Return(nil).AnyTimes()
+
+	ictx := gafmocks.NewMockInvocationContext(ctrl)
+	ictx.EXPECT().Context().Return(context.Background()).Times(1)
+	ictx.EXPECT().GetNetworkAccess().Return(networkAccess).Times(1)
+	ictx.EXPECT().GetUserInterface().Return(ui.DefaultUi()).Times(1)
+	ictx.EXPECT().GetAnalytics().Return(analytics.New()).Times(1)
+	ictx.EXPECT().GetConfiguration().Return(config).AnyTimes()
+	ictx.EXPECT().GetEnhancedLogger().Return(&logger).AnyTimes()
+
+	result, bundleHash, _, err := defaultAnalyzeFunction(ictx, t.TempDir())
+	require.Error(t, err)
+	assert.Nil(t, result)
+	assert.Empty(t, bundleHash)
+}
