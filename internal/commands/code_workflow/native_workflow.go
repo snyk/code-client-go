@@ -20,15 +20,18 @@ import (
 	"github.com/snyk/code-client-go/scan"
 	"github.com/snyk/error-catalog-golang-public/code"
 	"github.com/snyk/go-application-framework/pkg/analytics"
+	"github.com/snyk/go-application-framework/pkg/apiclients/testapi"
 	"github.com/snyk/go-application-framework/pkg/configuration"
 	"github.com/snyk/go-application-framework/pkg/instrumentation"
 	"github.com/snyk/go-application-framework/pkg/local_workflows/content_type"
 	errorutils "github.com/snyk/go-application-framework/pkg/local_workflows/error_utils"
+	"github.com/snyk/go-application-framework/pkg/local_workflows/json_schemas"
 	"github.com/snyk/go-application-framework/pkg/local_workflows/local_models"
 	"github.com/snyk/go-application-framework/pkg/networking"
 	"github.com/snyk/go-application-framework/pkg/ui"
 	"github.com/snyk/go-application-framework/pkg/utils"
 	sarif2 "github.com/snyk/go-application-framework/pkg/utils/sarif"
+	"github.com/snyk/go-application-framework/pkg/utils/ufm"
 	"github.com/snyk/go-application-framework/pkg/workflow"
 )
 
@@ -45,6 +48,7 @@ const (
 	ConfigurationSlceEnabled     = "internal_snyk_scle_enabled"
 
 	ConfigurationUploadToFileUploadApi = "internal_upload_to_fua"
+	ConfigurationUseUFM                = "internal_code_use_ufm"
 
 	MetadataBundleHash = "Snyk-Bundle-Hash"
 
@@ -162,40 +166,83 @@ func EntryPointNative(invocationCtx workflow.InvocationContext, opts ...Optional
 	output = append(output, summaryData)
 
 	if resultAvailable {
-		// transform sarif to findings
-		localFindings, lfError := local_models.TransformToLocalFindingModelFromSarif(&result.Sarif, summary)
-		if lfError != nil {
-			return nil, lfError
-		}
+		useUFM := config.GetBool(ConfigurationUseUFM)
+		logger.Debug().Msgf("Use UFM: %v", useUFM)
 
-		logger.Debug().Msg("Coverage report for file(s):")
-		for _, coverage := range localFindings.Summary.Coverage {
-			logger.Debug().Msgf("  type: %s, format: %s, files: %d", coverage.Type, coverage.Lang, coverage.Files)
+		var findingsData workflow.Data
+		var findingsErr error
+		if useUFM {
+			findingsData, findingsErr = buildUFMFindings(id, config, logger, &result.Sarif, summary, resultMetaData, path)
+		} else {
+			findingsData, findingsErr = buildLocalFindings(id, config, logger, &result.Sarif, summary, resultMetaData, path)
 		}
-
-		// translate metadata to findings
-		local_models.TranslateMetadataToLocalFindingModel(resultMetaData, &localFindings, config)
-
-		targetId, targetIdError := instrumentation.GetTargetId(config.GetString(configuration.INPUT_DIRECTORY), instrumentation.AutoDetectedTargetId, instrumentation.WithConfiguredRepository(config))
-		if targetIdError != nil {
-			logger.Printf("Failed to derive target id, %v", targetIdError)
+		if findingsErr != nil {
+			return nil, findingsErr
 		}
-		localFindings.Links["targetid"] = targetId
-
-		findingsData, findingsError := createCodeWorkflowData(
-			workflow.NewTypeIdentifier(id, "findings"),
-			config,
-			localFindings,
-			content_type.LOCAL_FINDING_MODEL,
-			path,
-			logger)
-		if findingsError != nil {
-			return nil, findingsError
+		if findingsData != nil {
+			output = append(output, findingsData)
 		}
-		output = append(output, findingsData)
 	}
 
 	return output, err
+}
+
+func buildUFMFindings(id workflow.Identifier, config configuration.Configuration, logger *zerolog.Logger, sarifDoc *sarif.SarifDocument, summary *json_schemas.TestSummary, resultMetaData *scan.ResultMetaData, path string) (workflow.Data, error) {
+	severityThreshold := config.GetString(configuration.FLAG_SEVERITY_THRESHOLD)
+	testResult, err := ufm.TransformToUFMFromSarif(sarifDoc, summary, ufm.WithSeverityThreshold(severityThreshold))
+	if err != nil {
+		return nil, err
+	}
+
+	ufm.TranslateMetadataToTestResult(resultMetaData, testResult, config)
+
+	targetId, targetIdError := instrumentation.GetTargetId(config.GetString(configuration.INPUT_DIRECTORY), instrumentation.AutoDetectedTargetId, instrumentation.WithConfiguredRepository(config))
+	if targetIdError != nil {
+		logger.Printf("Failed to derive target id, %v", targetIdError)
+	}
+	testResult.SetMetadata("targetid", targetId)
+
+	findingsData := ufm.CreateWorkflowDataFromTestResults(
+		workflow.NewTypeIdentifier(id, "findings"),
+		[]testapi.TestResult{testResult},
+	)
+	if findingsData != nil {
+		findingsData.SetContentLocation(path)
+	}
+	return findingsData, nil
+}
+
+func buildLocalFindings(id workflow.Identifier, config configuration.Configuration, logger *zerolog.Logger, sarifDoc *sarif.SarifDocument, summary *json_schemas.TestSummary, resultMetaData *scan.ResultMetaData, path string) (workflow.Data, error) {
+	localFindings, err := local_models.TransformToLocalFindingModelFromSarif(sarifDoc, summary)
+	if err != nil {
+		return nil, err
+	}
+
+	logger.Debug().Msg("Coverage report for file(s):")
+	for _, coverage := range localFindings.Summary.Coverage {
+		logger.Debug().Msgf("  type: %s, format: %s, files: %d", coverage.Type, coverage.Lang, coverage.Files)
+	}
+
+	local_models.TranslateMetadataToLocalFindingModel(resultMetaData, &localFindings, config)
+
+	targetId, targetIdError := instrumentation.GetTargetId(config.GetString(configuration.INPUT_DIRECTORY), instrumentation.AutoDetectedTargetId, instrumentation.WithConfiguredRepository(config))
+	if targetIdError != nil {
+		logger.Printf("Failed to derive target id, %v", targetIdError)
+	}
+	localFindings.Links["targetid"] = targetId
+
+	findingsData, err := createCodeWorkflowData(
+		workflow.NewTypeIdentifier(id, "findings"),
+		config,
+		localFindings,
+		content_type.LOCAL_FINDING_MODEL,
+		path,
+		logger)
+	if err != nil {
+		return nil, err
+	}
+	findingsData.SetContentLocation(path)
+	return findingsData, nil
 }
 
 // default function that uses the code-client-go library
