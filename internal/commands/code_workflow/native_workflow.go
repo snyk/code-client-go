@@ -42,7 +42,7 @@ const (
 	ConfigurationProjectId       = "project-id"
 	ConfigurationCommitId        = "commit-id"
 
-	MetadataBundleHash = "Snyk-Bundle-Hash"
+	MetadataBundleHash                 = "Snyk-Bundle-Hash"
 	ConfigurationUploadToFileUploadApi = "internal_upload_to_fua"
 
 	AnalyticsFileUploadBackend = "file_upload_backend"
