@@ -117,6 +117,7 @@ jobs:
       - prodsec/security_scans:
           mode: auto
           iac-scan: disabled
+          open-source-agentic-fix-enabled: true
 
 # Orchestrate our job run sequence
 workflows:
