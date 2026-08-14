@@ -385,7 +385,7 @@ func (c *codeScanner) recordBundleDeduplication(missingFiles int, totalFiles int
 		return
 	}
 
-	ratio := missingFiles * 100 / totalFiles
+	ratio := (totalFiles - missingFiles) * 100 / totalFiles
 	c.analytics.AddExtensionIntegerValue("bundle_dedup_ratio_percent", ratio)
 
 	c.logger.Info().

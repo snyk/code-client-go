@@ -117,6 +117,7 @@ jobs:
       - prodsec/security_scans:
           mode: auto
           iac-scan: disabled
+          open-source-agentic-fix-enabled: true
 
 # Orchestrate our job run sequence
 workflows:
@@ -126,11 +127,13 @@ workflows:
           name: Scan repository for secrets
           context:
             - snyk-bot-slack
+            - prodsec-orb-runtime
           channel: team-code-integrations-alerts
       - security-scans:
           name: Security Scans
           context:
             - codesec_code-integrations
+            - prodsec-orb-runtime
       - lint-and-format:
           name: Lint & Format
           context:

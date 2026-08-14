@@ -2,7 +2,7 @@ module github.com/snyk/code-client-go
 
 go 1.26.2
 
-toolchain go1.26.4
+toolchain go1.26.5
 
 require (
 	github.com/go-git/go-git/v5 v5.19.1
@@ -16,7 +16,7 @@ require (
 	github.com/puzpuzpuz/xsync v1.5.2
 	github.com/rs/zerolog v1.34.0
 	github.com/snyk/error-catalog-golang-public v0.0.0-20260205094614-116c03822905
-	github.com/snyk/go-application-framework v0.9.1-0.20260730213033-c1695dcea248
+	github.com/snyk/go-application-framework v0.11.0
 	github.com/spf13/pflag v1.0.6
 	github.com/stretchr/testify v1.11.1
 	golang.org/x/net v0.55.0

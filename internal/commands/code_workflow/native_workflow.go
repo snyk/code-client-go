@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
-	"net/http"
 	"os"
 	"path"
 	"path/filepath"
@@ -20,7 +19,6 @@ import (
 	"github.com/snyk/code-client-go/sarif"
 	"github.com/snyk/code-client-go/scan"
 	"github.com/snyk/error-catalog-golang-public/code"
-	"github.com/snyk/go-application-framework/pkg/analytics"
 	"github.com/snyk/go-application-framework/pkg/configuration"
 	"github.com/snyk/go-application-framework/pkg/instrumentation"
 	"github.com/snyk/go-application-framework/pkg/local_workflows/content_type"
@@ -60,7 +58,7 @@ const (
 	noReport   reportType = "no_report"
 )
 
-type OptionalAnalysisFunctions func(context.Context, string, func() *http.Client, *zerolog.Logger, configuration.Configuration, ui.UserInterface, analytics.Analytics) (*sarif.SarifResponse, string, *scan.ResultMetaData, error)
+type OptionalAnalysisFunctions func(workflow.InvocationContext, string) (*sarif.SarifResponse, string, *scan.ResultMetaData, error)
 
 type ProgressTrackerFactory struct {
 	userInterface ui.UserInterface
@@ -155,7 +153,7 @@ func EntryPointNative(invocationCtx workflow.InvocationContext, opts ...Optional
 		analyzeFnc = opts[0]
 	}
 
-	result, bundleHash, resultMetaData, err := analyzeFnc(invocationCtx.Context(), path, invocationCtx.GetNetworkAccess().GetHttpClient, logger, config, invocationCtx.GetUserInterface(), invocationCtx.GetAnalytics())
+	result, bundleHash, resultMetaData, err := analyzeFnc(invocationCtx, path)
 	isNoFilesErr := bundle.IsNoFilesError(err)
 	if err != nil && !isNoFilesErr {
 		return nil, err
@@ -226,7 +224,14 @@ func EntryPointNative(invocationCtx workflow.InvocationContext, opts ...Optional
 }
 
 // default function that uses the code-client-go library
-func defaultAnalyzeFunction(ctx context.Context, path string, httpClientFunc func() *http.Client, logger *zerolog.Logger, config configuration.Configuration, userInterface ui.UserInterface, analyticsClient analytics.Analytics) (*sarif.SarifResponse, string, *scan.ResultMetaData, error) {
+func defaultAnalyzeFunction(invocationCtx workflow.InvocationContext, path string) (*sarif.SarifResponse, string, *scan.ResultMetaData, error) {
+	ctx := invocationCtx.Context()
+	config := invocationCtx.GetConfiguration()
+	logger := invocationCtx.GetEnhancedLogger()
+	httpClientFunc := invocationCtx.GetNetworkAccess().GetHttpClient
+	userInterface := invocationCtx.GetUserInterface()
+	analyticsClient := invocationCtx.GetAnalytics()
+
 	var result *sarif.SarifResponse
 	var resultMetaData *scan.ResultMetaData
 	requestId, err := uuid.GenerateUUID()
@@ -312,7 +317,7 @@ func defaultAnalyzeFunction(ctx context.Context, path string, httpClientFunc fun
 		)
 	}
 
-	target, files, err := determineAnalyzeInput(path, config, logger)
+	target, files, err := determineAnalyzeInput(invocationCtx, path)
 	if err != nil {
 		return nil, "", nil, err
 	}
@@ -374,7 +379,10 @@ func analyzeWithLegacyEngine(
 	return result, bundleHash, nil, err
 }
 
-func determineAnalyzeInput(path string, config configuration.Configuration, logger *zerolog.Logger) (scan.Target, <-chan string, error) {
+func determineAnalyzeInput(invocationCtx workflow.InvocationContext, path string) (scan.Target, <-chan string, error) {
+	config := invocationCtx.GetConfiguration()
+	logger := invocationCtx.GetEnhancedLogger()
+
 	var files <-chan string
 
 	pathIsDirectory := false
@@ -404,7 +412,7 @@ func determineAnalyzeInput(path string, config configuration.Configuration, logg
 		logger.Warn().Err(err).Msg("could not determine repository URL; consistent-ignores and SCM association may not be applied. Pass --remote-repo-url to set it explicitly")
 	}
 
-	files, err = getFilesForPath(path, logger, config)
+	files, err = getFilesForPath(invocationCtx, path)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -412,9 +420,12 @@ func determineAnalyzeInput(path string, config configuration.Configuration, logg
 	return target, files, nil
 }
 
-// Return a channel that notifies each file in the path that doesn't match the filter rules
-func getFilesForPath(path string, logger *zerolog.Logger, config configuration.Configuration) (<-chan string, error) {
-	filter := utils.NewFileFilterFromConfig(path, logger, config, utils.WithThreadNumber(config.GetInt(configuration.MAX_THREADS)))
+// Return a channel that notifies each file in the path that doesn't match the filter rules.
+// The file filter comes from the invocation context, so it is already wired to the invocation's
+// configuration and logger.
+func getFilesForPath(invocationCtx workflow.InvocationContext, path string) (<-chan string, error) {
+	maxThreads := invocationCtx.GetConfiguration().GetInt(configuration.MAX_THREADS)
+	filter := invocationCtx.GetFileFilter(path, utils.WithThreadNumber(maxThreads))
 	rules, err := filter.GetRules([]string{".gitignore", ".dcignore", ".snyk"})
 	if err != nil {
 		return nil, err
