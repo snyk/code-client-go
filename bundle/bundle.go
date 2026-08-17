@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package bundle
+package bundle1
 
 import (
 	"context"
