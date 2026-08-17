@@ -52,7 +52,7 @@ import (
     codeClientObservability  "github.com/snyk/code-client-go/observability"
 )
 
-logger := zerlog.NewLogger(...)
+logger := zerolog.NewLogger(...)
 instrumentor := codeClientObservability.NewInstrumentor()
 errorReporter := codeClientObservability.NewErrorReporter()
 httpClient := codeClientHTTP.NewHTTPClient(
