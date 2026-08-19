@@ -19,7 +19,7 @@ import (
 	"context"
 	"os"
 	"path/filepath"
-	"sync/atomic"
+	"sync"
 	"time"
 
 	"github.com/puzpuzpuz/xsync"
@@ -43,8 +43,9 @@ type SupportedFilesFilter struct {
 	analytics            analytics.Analytics
 	supportedExtensions  *xsync.MapOf[string, bool]
 	supportedConfigFiles *xsync.MapOf[string, bool]
-	apiDurationMs        atomic.Int64
-	apiCallCount         atomic.Int64
+	apiMu                sync.Mutex
+	apiDurationMs        int64
+	apiCallCount         int64
 }
 
 func NewSupportedFilesFilter(client deepcode.DeepcodeClient, logger *zerolog.Logger, analyticsClient analytics.Analytics) *SupportedFilesFilter {
@@ -58,14 +59,17 @@ func NewSupportedFilesFilter(client deepcode.DeepcodeClient, logger *zerolog.Log
 }
 
 func (s *SupportedFilesFilter) recordFiltersAPICall(elapsed time.Duration) {
-	totalMs := s.apiDurationMs.Add(elapsed.Milliseconds())
-	calls := s.apiCallCount.Add(1)
+	s.apiMu.Lock()
+	defer s.apiMu.Unlock()
+
+	s.apiDurationMs += elapsed.Milliseconds()
+	s.apiCallCount++
 
 	if s.analytics == nil {
 		return
 	}
-	s.analytics.AddExtensionIntegerValue(metricGetFiltersMs, int(totalMs))
-	s.analytics.AddExtensionIntegerValue(metricGetFiltersCalls, int(calls))
+	s.analytics.AddExtensionIntegerValue(metricGetFiltersMs, int(s.apiDurationMs))
+	s.analytics.AddExtensionIntegerValue(metricGetFiltersCalls, int(s.apiCallCount))
 }
 
 func (s *SupportedFilesFilter) isPathSupported(ctx context.Context, path string) (bool, error) {
