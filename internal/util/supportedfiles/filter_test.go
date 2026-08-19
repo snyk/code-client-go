@@ -125,6 +125,34 @@ func Test_IsFileSupported_FileSize(t *testing.T) {
 	})
 }
 
+func Test_IsFileSupported_Analytics(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	mockSnykCodeClient := deepcodeMocks.NewMockDeepcodeClient(ctrl)
+	mockSnykCodeClient.EXPECT().GetFilters(gomock.Any()).Return(deepcode.FiltersResponse{
+		ConfigFiles: []string{},
+		Extensions:  []string{".java"},
+	}, nil)
+
+	recorder := newRecordingAnalytics()
+	filter := supportedfiles.NewSupportedFilesFilter(mockSnykCodeClient, newLogger(t), recorder)
+	dir := t.TempDir()
+
+	for _, name := range []string{"A.java", "B.java", "C.java"} {
+		supported, err := filter.IsFileSupported(t.Context(), createFile(t, dir, name))
+		require.NoError(t, err)
+		require.True(t, supported)
+	}
+
+	t.Run("should report the GetFilters API duration", func(t *testing.T) {
+		// The duration itself is not asserted: the client is mocked, so it rounds to 0ms.
+		assert.Contains(t, recorder.extensionValues, "get_filters_ms")
+	})
+
+	t.Run("should fetch the filters once for the whole scan", func(t *testing.T) {
+		assert.Equal(t, 1, recorder.extensionValues["get_filters_calls"])
+	})
+}
+
 func createFile(t *testing.T, dir, name string) string {
 	t.Helper()
 	path := filepath.Join(dir, name)
@@ -136,4 +164,23 @@ func newLogger(t *testing.T) *zerolog.Logger {
 	t.Helper()
 	logger := zerolog.New(zerolog.NewTestWriter(t))
 	return &logger
+}
+
+// recordingAnalytics captures the reported extension values. GAF provides no mock for
+// analytics.Analytics, and its collector offers no way to read recorded values back, so the
+// real implementation is embedded and the one method under test is shadowed.
+type recordingAnalytics struct {
+	analytics.Analytics
+	extensionValues map[string]int
+}
+
+func newRecordingAnalytics() *recordingAnalytics {
+	return &recordingAnalytics{
+		Analytics:       analytics.New(),
+		extensionValues: map[string]int{},
+	}
+}
+
+func (r *recordingAnalytics) AddExtensionIntegerValue(key string, value int) {
+	r.extensionValues[key] = value
 }
