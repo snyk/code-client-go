@@ -5,12 +5,15 @@ import (
 	"io"
 	http2 "net/http"
 	"net/url"
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 
 	"github.com/golang/mock/gomock"
 	"github.com/rs/zerolog"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 
 	"github.com/snyk/code-client-go/http"
 	"github.com/snyk/code-client-go/http/mocks"
@@ -65,64 +68,26 @@ func TestExplainWithOptions(t *testing.T) {
 	})
 }
 
-func TestEnrichWithExplain(t *testing.T) {
-	t.Run("skips when no suggestions are missing an explanation", func(t *testing.T) {
-		d, mockHTTPClient := getHTTPMockedBinding(t)
-		mockHTTPClient.EXPECT().Do(gomock.Any()).Times(0)
+func TestToUnifiedDiffSuggestions(t *testing.T) {
+	t.Run("carries the explanation from the autofix response", func(t *testing.T) {
+		baseDir := t.TempDir()
+		filePath := "main.go"
+		require.NoError(t, os.WriteFile(filepath.Join(baseDir, filePath), []byte("vulnerable\n"), 0600))
 
-		suggestions := []AutofixUnifiedDiffSuggestion{
-			{FixId: "fix-1", Explanation: "explanation 1", UnifiedDiffsPerFile: map[string]string{"a.go": "diff1"}},
-			{FixId: "fix-2", Explanation: "explanation 2", UnifiedDiffsPerFile: map[string]string{"b.go": "diff2"}},
-		}
-		endpoint := &url.URL{Scheme: "http", Host: "test.com"}
-
-		d.enrichWithExplain(t.Context(), AutofixOptions{ExplainEndpoint: endpoint}, suggestions)
-
-		assert.Equal(t, "explanation 1", suggestions[0].Explanation)
-		assert.Equal(t, "explanation 2", suggestions[1].Explanation)
-	})
-
-	t.Run("skips when no ExplainEndpoint is configured", func(t *testing.T) {
-		d, mockHTTPClient := getHTTPMockedBinding(t)
-		mockHTTPClient.EXPECT().Do(gomock.Any()).Times(0)
-
-		suggestions := []AutofixUnifiedDiffSuggestion{
-			{FixId: "fix-1", UnifiedDiffsPerFile: map[string]string{"a.go": "diff1"}},
-		}
-
-		d.enrichWithExplain(t.Context(), AutofixOptions{}, suggestions)
-
-		assert.Equal(t, "", suggestions[0].Explanation)
-	})
-
-	t.Run("fills in only the missing explanations", func(t *testing.T) {
-		d, mockHTTPClient := getHTTPMockedBinding(t)
-
-		explainResponseJSON := explainResponse{
+		logger := zerolog.Nop()
+		response := AutofixResponse{
 			Status: completeStatus,
-			Explanation: map[string]string{
-				"explanation1": "fallback explanation for fix-2",
+			AutofixSuggestions: []autofixResponseSingleFix{
+				{Id: "fix-1", Value: "fixed\n", Explanation: "explanation for fix-1"},
 			},
 		}
-		expectedResponseBody, err := json.Marshal(explainResponseJSON)
-		assert.NoError(t, err)
-		mockResponse := http2.Response{
-			Status:     "200 Ok",
-			StatusCode: 200,
-			Body:       io.NopCloser(strings.NewReader(string(expectedResponseBody))),
-		}
-		mockHTTPClient.EXPECT().Do(gomock.Any()).Return(&mockResponse, nil).Times(1)
 
-		suggestions := []AutofixUnifiedDiffSuggestion{
-			{FixId: "fix-1", Explanation: "explanation from response", UnifiedDiffsPerFile: map[string]string{"a.go": "diff1"}},
-			{FixId: "fix-2", UnifiedDiffsPerFile: map[string]string{"b.go": "diff2"}},
-		}
-		endpoint := &url.URL{Scheme: "http", Host: "test.com"}
+		suggestions := response.toUnifiedDiffSuggestions(&logger, baseDir, filePath)
 
-		d.enrichWithExplain(t.Context(), AutofixOptions{RuleID: "rule-key", ExplainEndpoint: endpoint}, suggestions)
-
-		assert.Equal(t, "explanation from response", suggestions[0].Explanation)
-		assert.Equal(t, "fallback explanation for fix-2", suggestions[1].Explanation)
+		require.Len(t, suggestions, 1)
+		assert.Equal(t, "fix-1", suggestions[0].FixId)
+		assert.Equal(t, "explanation for fix-1", suggestions[0].Explanation)
+		assert.NotEmpty(t, suggestions[0].UnifiedDiffsPerFile[filepath.Join(baseDir, filePath)])
 	})
 }
 
