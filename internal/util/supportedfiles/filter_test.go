@@ -24,6 +24,7 @@ import (
 
 	"github.com/golang/mock/gomock"
 	"github.com/rs/zerolog"
+	"github.com/snyk/go-application-framework/pkg/analytics"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
@@ -40,7 +41,7 @@ func Test_IsFileSupported_Extensions(t *testing.T) {
 		Extensions:  []string{".java"},
 	}, nil)
 
-	filter := supportedfiles.NewSupportedFilesFilter(mockSnykCodeClient, newLogger(t))
+	filter := supportedfiles.NewSupportedFilesFilter(mockSnykCodeClient, newLogger(t), analytics.New())
 	dir := t.TempDir()
 
 	t.Run("should return true for supported languages", func(t *testing.T) {
@@ -77,7 +78,7 @@ func Test_IsFileSupported_ConfigFiles(t *testing.T) {
 		}, nil
 	})
 
-	filter := supportedfiles.NewSupportedFilesFilter(mockSnykCodeClient, newLogger(t))
+	filter := supportedfiles.NewSupportedFilesFilter(mockSnykCodeClient, newLogger(t), analytics.New())
 	dir := t.TempDir()
 
 	t.Run("should return true for supported config files", func(t *testing.T) {
@@ -106,7 +107,7 @@ func Test_IsFileSupported_FileSize(t *testing.T) {
 		Extensions:  []string{".java"},
 	}, nil)
 
-	filter := supportedfiles.NewSupportedFilesFilter(mockSnykCodeClient, newLogger(t))
+	filter := supportedfiles.NewSupportedFilesFilter(mockSnykCodeClient, newLogger(t), analytics.New())
 	dir := t.TempDir()
 
 	t.Run("should return false for empty files", func(t *testing.T) {
