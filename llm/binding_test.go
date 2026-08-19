@@ -5,12 +5,15 @@ import (
 	"io"
 	http2 "net/http"
 	"net/url"
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 
 	"github.com/golang/mock/gomock"
 	"github.com/rs/zerolog"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 
 	"github.com/snyk/code-client-go/http"
 	"github.com/snyk/code-client-go/http/mocks"
@@ -62,6 +65,29 @@ func TestExplainWithOptions(t *testing.T) {
 
 	t.Run("runExplain error", func(t *testing.T) {
 
+	})
+}
+
+func TestToUnifiedDiffSuggestions(t *testing.T) {
+	t.Run("carries the explanation from the autofix response", func(t *testing.T) {
+		baseDir := t.TempDir()
+		filePath := "main.go"
+		require.NoError(t, os.WriteFile(filepath.Join(baseDir, filePath), []byte("vulnerable\n"), 0600))
+
+		logger := zerolog.Nop()
+		response := AutofixResponse{
+			Status: completeStatus,
+			AutofixSuggestions: []autofixResponseSingleFix{
+				{Id: "fix-1", Value: "fixed\n", Explanation: "explanation for fix-1"},
+			},
+		}
+
+		suggestions := response.toUnifiedDiffSuggestions(&logger, baseDir, filePath)
+
+		require.Len(t, suggestions, 1)
+		assert.Equal(t, "fix-1", suggestions[0].FixId)
+		assert.Equal(t, "explanation for fix-1", suggestions[0].Explanation)
+		assert.NotEmpty(t, suggestions[0].UnifiedDiffsPerFile[filepath.Join(baseDir, filePath)])
 	})
 }
 
