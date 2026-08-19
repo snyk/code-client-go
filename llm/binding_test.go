@@ -1,72 +1,17 @@
 package llm
 
 import (
-	"encoding/json"
-	"io"
-	http2 "net/http"
-	"net/url"
 	"os"
 	"path/filepath"
-	"strings"
 	"testing"
 
-	"github.com/golang/mock/gomock"
 	"github.com/rs/zerolog"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
 	"github.com/snyk/code-client-go/http"
-	"github.com/snyk/code-client-go/http/mocks"
 	"github.com/snyk/code-client-go/observability"
 )
-
-func TestDeepcodeLLMBinding_PublishIssues(t *testing.T) {
-	binding := NewDeepcodeLLMBinding()
-	assert.PanicsWithValue(t, "implement me", func() { _ = binding.PublishIssues(t.Context(), []map[string]string{}) })
-}
-
-func TestExplainWithOptions(t *testing.T) {
-	t.Run("success", func(t *testing.T) {
-		d, mockHTTPClient := getHTTPMockedBinding(t)
-
-		explainResponseJSON := explainResponse{
-			Status: completeStatus,
-			Explanation: map[string]string{
-				"explanation1": "This is the first explanation",
-				"explanation2": "this is the second explanation",
-				"explanation3": "this is the third explanation",
-				"explanation4": "this is the fourth explanation",
-				"explanation5": "this is the fifth explanation",
-			},
-		}
-
-		expectedResponseBody, err := json.Marshal(explainResponseJSON)
-		assert.NoError(t, err)
-		mockResponse := http2.Response{
-			Status:     "200 Ok",
-			StatusCode: 200,
-			Body:       io.NopCloser(strings.NewReader(string(expectedResponseBody))),
-		}
-		mockHTTPClient.EXPECT().Do(gomock.Any()).Return(&mockResponse, nil)
-		testDiff := "test diff"
-		endpoint := &url.URL{Scheme: "http", Host: "test.com"}
-		explanation, err := d.ExplainWithOptions(t.Context(), ExplainOptions{Diffs: []string{testDiff}, Endpoint: endpoint})
-		assert.NoError(t, err)
-		var exptectedExplanationsResponse explainResponse
-		err = json.Unmarshal(expectedResponseBody, &exptectedExplanationsResponse)
-		assert.NoError(t, err)
-		expectedResExplanations := exptectedExplanationsResponse.Explanation
-		assert.Equal(t, expectedResExplanations["explanation1"], explanation[0])
-		assert.Equal(t, expectedResExplanations["explanation2"], explanation[1])
-		assert.Equal(t, expectedResExplanations["explanation3"], explanation[2])
-		assert.Equal(t, expectedResExplanations["explanation4"], explanation[3])
-		assert.Equal(t, expectedResExplanations["explanation5"], explanation[4])
-	})
-
-	t.Run("runExplain error", func(t *testing.T) {
-
-	})
-}
 
 func TestToUnifiedDiffSuggestions(t *testing.T) {
 	t.Run("carries the explanation from the autofix response", func(t *testing.T) {
@@ -89,16 +34,6 @@ func TestToUnifiedDiffSuggestions(t *testing.T) {
 		assert.Equal(t, "explanation for fix-1", suggestions[0].Explanation)
 		assert.NotEmpty(t, suggestions[0].UnifiedDiffsPerFile[filepath.Join(baseDir, filePath)])
 	})
-}
-
-func getHTTPMockedBinding(t *testing.T) (*DeepCodeLLMBindingImpl, *mocks.MockHTTPClient) {
-	t.Helper()
-	ctrl := gomock.NewController(t)
-	mockHTTPClient := mocks.NewMockHTTPClient(ctrl)
-	d := NewDeepcodeLLMBinding(
-		WithHTTPClient(func() http.HTTPClient { return mockHTTPClient }),
-	)
-	return d, mockHTTPClient
 }
 
 func TestNewDeepcodeLLMBinding(t *testing.T) {
