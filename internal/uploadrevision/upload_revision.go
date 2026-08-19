@@ -60,7 +60,7 @@ func NewUploadRevision(httpClient *http.Client, cfg fileupload.Config, deepcodeC
 	)
 	return &uploadRevision{
 		client:               client,
-		supportedFilesFilter: supportedfiles.NewSupportedFilesFilter(deepcodeClient, logger),
+		supportedFilesFilter: supportedfiles.NewSupportedFilesFilter(deepcodeClient, logger, analyticsClient),
 		logger:               logger,
 		analytics:            analyticsClient,
 		trackerFactory:       trackerFactory,

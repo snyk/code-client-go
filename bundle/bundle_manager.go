@@ -79,7 +79,7 @@ func NewBundleManager(
 		errorReporter:        errorReporter,
 		logger:               logger,
 		trackerFactory:       trackerFactory,
-		supportedFilesFilter: supportedfiles.NewSupportedFilesFilter(deepcodeClient, logger),
+		supportedFilesFilter: supportedfiles.NewSupportedFilesFilter(deepcodeClient, logger, analyticsClient),
 		analytics:            analyticsClient,
 	}
 }

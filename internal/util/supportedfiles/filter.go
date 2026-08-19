@@ -19,6 +19,8 @@ import (
 	"context"
 	"os"
 	"path/filepath"
+	"sync"
+	"time"
 
 	"github.com/puzpuzpuz/xsync"
 	"github.com/rs/zerolog"
@@ -29,25 +31,52 @@ import (
 
 const maxFileSize = 1024 * 1024
 
+const (
+	// GAF file-filter durationMs - get_filters_ms = filtering + non-network work
+	metricGetFiltersMs    = "get_filters_ms"
+	metricGetFiltersCalls = "get_filters_calls"
+)
+
 type SupportedFilesFilter struct {
 	client               deepcode.DeepcodeClient
 	logger               *zerolog.Logger
+	analytics            analytics.Analytics
 	supportedExtensions  *xsync.MapOf[string, bool]
 	supportedConfigFiles *xsync.MapOf[string, bool]
+	apiMu                sync.Mutex
+	apiDurationMs        int64
+	apiCallCount         int64
 }
 
-func NewSupportedFilesFilter(client deepcode.DeepcodeClient, logger *zerolog.Logger) *SupportedFilesFilter {
+func NewSupportedFilesFilter(client deepcode.DeepcodeClient, logger *zerolog.Logger, analyticsClient analytics.Analytics) *SupportedFilesFilter {
 	return &SupportedFilesFilter{
 		client:               client,
 		logger:               logger,
+		analytics:            analyticsClient,
 		supportedExtensions:  xsync.NewMapOf[bool](),
 		supportedConfigFiles: xsync.NewMapOf[bool](),
 	}
 }
 
+func (s *SupportedFilesFilter) recordFiltersAPICall(elapsed time.Duration) {
+	s.apiMu.Lock()
+	defer s.apiMu.Unlock()
+
+	s.apiDurationMs += elapsed.Milliseconds()
+	s.apiCallCount++
+
+	if s.analytics == nil {
+		return
+	}
+	s.analytics.AddExtensionIntegerValue(metricGetFiltersMs, int(s.apiDurationMs))
+	s.analytics.AddExtensionIntegerValue(metricGetFiltersCalls, int(s.apiCallCount))
+}
+
 func (s *SupportedFilesFilter) isPathSupported(ctx context.Context, path string) (bool, error) {
 	if s.supportedExtensions.Size() == 0 && s.supportedConfigFiles.Size() == 0 {
+		start := time.Now()
 		filters, err := s.client.GetFilters(ctx)
+		s.recordFiltersAPICall(time.Since(start))
 		if err != nil {
 			s.logger.Error().Err(err).Msg("could not get filters")
 			return false, err
