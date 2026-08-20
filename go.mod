@@ -121,4 +121,7 @@ tool (
 	github.com/pact-foundation/pact-go/v2
 )
 
-// replace github.com/snyk/go-application-framework => ../../go-application-framework
+// Requires go-application-framework with pkg/contributorbilling (IANDT-237).
+// Pinned to pre-release commit until GAF ships; bump to tagged release before merge to main.
+// For local dev against ../go-application-framework:
+// replace github.com/snyk/go-application-framework => ../go-application-framework

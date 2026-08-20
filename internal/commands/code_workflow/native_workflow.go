@@ -14,6 +14,7 @@ import (
 	codeclient "github.com/snyk/code-client-go"
 	"github.com/snyk/code-client-go/bundle"
 	codeclienthttp "github.com/snyk/code-client-go/http"
+	"github.com/snyk/code-client-go/internal/contributorbilling"
 	"github.com/snyk/code-client-go/observability"
 	"github.com/snyk/code-client-go/sarif"
 	"github.com/snyk/code-client-go/scan"
@@ -111,6 +112,30 @@ func trackUsage(network networking.NetworkAccess, config configuration.Configura
 	resp.Body.Close()
 }
 
+func maybeEmitContributorBilling(
+	invocationCtx workflow.InvocationContext,
+	config configuration.Configuration,
+	path string,
+	resultMetaData *scan.ResultMetaData,
+	analyzeErr error,
+) {
+	if analyzeErr != nil || resultMetaData == nil || resultMetaData.ProjectId == "" {
+		return
+	}
+
+	reportMode, reportErr := GetReportMode(config)
+	if reportErr != nil || reportMode == noReport {
+		return
+	}
+
+	repoPath := config.GetString(configuration.INPUT_DIRECTORY)
+	if repoPath == "" {
+		repoPath = path
+	}
+
+	contributorbilling.EmitProject(invocationCtx.Context(), invocationCtx, resultMetaData.ProjectId, repoPath)
+}
+
 func EntryPointNative(invocationCtx workflow.InvocationContext, opts ...OptionalAnalysisFunctions) ([]workflow.Data, error) {
 	// get necessary objects from invocation context
 	config := invocationCtx.GetConfiguration()
@@ -133,6 +158,8 @@ func EntryPointNative(invocationCtx workflow.InvocationContext, opts ...Optional
 	if err != nil && !isNoFilesErr {
 		return nil, err
 	}
+
+	maybeEmitContributorBilling(invocationCtx, config, path, resultMetaData, err)
 
 	logger.Debug().Msgf("Result metadata: %+v", resultMetaData)
 
