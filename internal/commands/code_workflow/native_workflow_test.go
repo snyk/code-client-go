@@ -464,6 +464,29 @@ func Test_determineAnalyzeInput(t *testing.T) {
 
 		assert.Equal(t, 1, count)
 	})
+
+	t.Run("rejects a symlink to a file", func(t *testing.T) {
+		ictx := testInvocationContext(t, config, &logger, nil, nil, analytics.New())
+
+		link := filepath.Join(path, "link.txt")
+		require.NoError(t, os.Symlink(filenames[0], link))
+		t.Cleanup(func() { os.Remove(link) })
+
+		_, _, err := determineAnalyzeInput(ictx, link)
+		assert.Error(t, err)
+		assert.Contains(t, err.Error(), "symbolic link")
+	})
+
+	t.Run("rejects a symlink to a directory", func(t *testing.T) {
+		ictx := testInvocationContext(t, config, &logger, nil, nil, analytics.New())
+
+		linkDir := filepath.Join(t.TempDir(), "linked-repo")
+		require.NoError(t, os.Symlink(path, linkDir))
+
+		_, _, err := determineAnalyzeInput(ictx, linkDir)
+		assert.Error(t, err)
+		assert.Contains(t, err.Error(), "symbolic link")
+	})
 }
 
 func Test_TrackUsage(t *testing.T) {

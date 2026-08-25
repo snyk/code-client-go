@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"os"
 	"path"
 	"path/filepath"
@@ -358,10 +359,16 @@ func determineAnalyzeInput(invocationCtx workflow.InvocationContext, path string
 
 	var files <-chan string
 
-	pathIsDirectory := false
-	if fileinfo, fileInfoErr := os.Stat(path); fileInfoErr == nil && fileinfo.IsDir() {
-		pathIsDirectory = true
+	linfo, err := os.Lstat(path)
+	if err != nil {
+		return nil, nil, fmt.Errorf("cannot access path %q: %w", path, err)
 	}
+
+	if linfo.Mode()&os.ModeSymlink != 0 {
+		return nil, nil, fmt.Errorf("path %q is a symbolic link; pass the real path instead", path)
+	}
+
+	pathIsDirectory := linfo.IsDir()
 
 	if !pathIsDirectory {
 		target, err := scan.NewRepositoryTarget(filepath.Dir(path), scan.WithRepositoryUrl(config.GetString(configuration.FLAG_REMOTE_REPO_URL)), scan.WithCommitId(config.GetString(ConfigurationCommitId)))
