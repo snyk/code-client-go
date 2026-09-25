@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"os"
 	"path"
 	"path/filepath"
@@ -51,6 +52,10 @@ const (
 	MetadataBundleHash = "Snyk-Bundle-Hash"
 
 	AnalyticsFileUploadBackend = "file_upload_backend"
+
+	metadataKeyReportURL  = "report-url"
+	metadataKeyProjectID  = "projectid"
+	metadataKeySnapshotID = "snapshotid"
 )
 
 type reportType string
@@ -192,7 +197,7 @@ func buildUFMFindings(id workflow.Identifier, config configuration.Configuration
 		return nil, err
 	}
 
-	ufm.TranslateMetadataToTestResult(resultMetaData, testResult, config)
+	translateMetadataToTestResult(resultMetaData, testResult, config)
 
 	targetId, targetIdError := instrumentation.GetTargetId(config.GetString(configuration.INPUT_DIRECTORY), instrumentation.AutoDetectedTargetId, instrumentation.WithConfiguredRepository(config))
 	if targetIdError != nil {
@@ -208,6 +213,24 @@ func buildUFMFindings(id workflow.Identifier, config configuration.Configuration
 		findingsData.SetContentLocation(path)
 	}
 	return findingsData, nil
+}
+
+func translateMetadataToTestResult(resultMetaData *scan.ResultMetaData, result testapi.TestResult, config configuration.Configuration) {
+	if resultMetaData == nil || result == nil {
+		return
+	}
+
+	if len(resultMetaData.WebUiUrl) > 0 {
+		result.SetMetadata(metadataKeyReportURL, fmt.Sprintf("%s%s", config.GetString(configuration.WEB_APP_URL), resultMetaData.WebUiUrl))
+	}
+
+	if len(resultMetaData.ProjectId) > 0 {
+		result.SetMetadata(metadataKeyProjectID, resultMetaData.ProjectId)
+	}
+
+	if len(resultMetaData.SnapshotId) > 0 {
+		result.SetMetadata(metadataKeySnapshotID, resultMetaData.SnapshotId)
+	}
 }
 
 func buildLocalFindings(id workflow.Identifier, config configuration.Configuration, logger *zerolog.Logger, sarifDoc *sarif.SarifDocument, summary *json_schemas.TestSummary, resultMetaData *scan.ResultMetaData, path string) (workflow.Data, error) {
