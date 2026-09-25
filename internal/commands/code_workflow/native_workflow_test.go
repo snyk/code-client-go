@@ -24,11 +24,13 @@ import (
 	"github.com/snyk/code-client-go/sarif"
 	"github.com/snyk/code-client-go/scan"
 	"github.com/snyk/go-application-framework/pkg/analytics"
+	"github.com/snyk/go-application-framework/pkg/apiclients/testapi"
 	"github.com/snyk/go-application-framework/pkg/configuration"
 	gafmocks "github.com/snyk/go-application-framework/pkg/mocks"
 	"github.com/snyk/go-application-framework/pkg/networking"
 	"github.com/snyk/go-application-framework/pkg/ui"
 	"github.com/snyk/go-application-framework/pkg/utils"
+	"github.com/snyk/go-application-framework/pkg/utils/ufm"
 	"github.com/snyk/go-application-framework/pkg/workflow"
 )
 
@@ -549,4 +551,80 @@ func Test_defaultAnalyzeFunction_readsDependenciesFromInvocationContext(t *testi
 	require.Error(t, err)
 	assert.Nil(t, result)
 	assert.Empty(t, bundleHash)
+}
+
+func newTestUFMResult(t *testing.T) testapi.TestResult {
+	t.Helper()
+
+	sarifDoc := &sarif.SarifDocument{Runs: []sarif.Run{}}
+	result, err := ufm.TransformToUFMFromSarif(sarifDoc, nil)
+	require.NoError(t, err)
+	return result
+}
+
+func Test_translateMetadataToTestResult(t *testing.T) {
+	result := newTestUFMResult(t)
+
+	config := configuration.NewWithOpts()
+	config.Set(configuration.WEB_APP_URL, "https://app.snyk.io")
+
+	meta := &scan.ResultMetaData{
+		WebUiUrl:   "/org/test-org/project/abc-123",
+		ProjectId:  "abc-123",
+		SnapshotId: "snap-456",
+	}
+
+	translateMetadataToTestResult(meta, result, config)
+
+	assert.Equal(t, "https://app.snyk.io/org/test-org/project/abc-123", result.GetMetadataValue(metadataKeyReportURL))
+	assert.Equal(t, "abc-123", result.GetMetadataValue(metadataKeyProjectID))
+	assert.Equal(t, "snap-456", result.GetMetadataValue(metadataKeySnapshotID))
+}
+
+func Test_translateMetadataToTestResult_NilMetadata(t *testing.T) {
+	result := newTestUFMResult(t)
+
+	config := configuration.NewWithOpts()
+
+	translateMetadataToTestResult(nil, result, config)
+
+	assert.Nil(t, result.GetMetadataValue(metadataKeyReportURL))
+	assert.Nil(t, result.GetMetadataValue(metadataKeyProjectID))
+	assert.Nil(t, result.GetMetadataValue(metadataKeySnapshotID))
+}
+
+func Test_translateMetadataToTestResult_EmptyFields(t *testing.T) {
+	result := newTestUFMResult(t)
+
+	config := configuration.NewWithOpts()
+	config.Set(configuration.WEB_APP_URL, "https://app.snyk.io")
+
+	meta := &scan.ResultMetaData{
+		WebUiUrl: "/org/my-org/project/xyz",
+	}
+
+	translateMetadataToTestResult(meta, result, config)
+
+	assert.Equal(t, "https://app.snyk.io/org/my-org/project/xyz", result.GetMetadataValue(metadataKeyReportURL))
+	assert.Nil(t, result.GetMetadataValue(metadataKeyProjectID))
+	assert.Nil(t, result.GetMetadataValue(metadataKeySnapshotID))
+}
+
+func Test_translateMetadataToTestResult_PreservesExistingMetadata(t *testing.T) {
+	result := newTestUFMResult(t)
+	result.SetMetadata("existing", "value")
+
+	config := configuration.NewWithOpts()
+	config.Set(configuration.WEB_APP_URL, "https://app.snyk.io")
+
+	meta := &scan.ResultMetaData{
+		WebUiUrl:  "/org/test/project/123",
+		ProjectId: "proj-id",
+	}
+
+	translateMetadataToTestResult(meta, result, config)
+
+	assert.Equal(t, "value", result.GetMetadataValue("existing"))
+	assert.Equal(t, "https://app.snyk.io/org/test/project/123", result.GetMetadataValue(metadataKeyReportURL))
+	assert.Equal(t, "proj-id", result.GetMetadataValue(metadataKeyProjectID))
 }
