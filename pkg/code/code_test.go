@@ -256,7 +256,7 @@ func Test_Code_nativeImplementation_happyPath(t *testing.T) {
 			actualBundleHash, metaErr := v.GetMetaData(code_workflow.MetadataBundleHash)
 			assert.NoError(t, metaErr)
 			assert.Equal(t, expectedBundleHash, actualBundleHash)
-		} else if v.GetContentType() == content_type.LOCAL_FINDING_MODEL {
+		} else if v.GetContentType() == content_type.LOCAL_FINDING_MODEL || v.GetContentType() == content_type.UFM_RESULT {
 			_, ok := v.GetPayload().([]byte)
 			assert.True(t, ok)
 		} else {
@@ -919,4 +919,49 @@ func Test_getSlceEnabled(t *testing.T) {
 		},
 		precachedMsg: "Should return LocalCodeEngine.Enabled from ConfigurationSastSettings",
 	})
+}
+
+func Test_Code_nativeImplementation_UFMSummaryRespectsSeverityThreshold(t *testing.T) {
+	config := configuration.NewWithOpts(configuration.WithAutomaticEnv())
+	config.Set(code_workflow.ConfigurationUseUFM, true)
+	config.Set(configuration.FLAG_SEVERITY_THRESHOLD, "high")
+	networkAccess := networking.NewNetworkAccess(config)
+
+	mockController := gomock.NewController(t)
+	invocationContext := mocks.NewMockInvocationContext(mockController)
+	invocationContext.EXPECT().GetConfiguration().Return(config)
+	invocationContext.EXPECT().GetNetworkAccess().Return(networkAccess)
+	invocationContext.EXPECT().GetEnhancedLogger().Return(&zerolog.Logger{})
+	invocationContext.EXPECT().GetWorkflowIdentifier().Return(workflow.NewWorkflowIdentifier("code"))
+
+	analysisFunc := func(_ workflow.InvocationContext, path string) (*sarif.SarifResponse, string, *scan.ResultMetaData, error) {
+		response := &sarif.SarifResponse{
+			Sarif: sarif.SarifDocument{
+				Runs: []sarif.Run{
+					{
+						Results: []sarif.Result{
+							{Level: "error"},
+							{Level: "warning"},
+							{Level: "note"},
+						},
+					},
+				},
+			},
+		}
+		return response, "bundleHash", &scan.ResultMetaData{}, nil
+	}
+
+	rs, err := code_workflow.EntryPointNative(invocationContext, analysisFunc)
+	require.NoError(t, err)
+
+	summaryData := findTestSummary(rs)
+	require.NotNil(t, summaryData)
+	payload, ok := summaryData.GetPayload().([]byte)
+	require.True(t, ok)
+
+	actualSummary := &json_schemas.TestSummary{}
+	require.NoError(t, json.Unmarshal(payload, actualSummary))
+	require.Len(t, actualSummary.Results, 1)
+	assert.Equal(t, "high", actualSummary.Results[0].Severity)
+	assert.Equal(t, 1, actualSummary.Results[0].Total)
 }
