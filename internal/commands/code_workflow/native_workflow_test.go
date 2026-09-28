@@ -26,6 +26,7 @@ import (
 	"github.com/snyk/go-application-framework/pkg/analytics"
 	"github.com/snyk/go-application-framework/pkg/apiclients/testapi"
 	"github.com/snyk/go-application-framework/pkg/configuration"
+	"github.com/snyk/go-application-framework/pkg/local_workflows/json_schemas"
 	gafmocks "github.com/snyk/go-application-framework/pkg/mocks"
 	"github.com/snyk/go-application-framework/pkg/networking"
 	"github.com/snyk/go-application-framework/pkg/ui"
@@ -627,4 +628,44 @@ func Test_translateMetadataToTestResult_PreservesExistingMetadata(t *testing.T) 
 	assert.Equal(t, "value", result.GetMetadataValue("existing"))
 	assert.Equal(t, "https://app.snyk.io/org/test/project/123", result.GetMetadataValue(metadataKeyReportURL))
 	assert.Equal(t, "proj-id", result.GetMetadataValue(metadataKeyProjectID))
+}
+
+func Test_filterSummaryBySeverity(t *testing.T) {
+	newSummary := func() *json_schemas.TestSummary {
+		return &json_schemas.TestSummary{Results: []json_schemas.TestSummaryResult{
+			{Severity: "low", Total: 1, Open: 1},
+			{Severity: "medium", Total: 2, Open: 2},
+			{Severity: "high", Total: 3, Open: 3},
+		}}
+	}
+	severities := func(s *json_schemas.TestSummary) []string {
+		var out []string
+		for _, r := range s.Results {
+			out = append(out, r.Severity)
+		}
+		return out
+	}
+
+	tests := []struct {
+		threshold string
+		expected  []string
+	}{
+		{threshold: "", expected: []string{"low", "medium", "high"}},
+		{threshold: "low", expected: []string{"low", "medium", "high"}},
+		{threshold: "medium", expected: []string{"medium", "high"}},
+		{threshold: "high", expected: []string{"high"}},
+		{threshold: "critical", expected: nil},
+		{threshold: "unknown", expected: []string{"low", "medium", "high"}},
+	}
+	for _, tc := range tests {
+		t.Run(tc.threshold, func(t *testing.T) {
+			summary := newSummary()
+			filterSummaryBySeverity(summary, tc.threshold)
+			assert.Equal(t, tc.expected, severities(summary))
+		})
+	}
+
+	t.Run("nil summary", func(t *testing.T) {
+		assert.NotPanics(t, func() { filterSummaryBySeverity(nil, "high") })
+	})
 }

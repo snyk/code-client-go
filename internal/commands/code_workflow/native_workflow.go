@@ -8,6 +8,8 @@ import (
 	"os"
 	"path"
 	"path/filepath"
+	"slices"
+	"strings"
 
 	gUuid "github.com/google/uuid"
 	"github.com/hashicorp/go-uuid"
@@ -151,7 +153,15 @@ func EntryPointNative(invocationCtx workflow.InvocationContext, opts ...Optional
 		result = &sarif.SarifResponse{}
 	}
 
+	useUFM := config.GetBool(ConfigurationUseUFM)
+	logger.Debug().Msgf("Use UFM: %v", useUFM)
+	severityThreshold := strings.ToLower(config.GetString(configuration.FLAG_SEVERITY_THRESHOLD))
+
 	summary := sarif2.CreateCodeSummary(&result.Sarif, config.GetString(configuration.INPUT_DIRECTORY))
+	if useUFM {
+		// UFM findings are filtered by severity, so the summary has to match them.
+		filterSummaryBySeverity(summary, severityThreshold)
+	}
 	summaryData, err := createCodeWorkflowData(
 		workflow.NewTypeIdentifier(id, "summary"),
 		config,
@@ -169,13 +179,10 @@ func EntryPointNative(invocationCtx workflow.InvocationContext, opts ...Optional
 	output = append(output, summaryData)
 
 	if resultAvailable {
-		useUFM := config.GetBool(ConfigurationUseUFM)
-		logger.Debug().Msgf("Use UFM: %v", useUFM)
-
 		var findingsData workflow.Data
 		var findingsErr error
 		if useUFM {
-			findingsData, findingsErr = buildUFMFindings(id, config, logger, &result.Sarif, summary, resultMetaData, path)
+			findingsData, findingsErr = buildUFMFindings(id, config, logger, &result.Sarif, summary, resultMetaData, path, severityThreshold)
 		} else {
 			findingsData, findingsErr = buildLocalFindings(id, config, logger, &result.Sarif, summary, resultMetaData, path)
 		}
@@ -190,8 +197,24 @@ func EntryPointNative(invocationCtx workflow.InvocationContext, opts ...Optional
 	return output, err
 }
 
-func buildUFMFindings(id workflow.Identifier, config configuration.Configuration, logger *zerolog.Logger, sarifDoc *sarif.SarifDocument, summary *json_schemas.TestSummary, resultMetaData *scan.ResultMetaData, path string) (workflow.Data, error) {
-	severityThreshold := config.GetString(configuration.FLAG_SEVERITY_THRESHOLD)
+// filterSummaryBySeverity drops summary results below the threshold, using the same rules as ufm.WithSeverityThreshold.
+func filterSummaryBySeverity(summary *json_schemas.TestSummary, severityThreshold string) {
+	if summary == nil || severityThreshold == "" {
+		return
+	}
+
+	minIndex := slices.Index(json_schemas.DEFAULT_SEVERITIES, severityThreshold)
+	if minIndex < 0 {
+		return
+	}
+	allowed := json_schemas.DEFAULT_SEVERITIES[minIndex:]
+
+	summary.Results = slices.DeleteFunc(summary.Results, func(r json_schemas.TestSummaryResult) bool {
+		return !slices.Contains(allowed, r.Severity)
+	})
+}
+
+func buildUFMFindings(id workflow.Identifier, config configuration.Configuration, logger *zerolog.Logger, sarifDoc *sarif.SarifDocument, summary *json_schemas.TestSummary, resultMetaData *scan.ResultMetaData, path string, severityThreshold string) (workflow.Data, error) {
 	testResult, err := ufm.TransformToUFMFromSarif(sarifDoc, summary, ufm.WithSeverityThreshold(severityThreshold))
 	if err != nil {
 		return nil, err
