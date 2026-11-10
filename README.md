@@ -31,8 +31,7 @@ engine.Invoke(code.WORKFLOWID_CODE)
 
 The `codeWorkflowEntryPoint` function:
 - Checks if SAST is enabled for the organization
-- Determines whether to use the native or legacy implementation based on feature flags
-- Routes to either `EntryPointNative` (for Code Consistent Ignores support) or `EntryPointLegacy`
+- Routes to the native `EntryPointNative` implementation
 - Returns workflow data containing scan results as local findings
 
 ### Library Functions
