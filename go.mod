@@ -2,7 +2,7 @@ module github.com/snyk/code-client-go
 
 go 1.26.2
 
-toolchain go1.26.6
+toolchain go1.26.10
 
 require (
 	github.com/go-git/go-git/v5 v5.19.2
@@ -19,7 +19,7 @@ require (
 	github.com/snyk/go-application-framework v0.27.0
 	github.com/spf13/pflag v1.0.6
 	github.com/stretchr/testify v1.11.1
-	golang.org/x/net v0.57.0
+	golang.org/x/net v0.62.0
 )
 
 require (
@@ -100,13 +100,13 @@ require (
 	github.com/xo/terminfo v0.0.0-20220910002029-abceb7e1c41e // indirect
 	go.uber.org/atomic v1.9.0 // indirect
 	go.uber.org/multierr v1.9.0 // indirect
-	golang.org/x/crypto v0.56.0 // indirect
-	golang.org/x/mod v0.38.0 // indirect
+	golang.org/x/crypto v0.58.0 // indirect
+	golang.org/x/mod v0.41.0 // indirect
 	golang.org/x/oauth2 v0.27.0 // indirect
-	golang.org/x/sync v0.22.0 // indirect
-	golang.org/x/sys v0.47.0 // indirect
-	golang.org/x/text v0.41.0 // indirect
-	golang.org/x/tools v0.48.0 // indirect
+	golang.org/x/sync v0.24.0 // indirect
+	golang.org/x/sys v0.49.0 // indirect
+	golang.org/x/text v0.43.0 // indirect
+	golang.org/x/tools v0.51.0 // indirect
 	google.golang.org/genproto/googleapis/rpc v0.0.0-20250404141209-ee84b53bf3d0 // indirect
 	google.golang.org/grpc v1.71.0 // indirect
 	google.golang.org/protobuf v1.36.6 // indirect
