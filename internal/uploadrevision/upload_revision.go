@@ -130,12 +130,35 @@ func (u *uploadRevision) Upload(ctx context.Context, requestId string, target sc
 		return UploadResult{}, err
 	}
 
-	return UploadResult{RevisionID: RevisionID(res.RevisionID.String())}, nil
+	return UploadResult{
+		RevisionID:   RevisionID(res.RevisionID.String()),
+		SkippedFiles: toSkippedFiles(res.SkippedFiles),
+	}, nil
+}
+
+func toSkippedFiles(skipped []fileupload.SkippedFile) []scan.SkippedFile {
+	if len(skipped) == 0 {
+		return nil
+	}
+	result := make([]scan.SkippedFile, 0, len(skipped))
+	for _, f := range skipped {
+		result = append(result, scan.SkippedFile{Path: f.Path, Reason: SkipReasonFor(f.Reason)})
+	}
+	return result
 }
 
 // SkipReasonFor maps the reason the upload client gave for skipping a file to a SkipReason.
 func SkipReasonFor(reason error) scan.SkipReason {
-	return scan.SkipReasonOther
+	var tooLarge *fileupload.FileSizeLimitError
+	var pathTooLong *fileupload.FilePathLengthLimitError
+	switch {
+	case errors.As(reason, &tooLarge):
+		return scan.SkipReasonFileTooLarge
+	case errors.As(reason, &pathTooLong):
+		return scan.SkipReasonPathTooLong
+	default:
+		return scan.SkipReasonOther
+	}
 }
 
 // recordUploadOutcome reports how many files the upload client sent and how many it skipped,
