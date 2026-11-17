@@ -20,6 +20,7 @@ import (
 	"bytes"
 	"compress/gzip"
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"mime"
@@ -35,6 +36,7 @@ import (
 	"github.com/rs/zerolog"
 	"github.com/snyk/go-application-framework/pkg/analytics"
 	"github.com/snyk/go-application-framework/pkg/apiclients/fileupload"
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/suite"
 
 	"github.com/snyk/code-client-go/bundle"
@@ -221,10 +223,11 @@ func (s *uploadRevisionSuite) TestUpload_SingleFile() {
 	files <- filepath.Join(dir, "main.go")
 	close(files)
 
-	revisionID, err := s.uploader.Upload(context.Background(), "requestId", scan.RepositoryTarget{LocalFilePath: dir}, files)
+	result, err := s.uploader.Upload(context.Background(), "requestId", scan.RepositoryTarget{LocalFilePath: dir}, files)
 
 	s.Require().NoError(err)
-	s.Equal(uploadrevision.RevisionID(s.revID.String()), revisionID)
+	s.Equal(uploadrevision.RevisionID(s.revID.String()), result.RevisionID)
+	s.Empty(result.SkippedFiles)
 	s.Require().Len(s.uploaded, 1)
 	s.Equal("package main", s.uploaded["main.go"])
 	s.Equal(1, s.uploadCall["main.go"])
@@ -330,8 +333,12 @@ func (s *uploadRevisionSuite) TestUpload_RecordsFilesExcludedDuringUpload() {
 	files <- filepath.Join(dir, excludedRelPath)
 	close(files)
 
-	_, err := s.uploader.Upload(context.Background(), "requestId", scan.RepositoryTarget{LocalFilePath: dir}, files)
+	result, err := s.uploader.Upload(context.Background(), "requestId", scan.RepositoryTarget{LocalFilePath: dir}, files)
 	s.Require().NoError(err)
+
+	s.Require().Len(result.SkippedFiles, 1)
+	s.Equal(scan.SkipReasonPathTooLong, result.SkippedFiles[0].Reason)
+	s.True(strings.HasSuffix(result.SkippedFiles[0].Path, "excluded.go"), "the skipped path is reported: %s", result.SkippedFiles[0].Path)
 
 	s.Equal(float64(1), s.recordedExtensions()["files_excluded_during_upload"])
 	s.Equal("package main", s.uploaded["main.go"])
@@ -382,4 +389,23 @@ func (s *uploadRevisionSuite) writeFile(dir, relPath string, content []byte) {
 	fullPath := filepath.Join(dir, relPath)
 	s.Require().NoError(os.MkdirAll(filepath.Dir(fullPath), 0o755))
 	s.Require().NoError(os.WriteFile(fullPath, content, 0o600))
+}
+
+func TestSkipReasonFor(t *testing.T) {
+	tests := []struct {
+		name   string
+		reason error
+		want   scan.SkipReason
+	}{
+		{"file over the size limit", &fileupload.FileSizeLimitError{FilePath: "big.js", FileSize: 60, Limit: 50}, scan.SkipReasonFileTooLarge},
+		{"file over the size limit, wrapped", fmt.Errorf("skipping: %w", &fileupload.FileSizeLimitError{FilePath: "big.js", FileSize: 60, Limit: 50}), scan.SkipReasonFileTooLarge},
+		{"path over the length limit", &fileupload.FilePathLengthLimitError{FilePath: "a/b.js", Length: 300, Limit: 256}, scan.SkipReasonPathTooLong},
+		{"any other reason", errors.New("something else"), scan.SkipReasonOther},
+		{"no reason", nil, scan.SkipReasonOther},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			assert.Equal(t, tt.want, uploadrevision.SkipReasonFor(tt.reason))
+		})
+	}
 }

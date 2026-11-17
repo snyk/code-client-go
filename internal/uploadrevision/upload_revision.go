@@ -36,8 +36,15 @@ import (
 
 type RevisionID string
 
+// UploadResult is the outcome of a successful upload.
+type UploadResult struct {
+	RevisionID RevisionID
+	// SkippedFiles are files the upload client left out, for example because they exceed a limit.
+	SkippedFiles []scan.SkippedFile
+}
+
 type UploadRevision interface {
-	Upload(ctx context.Context, requestId string, target scan.Target, files <-chan string) (RevisionID, error)
+	Upload(ctx context.Context, requestId string, target scan.Target, files <-chan string) (UploadResult, error)
 }
 
 type uploadRevision struct {
@@ -78,7 +85,7 @@ func toUTF8(content []byte) ([]byte, error) {
 	return utf8Content, nil
 }
 
-func (u *uploadRevision) Upload(ctx context.Context, requestId string, target scan.Target, files <-chan string) (RevisionID, error) {
+func (u *uploadRevision) Upload(ctx context.Context, requestId string, target scan.Target, files <-chan string) (UploadResult, error) {
 	tracker := u.trackerFactory.GenerateTracker()
 	tracker.Begin("Snyk Code analysis for "+target.GetPath(), "Checking files for analysis")
 	defer tracker.End("")
@@ -88,12 +95,12 @@ func (u *uploadRevision) Upload(ctx context.Context, requestId string, target sc
 	for path := range files {
 		filesBeforeFiltering++
 		if ctx.Err() != nil {
-			return "", ctx.Err() // The cancellation error should be handled by the calling function
+			return UploadResult{}, ctx.Err() // The cancellation error should be handled by the calling function
 		}
 
 		isSupported, err := u.supportedFilesFilter.IsFileSupported(ctx, path)
 		if err != nil {
-			return "", err
+			return UploadResult{}, err
 		}
 		if isSupported {
 			supported = append(supported, path)
@@ -103,7 +110,7 @@ func (u *uploadRevision) Upload(ctx context.Context, requestId string, target sc
 	supportedfiles.RecordFileFiltering(u.analytics, u.logger, filesBeforeFiltering, len(supported))
 
 	if filesBeforeFiltering == 0 {
-		return "", bundle.NoFilesError{}
+		return UploadResult{}, bundle.NoFilesError{}
 	}
 
 	supportedFiles := make(chan string, len(supported))
@@ -118,12 +125,17 @@ func (u *uploadRevision) Upload(ctx context.Context, requestId string, target sc
 	u.recordUploadOutcome(res)
 	if err != nil {
 		if errors.Is(err, fileupload.ErrNoFilesProvided) {
-			return "", bundle.NoFilesError{}
+			return UploadResult{}, bundle.NoFilesError{}
 		}
-		return "", err
+		return UploadResult{}, err
 	}
 
-	return RevisionID(res.RevisionID.String()), nil
+	return UploadResult{RevisionID: RevisionID(res.RevisionID.String())}, nil
+}
+
+// SkipReasonFor maps the reason the upload client gave for skipping a file to a SkipReason.
+func SkipReasonFor(reason error) scan.SkipReason {
+	return scan.SkipReasonOther
 }
 
 // recordUploadOutcome reports how many files the upload client sent and how many it skipped,

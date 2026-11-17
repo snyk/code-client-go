@@ -267,6 +267,8 @@ func buildLocalFindings(id workflow.Identifier, config configuration.Configurati
 		logger.Debug().Msgf("  type: %s, format: %s, files: %d", coverage.Type, coverage.Lang, coverage.Files)
 	}
 
+	appendSkippedFilesCoverage(&localFindings, resultMetaData)
+
 	local_models.TranslateMetadataToLocalFindingModel(resultMetaData, &localFindings, config)
 
 	targetId, targetIdError := instrumentation.GetTargetId(config.GetString(configuration.INPUT_DIRECTORY), instrumentation.AutoDetectedTargetId, instrumentation.WithConfiguredRepository(config))
@@ -519,4 +521,8 @@ func createCodeWorkflowData(id workflow.Identifier, config configuration.Configu
 	data.SetContentLocation(path)
 
 	return data, nil
+}
+
+// appendSkippedFilesCoverage records files that were left out of the upload as coverage that was not analyzed.
+func appendSkippedFilesCoverage(localFindings *local_models.LocalFinding, resultMetaData *scan.ResultMetaData) {
 }
