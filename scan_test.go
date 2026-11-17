@@ -16,6 +16,7 @@
 package codeclient_test
 
 import (
+	"context"
 	"errors"
 	"os"
 	"path/filepath"
@@ -38,6 +39,8 @@ import (
 	mockAnalysis "github.com/snyk/code-client-go/internal/analysis/mocks"
 	"github.com/snyk/code-client-go/internal/deepcode"
 	deepcodeMocks "github.com/snyk/code-client-go/internal/deepcode/mocks"
+	"github.com/snyk/code-client-go/internal/uploadrevision"
+	uploadMocks "github.com/snyk/code-client-go/internal/uploadrevision/mocks"
 	"github.com/snyk/code-client-go/observability/mocks"
 	"github.com/snyk/code-client-go/sarif"
 	"github.com/snyk/code-client-go/scan"
@@ -449,4 +452,66 @@ func sliceToChannel(slice []string) <-chan string {
 	}()
 
 	return ch
+}
+
+type optionsAnalyzer interface {
+	UploadAndAnalyzeWithOptions(ctx context.Context, requestId string, target scan.Target, files <-chan string, changedFiles map[string]bool, options ...codeclient.AnalysisOption) (*sarif.SarifResponse, string, *scan.ResultMetaData, error)
+}
+
+func Test_UploadAndAnalyzeWithOptions_reportsSkippedFilesInMetadata(t *testing.T) {
+	baseDir, _, _, _, _ := setupDocs(t)
+	logger := zerolog.Nop()
+	testOrgId := uuid.NewString()
+	skipped := []scan.SkippedFile{{Path: "big.js", Reason: scan.SkipReasonFileTooLarge}}
+
+	ctrl := gomock.NewController(t)
+	mockConfig := confMocks.NewMockConfig(ctrl)
+	mockConfig.EXPECT().SnykCodeApi().AnyTimes().Return("")
+	mockConfig.EXPECT().IsFedramp().AnyTimes().Return(false)
+	mockConfig.EXPECT().Organization().AnyTimes().Return(testOrgId)
+	mockConfig.EXPECT().SnykApi().AnyTimes().Return("")
+	mockHTTPClient := httpmocks.NewMockHTTPClient(ctrl)
+	mockSpan := mocks.NewMockSpan(ctrl)
+	mockSpan.EXPECT().Context().Return(t.Context()).AnyTimes()
+	mockInstrumentor := mocks.NewMockInstrumentor(ctrl)
+	mockInstrumentor.EXPECT().StartSpan(gomock.Any(), gomock.Any()).Return(mockSpan).AnyTimes()
+	mockInstrumentor.EXPECT().Finish(gomock.Any()).AnyTimes()
+	mockErrorReporter := mocks.NewMockErrorReporter(ctrl)
+	mockTrackerFactory := trackerMocks.NewMockTrackerFactory(ctrl)
+
+	target := scan.RepositoryTarget{LocalFilePath: baseDir}
+
+	scanner := func(metadata *scan.ResultMetaData) optionsAnalyzer {
+		mockUpload := uploadMocks.NewMockUploadRevision(ctrl)
+		mockUpload.EXPECT().Upload(gomock.Any(), gomock.Any(), target, gomock.Any()).
+			Return(uploadrevision.UploadResult{RevisionID: "rev-1", SkippedFiles: skipped}, nil)
+		orchestrator := mockAnalysis.NewMockAnalysisOrchestrator(ctrl)
+		orchestrator.EXPECT().RunTest(gomock.Any(), testOrgId, gomock.Any(), gomock.Not(gomock.Nil()), gomock.Any(), gomock.Any()).
+			Return(&sarif.SarifResponse{Status: "COMPLETE"}, metadata, nil)
+		s := codeclient.NewCodeScanner(mockConfig, mockHTTPClient,
+			codeclient.WithInstrumentor(mockInstrumentor), codeclient.WithErrorReporter(mockErrorReporter),
+			codeclient.WithTrackerFactory(mockTrackerFactory), codeclient.WithLogger(&logger), codeclient.WithAnalytics(analytics.New()),
+		).WithAnalysisOrchestrator(orchestrator).WithUploadRevision(mockUpload)
+		return s
+	}
+
+	run := func(t *testing.T, s optionsAnalyzer) *scan.ResultMetaData {
+		t.Helper()
+		_, _, md, err := s.UploadAndAnalyzeWithOptions(t.Context(), uuid.NewString(), target, sliceToChannel([]string{}), map[string]bool{}, codeclient.WithUploadToFileUploadApi())
+		require.NoError(t, err)
+		return md
+	}
+
+	t.Run("adds skipped files to the metadata the analysis returned", func(t *testing.T) {
+		md := run(t, scanner(&scan.ResultMetaData{WebUiUrl: "/ui"}))
+		require.NotNil(t, md)
+		assert.Equal(t, "/ui", md.WebUiUrl)
+		assert.Equal(t, skipped, md.SkippedFiles)
+	})
+
+	t.Run("creates metadata when the analysis returned none", func(t *testing.T) {
+		md := run(t, scanner(nil))
+		require.NotNil(t, md)
+		assert.Equal(t, skipped, md.SkippedFiles)
+	})
 }

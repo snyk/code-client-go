@@ -37,10 +37,10 @@ func (m *MockUploadRevision) EXPECT() *MockUploadRevisionMockRecorder {
 }
 
 // Upload mocks base method.
-func (m *MockUploadRevision) Upload(ctx context.Context, requestId string, target scan.Target, files <-chan string) (uploadrevision.RevisionID, error) {
+func (m *MockUploadRevision) Upload(ctx context.Context, requestId string, target scan.Target, files <-chan string) (uploadrevision.UploadResult, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Upload", ctx, requestId, target, files)
-	ret0, _ := ret[0].(uploadrevision.RevisionID)
+	ret0, _ := ret[0].(uploadrevision.UploadResult)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
