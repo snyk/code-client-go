@@ -19,6 +19,7 @@ package http
 
 import (
 	"bytes"
+	"context"
 	"io"
 	"net/http"
 	"time"
@@ -129,12 +130,27 @@ func (s *httpClient) Do(req *http.Request) (*http.Response, error) {
 		if retryCount > 0 && retryErrorCodes[response.StatusCode] {
 			s.logger.Debug().Err(err).Int("attempts left", retryCount).Msg("retrying")
 			retryCount--
-			time.Sleep(5 * time.Second)
+			if err := s.waitBeforeRetry(req.Context()); err != nil {
+				return nil, err
+			}
 			continue
 		}
 
 		// should return
 		return response, err
+	}
+}
+
+// waitBeforeRetry waits for the retry delay and returns early with the context error when the request is cancelled.
+func (s *httpClient) waitBeforeRetry(ctx context.Context) error {
+	timer := time.NewTimer(s.retryDelay)
+	defer timer.Stop()
+
+	select {
+	case <-ctx.Done():
+		return ctx.Err()
+	case <-timer.C:
+		return nil
 	}
 }
 
