@@ -39,6 +39,7 @@ type HTTPClientFactory func() *http.Client
 
 type httpClient struct {
 	retryCount        int
+	retryDelay        time.Duration
 	httpClientFactory HTTPClientFactory
 	instrumentor      observability.Instrumentor
 	errorReporter     observability.ErrorReporter
@@ -46,6 +47,13 @@ type httpClient struct {
 }
 
 type OptionFunc func(*httpClient)
+
+// WithRetryDelay sets how long to wait before retrying a request that failed with a retryable status code.
+func WithRetryDelay(retryDelay time.Duration) OptionFunc {
+	return func(h *httpClient) {
+		h.retryDelay = retryDelay
+	}
+}
 
 func WithRetryCount(retryCount int) OptionFunc {
 	return func(h *httpClient) {
@@ -81,6 +89,7 @@ func NewHTTPClient(
 	errorReporter := observability.NewErrorReporter(&nopLogger)
 	client := &httpClient{
 		retryCount:        3,
+		retryDelay:        5 * time.Second,
 		httpClientFactory: httpClientFactory,
 		instrumentor:      instrumentor,
 		errorReporter:     errorReporter,
