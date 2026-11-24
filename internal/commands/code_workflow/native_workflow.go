@@ -267,6 +267,8 @@ func buildLocalFindings(id workflow.Identifier, config configuration.Configurati
 		logger.Debug().Msgf("  type: %s, format: %s, files: %d", coverage.Type, coverage.Lang, coverage.Files)
 	}
 
+	appendSkippedFilesCoverage(&localFindings, resultMetaData)
+
 	local_models.TranslateMetadataToLocalFindingModel(resultMetaData, &localFindings, config)
 
 	targetId, targetIdError := instrumentation.GetTargetId(config.GetString(configuration.INPUT_DIRECTORY), instrumentation.AutoDetectedTargetId, instrumentation.WithConfiguredRepository(config))
@@ -519,4 +521,30 @@ func createCodeWorkflowData(id workflow.Identifier, config configuration.Configu
 	data.SetContentLocation(path)
 
 	return data, nil
+}
+
+// appendSkippedFilesCoverage records files that were left out of the upload as coverage that was not analyzed,
+// one entry per reason, so that the test summary can say they were not looked at. The language of a skipped
+// file is unknown, so the entries have none.
+func appendSkippedFilesCoverage(localFindings *local_models.LocalFinding, resultMetaData *scan.ResultMetaData) {
+	if resultMetaData == nil || len(resultMetaData.SkippedFiles) == 0 {
+		return
+	}
+
+	var reasons []scan.SkipReason
+	counts := map[scan.SkipReason]int{}
+	for _, skipped := range resultMetaData.SkippedFiles {
+		if counts[skipped.Reason] == 0 {
+			reasons = append(reasons, skipped.Reason)
+		}
+		counts[skipped.Reason]++
+	}
+
+	for _, reason := range reasons {
+		localFindings.Summary.Coverage = append(localFindings.Summary.Coverage, local_models.TypesCoverage{
+			Files:       counts[reason],
+			IsSupported: false,
+			Type:        string(reason),
+		})
+	}
 }

@@ -22,6 +22,8 @@ import (
 	"github.com/snyk/code-client-go/bundle"
 	"github.com/snyk/code-client-go/pkg/code/sast_contract"
 	"github.com/snyk/code-client-go/sarif"
+	"github.com/snyk/go-application-framework/pkg/local_workflows/local_models"
+
 	"github.com/snyk/code-client-go/scan"
 	"github.com/snyk/go-application-framework/pkg/analytics"
 	"github.com/snyk/go-application-framework/pkg/apiclients/testapi"
@@ -667,5 +669,35 @@ func Test_filterSummaryBySeverity(t *testing.T) {
 
 	t.Run("nil summary", func(t *testing.T) {
 		assert.NotPanics(t, func() { filterSummaryBySeverity(nil, "high") })
+	})
+}
+
+func Test_appendSkippedFilesCoverage(t *testing.T) {
+	newFindings := func() *local_models.LocalFinding {
+		return &local_models.LocalFinding{Summary: local_models.TypesFindingsSummary{
+			Coverage: []local_models.TypesCoverage{{Lang: "JavaScript", Files: 3, IsSupported: true, Type: "SUPPORTED"}},
+		}}
+	}
+
+	t.Run("nothing is added without metadata or skipped files", func(t *testing.T) {
+		for _, md := range []*scan.ResultMetaData{nil, {}} {
+			findings := newFindings()
+			appendSkippedFilesCoverage(findings, md)
+			assert.Len(t, findings.Summary.Coverage, 1)
+		}
+	})
+
+	t.Run("skipped files are counted per reason as files that were not analyzed", func(t *testing.T) {
+		findings := newFindings()
+		appendSkippedFilesCoverage(findings, &scan.ResultMetaData{SkippedFiles: []scan.SkippedFile{
+			{Path: "a.js", Reason: scan.SkipReasonFileTooLarge},
+			{Path: "b.js", Reason: scan.SkipReasonFileTooLarge},
+			{Path: "c.js", Reason: scan.SkipReasonPathTooLong},
+		}})
+
+		require.Len(t, findings.Summary.Coverage, 3)
+		assert.Equal(t, local_models.TypesCoverage{Lang: "JavaScript", Files: 3, IsSupported: true, Type: "SUPPORTED"}, findings.Summary.Coverage[0])
+		assert.Equal(t, local_models.TypesCoverage{Files: 2, IsSupported: false, Type: "FILE_TOO_LARGE"}, findings.Summary.Coverage[1])
+		assert.Equal(t, local_models.TypesCoverage{Files: 1, IsSupported: false, Type: "PATH_TOO_LONG"}, findings.Summary.Coverage[2])
 	})
 }

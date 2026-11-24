@@ -245,6 +245,20 @@ func (c *codeScanner) WithBundleManager(bundleManager bundle.BundleManager) *cod
 	}
 }
 
+// WithUploadRevision creates a new Code Scanner from the current one and replaces the upload revision client.
+// It can be used to replace the upload revision client in tests.
+func (c *codeScanner) WithUploadRevision(uploadRevision uploadrevision.UploadRevision) *codeScanner {
+	return &codeScanner{
+		bundleManager:        c.bundleManager,
+		analysisOrchestrator: c.analysisOrchestrator,
+		uploadRevision:       uploadRevision,
+		errorReporter:        c.errorReporter,
+		logger:               c.logger,
+		config:               c.config,
+		analytics:            c.analytics,
+	}
+}
+
 // WithAnalysisOrchestrator creates a new Code Scanner from the current one and replaces the analysis orchestrator.
 // It can be used to replace the analysis orchestrator in tests.
 func (c *codeScanner) WithAnalysisOrchestrator(analysisOrchestrator analysis.AnalysisOrchestrator) *codeScanner {
@@ -423,6 +437,7 @@ func (c *codeScanner) UploadAndAnalyzeWithOptions(
 	var uploadedBundle bundle.Bundle
 	var revisionId *string
 	var scanIdentifier string
+	var skippedFiles []scan.SkippedFile
 	var err error
 	uploadStart := time.Now()
 
@@ -435,7 +450,8 @@ func (c *codeScanner) UploadAndAnalyzeWithOptions(
 		}
 		c.recordUpload(BackendFileUploadApi, true, time.Since(uploadStart))
 
-		revisionString := string(revision)
+		skippedFiles = revision.SkippedFiles
+		revisionString := string(revision.RevisionID)
 		revisionId = &revisionString
 		scanIdentifier = revisionString
 
@@ -461,6 +477,13 @@ func (c *codeScanner) UploadAndAnalyzeWithOptions(
 	err = c.checkCancellationOrLogError(ctx, target.GetPath(), err, "error running analysis...")
 	if err != nil {
 		return nil, "", nil, err
+	}
+
+	if len(skippedFiles) > 0 {
+		if metadata == nil {
+			metadata = &scan.ResultMetaData{}
+		}
+		metadata.SkippedFiles = skippedFiles
 	}
 
 	return response, scanIdentifier, metadata, err
