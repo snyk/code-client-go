@@ -100,7 +100,11 @@ jobs:
       - save-go-cache
       - run:
           name: Run contract tests
-          command: make contract-test
+          command: |
+            # Pact searches /tmp for its native library. Keep Go build archives outside that search path.
+            export GOTMPDIR="$(mktemp -d "$HOME/go-contract.XXXXXX")"
+            trap 'rm -rf "$GOTMPDIR"' EXIT
+            make contract-test
   build:
     executor: default
     steps:
