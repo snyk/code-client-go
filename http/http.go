@@ -19,6 +19,7 @@ package http
 
 import (
 	"bytes"
+	"context"
 	"io"
 	"net/http"
 	"time"
@@ -39,6 +40,7 @@ type HTTPClientFactory func() *http.Client
 
 type httpClient struct {
 	retryCount        int
+	retryDelay        time.Duration
 	httpClientFactory HTTPClientFactory
 	instrumentor      observability.Instrumentor
 	errorReporter     observability.ErrorReporter
@@ -46,6 +48,13 @@ type httpClient struct {
 }
 
 type OptionFunc func(*httpClient)
+
+// WithRetryDelay sets how long to wait before retrying a request that failed with a retryable status code.
+func WithRetryDelay(retryDelay time.Duration) OptionFunc {
+	return func(h *httpClient) {
+		h.retryDelay = retryDelay
+	}
+}
 
 func WithRetryCount(retryCount int) OptionFunc {
 	return func(h *httpClient) {
@@ -81,6 +90,7 @@ func NewHTTPClient(
 	errorReporter := observability.NewErrorReporter(&nopLogger)
 	client := &httpClient{
 		retryCount:        3,
+		retryDelay:        5 * time.Second,
 		httpClientFactory: httpClientFactory,
 		instrumentor:      instrumentor,
 		errorReporter:     errorReporter,
@@ -120,12 +130,27 @@ func (s *httpClient) Do(req *http.Request) (*http.Response, error) {
 		if retryCount > 0 && retryErrorCodes[response.StatusCode] {
 			s.logger.Debug().Err(err).Int("attempts left", retryCount).Msg("retrying")
 			retryCount--
-			time.Sleep(5 * time.Second)
+			if err := s.waitBeforeRetry(req.Context()); err != nil {
+				return nil, err
+			}
 			continue
 		}
 
 		// should return
 		return response, err
+	}
+}
+
+// waitBeforeRetry waits for the retry delay and returns early with the context error when the request is cancelled.
+func (s *httpClient) waitBeforeRetry(ctx context.Context) error {
+	timer := time.NewTimer(s.retryDelay)
+	defer timer.Stop()
+
+	select {
+	case <-ctx.Done():
+		return ctx.Err()
+	case <-timer.C:
+		return nil
 	}
 }
 
