@@ -112,9 +112,14 @@ func (s *SupportedFilesFilter) IsFileSupported(ctx context.Context, path string)
 		return false, nil
 	}
 
-	fileInfo, fileErr := os.Stat(path)
+	fileInfo, fileErr := os.Lstat(path)
 	if fileErr != nil {
 		s.logger.Error().Err(fileErr).Str("filePath", path).Msg("Failed to read file info")
+		return false, nil
+	}
+
+	if fileInfo.Mode()&os.ModeSymlink != 0 {
+		s.logger.Debug().Str("filePath", path).Str("reason", "symbolic link").Msg("Skipping file")
 		return false, nil
 	}
 
