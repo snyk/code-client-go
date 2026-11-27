@@ -16,11 +16,14 @@
 package http_test
 
 import (
+	"context"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/golang/mock/gomock"
 	"github.com/rs/zerolog"
@@ -77,6 +80,7 @@ func TestSnykCodeBackendService_DoCall_shouldRetryWithARequestBody(t *testing.T)
 	s := codeClientHTTP.NewHTTPClient(
 		dummyClientFactory,
 		codeClientHTTP.WithRetryCount(3),
+		codeClientHTTP.WithRetryDelay(time.Millisecond),
 		codeClientHTTP.WithInstrumentor(mockInstrumentor),
 		codeClientHTTP.WithErrorReporter(mockErrorReporter),
 		codeClientHTTP.WithLogger(newLogger(t)),
@@ -85,6 +89,98 @@ func TestSnykCodeBackendService_DoCall_shouldRetryWithARequestBody(t *testing.T)
 	assert.NoError(t, err)
 	assert.NotNil(t, res)
 	assert.Equal(t, 4, d.calls)
+}
+
+func TestSnykCodeBackendService_DoCall_shouldStopWaitingWhenContextCancelled(t *testing.T) {
+	d := &dummyTransport{responseCode: 502, status: "502 Bad Gateway"}
+	dummyClientFactory := func() *http.Client {
+		return &http.Client{
+			Transport: d,
+		}
+	}
+
+	ctrl := gomock.NewController(t)
+	mockSpan := mocks.NewMockSpan(ctrl)
+	mockSpan.EXPECT().GetTraceId().AnyTimes()
+	mockInstrumentor := mocks.NewMockInstrumentor(ctrl)
+	mockInstrumentor.EXPECT().StartSpan(gomock.Any(), gomock.Any()).Return(mockSpan).Times(1)
+	mockInstrumentor.EXPECT().Finish(gomock.Any()).Times(1)
+	mockErrorReporter := mocks.NewMockErrorReporter(ctrl)
+
+	ctx, cancel := context.WithCancel(context.Background())
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, "https://127.0.0.1", nil)
+	require.NoError(t, err)
+
+	s := codeClientHTTP.NewHTTPClient(
+		dummyClientFactory,
+		codeClientHTTP.WithRetryCount(3),
+		codeClientHTTP.WithRetryDelay(5*time.Second),
+		codeClientHTTP.WithInstrumentor(mockInstrumentor),
+		codeClientHTTP.WithErrorReporter(mockErrorReporter),
+		codeClientHTTP.WithLogger(newLogger(t)),
+	)
+
+	done := make(chan struct{})
+	var res *http.Response
+	var doErr error
+	started := time.Now()
+	go func() {
+		defer close(done)
+		res, doErr = s.Do(req)
+	}()
+
+	time.Sleep(50 * time.Millisecond)
+	cancel()
+
+	select {
+	case <-done:
+	case <-time.After(2 * time.Second):
+		t.Fatal("Do did not return within 2 seconds after context cancellation")
+	}
+
+	assert.Less(t, time.Since(started), 2*time.Second)
+	assert.Nil(t, res)
+	assert.True(t, errors.Is(doErr, context.Canceled))
+	assert.Equal(t, 1, d.calls)
+}
+
+func TestSnykCodeBackendService_DoCall_shouldNotRetryWhenContextAlreadyCancelled(t *testing.T) {
+	d := &dummyTransport{responseCode: 503, status: "503 Service Unavailable"}
+	dummyClientFactory := func() *http.Client {
+		return &http.Client{
+			Transport: d,
+		}
+	}
+
+	ctrl := gomock.NewController(t)
+	mockSpan := mocks.NewMockSpan(ctrl)
+	mockSpan.EXPECT().GetTraceId().AnyTimes()
+	mockInstrumentor := mocks.NewMockInstrumentor(ctrl)
+	mockInstrumentor.EXPECT().StartSpan(gomock.Any(), gomock.Any()).Return(mockSpan).Times(1)
+	mockInstrumentor.EXPECT().Finish(gomock.Any()).Times(1)
+	mockErrorReporter := mocks.NewMockErrorReporter(ctrl)
+
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, "https://127.0.0.1", nil)
+	require.NoError(t, err)
+
+	s := codeClientHTTP.NewHTTPClient(
+		dummyClientFactory,
+		codeClientHTTP.WithRetryCount(3),
+		codeClientHTTP.WithRetryDelay(5*time.Second),
+		codeClientHTTP.WithInstrumentor(mockInstrumentor),
+		codeClientHTTP.WithErrorReporter(mockErrorReporter),
+		codeClientHTTP.WithLogger(newLogger(t)),
+	)
+
+	started := time.Now()
+	res, doErr := s.Do(req)
+
+	assert.Less(t, time.Since(started), 2*time.Second)
+	assert.Nil(t, res)
+	assert.True(t, errors.Is(doErr, context.Canceled))
+	assert.Equal(t, 1, d.calls)
 }
 
 func TestSnykCodeBackendService_DoCall_shouldSucceed(t *testing.T) {

@@ -29,6 +29,8 @@ import (
 	"github.com/snyk/code-client-go/observability"
 )
 
+const defaultRetryDelay = 5 * time.Second
+
 //go:generate go tool github.com/golang/mock/mockgen -destination=mocks/http.go -source=http.go -package mocks
 
 type HTTPClient interface {
@@ -39,6 +41,7 @@ type HTTPClientFactory func() *http.Client
 
 type httpClient struct {
 	retryCount        int
+	retryDelay        time.Duration
 	httpClientFactory HTTPClientFactory
 	instrumentor      observability.Instrumentor
 	errorReporter     observability.ErrorReporter
@@ -50,6 +53,12 @@ type OptionFunc func(*httpClient)
 func WithRetryCount(retryCount int) OptionFunc {
 	return func(h *httpClient) {
 		h.retryCount = retryCount
+	}
+}
+
+func WithRetryDelay(retryDelay time.Duration) OptionFunc {
+	return func(h *httpClient) {
+		h.retryDelay = retryDelay
 	}
 }
 
@@ -81,6 +90,7 @@ func NewHTTPClient(
 	errorReporter := observability.NewErrorReporter(&nopLogger)
 	client := &httpClient{
 		retryCount:        3,
+		retryDelay:        defaultRetryDelay,
 		httpClientFactory: httpClientFactory,
 		instrumentor:      instrumentor,
 		errorReporter:     errorReporter,
@@ -120,7 +130,15 @@ func (s *httpClient) Do(req *http.Request) (*http.Response, error) {
 		if retryCount > 0 && retryErrorCodes[response.StatusCode] {
 			s.logger.Debug().Err(err).Int("attempts left", retryCount).Msg("retrying")
 			retryCount--
-			time.Sleep(5 * time.Second)
+			timer := time.NewTimer(s.retryDelay)
+			select {
+			case <-req.Context().Done():
+				if !timer.Stop() {
+					<-timer.C
+				}
+				return nil, req.Context().Err()
+			case <-timer.C:
+			}
 			continue
 		}
 
