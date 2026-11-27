@@ -232,6 +232,12 @@ func (b *bundleManager) enrichBatchWithFileContent(batch *Batch, rootPath string
 			b.logger.Error().Err(err).Str("file", filePath).Msg("Failed to decode Path")
 			continue
 		}
+		// Upload accepts a caller-supplied file map, so paths are not guaranteed to have passed the supported files filter.
+		if info, statErr := os.Lstat(absPath); statErr == nil && info.Mode()&os.ModeSymlink != 0 {
+			b.logger.Debug().Str("file", filePath).Str("reason", "symbolic link").Msg("Skipping file content")
+			continue
+		}
+
 		content, err := os.ReadFile(absPath)
 		if err != nil {
 			b.logger.Error().Err(err).Str("file", filePath).Msg("Failed to read bundle file")

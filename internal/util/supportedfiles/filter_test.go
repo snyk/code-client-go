@@ -17,6 +17,7 @@
 package supportedfiles_test
 
 import (
+	"bytes"
 	"context"
 	"os"
 	"path/filepath"
@@ -122,6 +123,57 @@ func Test_IsFileSupported_FileSize(t *testing.T) {
 		require.NoError(t, os.WriteFile(path, make([]byte, 1024*1024+1), 0600))
 		supported, _ := filter.IsFileSupported(t.Context(), path)
 		assert.False(t, supported)
+	})
+}
+
+func Test_IsFileSupported_Symlinks(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	mockSnykCodeClient := deepcodeMocks.NewMockDeepcodeClient(ctrl)
+	mockSnykCodeClient.EXPECT().GetFilters(gomock.Any()).Return(deepcode.FiltersResponse{
+		ConfigFiles: []string{},
+		Extensions:  []string{".java"},
+	}, nil)
+
+	var logOutput bytes.Buffer
+	logger := zerolog.New(&logOutput).Level(zerolog.DebugLevel)
+	filter := supportedfiles.NewSupportedFilesFilter(mockSnykCodeClient, &logger, analytics.New())
+
+	outsideDir := t.TempDir()
+	target := createFile(t, outsideDir, "Target.java")
+	dir := t.TempDir()
+
+	t.Run("should return false and log for a symlink to a file", func(t *testing.T) {
+		link := filepath.Join(dir, "Link.java")
+		if err := os.Symlink(target, link); err != nil {
+			t.Skipf("symlinks are not supported here: %v", err)
+		}
+
+		supported, err := filter.IsFileSupported(t.Context(), link)
+
+		require.NoError(t, err)
+		assert.False(t, supported)
+		assert.Contains(t, logOutput.String(), `"level":"debug"`)
+		assert.Contains(t, logOutput.String(), link)
+		assert.Contains(t, logOutput.String(), "symbolic link")
+	})
+
+	t.Run("should return false for a symlink to a directory", func(t *testing.T) {
+		link := filepath.Join(dir, "LinkedDir.java")
+		if err := os.Symlink(outsideDir, link); err != nil {
+			t.Skipf("symlinks are not supported here: %v", err)
+		}
+
+		supported, err := filter.IsFileSupported(t.Context(), link)
+
+		require.NoError(t, err)
+		assert.False(t, supported)
+	})
+
+	t.Run("should return true for a regular file", func(t *testing.T) {
+		supported, err := filter.IsFileSupported(t.Context(), createFile(t, dir, "Regular.java"))
+
+		require.NoError(t, err)
+		assert.True(t, supported)
 	})
 }
 

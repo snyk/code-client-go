@@ -18,6 +18,7 @@ package bundle_test
 
 import (
 	"bytes"
+	"context"
 	"os"
 	"path/filepath"
 	"strings"
@@ -219,6 +220,61 @@ func Test_Create(t *testing.T) {
 			assert.Len(t, bundle.GetFiles(), 0, "deepCodeBundle should not have deepCodeBundle files")
 		},
 	)
+
+	t.Run("excludes symlinked files and directories but keeps regular files", func(t *testing.T) {
+		ctrl := gomock.NewController(t)
+		mockSpan := mocks.NewMockSpan(ctrl)
+		mockSpan.EXPECT().Context().AnyTimes()
+		mockInstrumentor := mocks.NewMockInstrumentor(ctrl)
+		mockInstrumentor.EXPECT().StartSpan(gomock.Any(), gomock.Any()).Return(mockSpan).AnyTimes()
+		mockInstrumentor.EXPECT().Finish(gomock.Any()).AnyTimes()
+		mockTracker := trackerMocks.NewMockTracker(ctrl)
+		mockTracker.EXPECT().Begin(gomock.Any(), gomock.Any()).Return()
+		mockTracker.EXPECT().End(gomock.Any()).Return()
+		mockTrackerFactory := trackerMocks.NewMockTrackerFactory(ctrl)
+		mockTrackerFactory.EXPECT().GenerateTracker().Return(mockTracker)
+
+		outsideDir := t.TempDir()
+		secretFile := filepath.Join(outsideDir, "secret.java")
+		require.NoError(t, os.WriteFile(secretFile, []byte("class Secret {}"), 0600))
+
+		rootDir := t.TempDir()
+		regularFile := filepath.Join(rootDir, "regular.java")
+		regularContent := []byte("class Regular {}")
+		require.NoError(t, os.WriteFile(regularFile, regularContent, 0600))
+
+		symlinkedFile := filepath.Join(rootDir, "linked.java")
+		symlinkedDir := filepath.Join(rootDir, "linkeddir.java")
+		if err := os.Symlink(secretFile, symlinkedFile); err != nil {
+			t.Skipf("symlinks are not supported here: %v", err)
+		}
+		if err := os.Symlink(outsideDir, symlinkedDir); err != nil {
+			t.Skipf("symlinks are not supported here: %v", err)
+		}
+
+		regularHash, err := util.Hash(regularContent)
+		require.NoError(t, err)
+
+		mockSnykCodeClient := deepcodeMocks.NewMockDeepcodeClient(ctrl)
+		mockSnykCodeClient.EXPECT().GetFilters(gomock.Any()).Return(deepcode.FiltersResponse{
+			ConfigFiles: []string{},
+			Extensions:  []string{".java"},
+		}, nil)
+		mockSnykCodeClient.EXPECT().CreateBundle(gomock.Any(), map[string]string{
+			"regular.java": regularHash,
+		}).Return("test-bundle-hash", []string{}, nil).Times(1)
+
+		bundleManager := bundle.NewBundleManager(mockSnykCodeClient, newLogger(t), mockInstrumentor, mocks.NewMockErrorReporter(ctrl), mockTrackerFactory, analytics.New())
+		createdBundle, err := bundleManager.Create(t.Context(),
+			"testRequestId",
+			rootDir,
+			sliceToChannel([]string{regularFile, symlinkedFile, symlinkedDir}),
+			map[string]bool{})
+
+		require.NoError(t, err)
+		assert.Len(t, createdBundle.GetFiles(), 1)
+		assert.Contains(t, createdBundle.GetFiles(), "regular.java")
+	})
 
 	t.Run("records the file counts before and after filtering", func(t *testing.T) {
 		ctrl := gomock.NewController(t)
@@ -452,6 +508,52 @@ func Test_Upload(t *testing.T) {
 			bundle.NewBundle(mockSnykCodeClient, mockInstrumentor, mockErrorReporter, &logger, "rootPath", "bundleHash", bundleFileMap, []string{}, []string{documentURI}),
 			bundleFileMap)
 		assert.NoError(t, err)
+	})
+
+	t.Run("does not read the content of a symlink", func(t *testing.T) {
+		outsideDir := t.TempDir()
+		secretPath, _ := createFileOfSize(t, "secret.java", 10, outsideDir)
+		linkPath := filepath.Join(temporaryDir, "link.java")
+		if err := os.Symlink(secretPath, linkPath); err != nil {
+			t.Skipf("symlinks are not supported here: %v", err)
+		}
+		_, regularFile := createTempFileInDir(t, "regular.java", 10, temporaryDir)
+
+		ctrl := gomock.NewController(t)
+		mockSpan := mocks.NewMockSpan(ctrl)
+		mockSpan.EXPECT().Context().AnyTimes()
+		var uploaded map[string]deepcode.BundleFile
+		mockSnykCodeClient := deepcodeMocks.NewMockDeepcodeClient(ctrl)
+		mockSnykCodeClient.EXPECT().ExtendBundle(gomock.Any(), "bundleHash", gomock.Any(), []string{}).
+			DoAndReturn(func(_ context.Context, _ string, files map[string]deepcode.BundleFile, _ []string) (string, []string, error) {
+				uploaded = make(map[string]deepcode.BundleFile, len(files))
+				for path, file := range files {
+					uploaded[path] = file
+				}
+				return "newBundleHash", []string{}, nil
+			}).Times(1)
+		mockInstrumentor := mocks.NewMockInstrumentor(ctrl)
+		mockInstrumentor.EXPECT().StartSpan(gomock.Any(), gomock.Any()).Return(mockSpan).AnyTimes()
+		mockInstrumentor.EXPECT().Finish(gomock.Any()).AnyTimes()
+		mockTracker := trackerMocks.NewMockTracker(ctrl)
+		mockTracker.EXPECT().Begin(gomock.Any(), gomock.Any()).AnyTimes()
+		mockTracker.EXPECT().End(gomock.Any()).AnyTimes()
+		mockTrackerFactory := trackerMocks.NewMockTrackerFactory(ctrl)
+		mockTrackerFactory.EXPECT().GenerateTracker().Return(mockTracker).AnyTimes()
+
+		linkFile := deepcode.BundleFile{Hash: regularFile.Hash, ContentSize: regularFile.ContentSize}
+		bundleFileMap := map[string]deepcode.BundleFile{"link.java": linkFile, "regular.java": regularFile}
+		bundleManager := bundle.NewBundleManager(mockSnykCodeClient, newLogger(t), mockInstrumentor, mocks.NewMockErrorReporter(ctrl), mockTrackerFactory, analytics.New())
+
+		_, err := bundleManager.Upload(
+			t.Context(),
+			"testRequestId",
+			bundle.NewBundle(mockSnykCodeClient, mockInstrumentor, mocks.NewMockErrorReporter(ctrl), &logger, temporaryDir, "bundleHash", bundleFileMap, []string{}, []string{"link.java", "regular.java"}),
+			bundleFileMap)
+
+		require.NoError(t, err)
+		assert.Empty(t, uploaded["link.java"].Content, "symlink content must not be read")
+		assert.NotEmpty(t, uploaded["regular.java"].Content, "regular file content must still be uploaded")
 	})
 
 	t.Run("when loads of files breaks down in 4MB bundles", func(t *testing.T) {
